@@ -153,6 +153,8 @@
     const MODEL_STORAGE_KEY = 'dragon_claw_model';
     const LAST_CHAT_KEY = 'dragon_claw_last_chat'; // 本浏览器里当前用户最近一次对话的 sessionId（服务端会话不分用户，不能从列表里猜）
 
+    // 共享对话：正在围观的别人那一轮（见「共享对话实时流多端同步」）
+    let sharedLiveState = null;
     const state = {
         messages: [],
         attachments: [], // 输入框上方待发送的附件：{ id, name, size, status: uploading | ready | error, path }
@@ -1518,11 +1520,19 @@
         el.send.title = generating ? tx('stop') : tx('send');
         const readyAttachments = !external.active && state.attachments.some(item => item.status === 'ready');
         el.send.disabled = (state.restoring && !isSideCommand(el.input.value)) || (!generating && !el.input.value.trim() && !readyAttachments)
-            || (external.active && (!external.composer?.canSend || external.sending));
+            || (external.active && (!external.composer?.canSend || external.sending))
+            || (!generating && Boolean(sharedLiveState?.busy) && !isSideCommand(el.input.value));
         window.dispatchEvent(new CustomEvent('dragon-claw:status-change', { detail: { generating: Boolean(state.controller), sessionId: state.sessionId, external: external.active } }));
     }
 
     function applyPlaceholder() {
+        if (sharedLiveState?.busy && !external.active) {
+            const author = sharedLiveState.authorName || sharedLiveState.author || '';
+            const text = `${author ? `${author} ` : ''}正在提问，AI 正在回答中，请稍候...`;
+            el.input.placeholder = text;
+            el.input.setAttribute('aria-label', text);
+            return;
+        }
         const text = (external.active && external.composer?.placeholder) || tx('placeholder');
         el.input.placeholder = text;
         el.input.setAttribute('aria-label', text);
@@ -2628,14 +2638,27 @@
     }
 
     // 共享对话里其他成员的新消息：拉取入库后直接接在当前对话末尾（正在回复或恢复中时稍后再接）
-    async function appendSharedMessages(sessionId) {
+    // 串行执行：一轮结束时 stream_finish / turn_ended / 轮询可能同时触发，并发拉取会把同一批消息插两遍
+    let sharedAppendChain = Promise.resolve(false);
+    function appendSharedMessages(sessionId) {
+        const run = sharedAppendChain.then(() => appendSharedMessagesNow(sessionId), () => appendSharedMessagesNow(sessionId));
+        sharedAppendChain = run.catch(() => false);
+        return run;
+    }
+
+    async function appendSharedMessagesNow(sessionId) {
         if (external.active || state.sessionId !== sessionId || state.controller || state.restoring) return false;
+        // 别人这一轮还在实时生成：先不插落库消息（会插到实时气泡后面、顺序错乱），等这一轮结束统一替换
+        if (sharedLiveState?.busy && sharedLiveState.sessionId === sessionId) return false;
         let page;
         try { page = await fetchHistoryPage(sessionId); } catch { return false; }
         if (external.active || state.sessionId !== sessionId || state.controller || state.restoring) return false;
+        if (sharedLiveState?.busy && sharedLiveState.sessionId === sessionId) return false;
         const rendered = new Set([...el.thread.querySelectorAll('[data-msg-id]')].map(node => node.dataset.msgId));
         const fresh = page.items.filter(item => !rendered.has(String(item.id)) && (item.events || []).some(event => event?.type === 'shared_author'));
         if (!fresh.length) return true;
+        // 围观时插入的实时提问 / 回答气泡由落库消息整体替换
+        el.thread.querySelectorAll('[data-shc-live]').forEach(node => node.remove());
         const nearBottom = el.thread.scrollHeight - el.thread.scrollTop - el.thread.clientHeight < 160;
         batchMessages(() => fresh.forEach(item => {
             addHistoryMessage(item.role, String(item.content), item.events, item);
@@ -2643,6 +2666,145 @@
         }));
         if (nearBottom) scrollThread(true);
         return true;
+    }
+
+    // ── 共享对话实时流多端同步（被共享者围观他人提问与流式回答） ──
+    // 围观时插入的提问/回答气泡都带 data-shc-live，这一轮结束后由 appendSharedMessages 用落库消息整体替换，避免重复上屏
+    // （sharedLiveState 声明在文件顶部，初始化期间 updateSendButton 就会读它）
+
+    function isSameUser(a, b) {
+        const clean = u => {
+            const s = String(u || '').trim().toLowerCase();
+            const m = /^[a-z]?(wx\d{4,}|\d{4,})$/.exec(s);
+            return m ? m[1] : s;
+        };
+        return clean(a) === clean(b);
+    }
+
+    function updateSharedTurnNotice(turnInfo) {
+        let bar = el.form.querySelector('.dc-shared-busy-bar');
+        if (turnInfo?.busy) {
+            const name = turnInfo.name || turnInfo.by || '其他成员';
+            if (!bar) {
+                bar = document.createElement('div');
+                bar.className = 'dc-shared-busy-bar';
+                el.form.prepend(bar);
+            }
+            bar.innerHTML = `<span class="shc-live" aria-hidden="true"></span><span><b>${escapeHtml(name)}</b> 正在提问，AI 正在回答，多端实时同步中...</span>`;
+            if (sharedLiveState) Object.assign(sharedLiveState, { busy: true, author: turnInfo.by, authorName: name });
+            else sharedLiveState = { sessionId: state.sessionId, busy: true, author: turnInfo.by, authorName: name, at: Date.now() };
+        } else {
+            bar?.remove();
+        }
+        applyPlaceholder();
+        updateSendButton();
+    }
+
+    function resetSharedLive() {
+        if (sharedLiveState?.renderer) sharedLiveState.renderer.finish();
+        sharedLiveState = null;
+        updateSharedTurnNotice({ busy: false });
+    }
+
+    // 提问者的问题还没上屏（不是最后一条消息）就补一条带署名的提问
+    function ensureLiveQuestion(question, author, authorName) {
+        const text = String(question || '').trim();
+        if (!text || el.thread.querySelector('[data-shc-live="user"]')) return;
+        const last = [...el.thread.querySelectorAll('.dc-msg')].filter(node => !node.matches('[data-shc-live="ai"]')).at(-1);
+        if (last?.classList.contains('dc-msg--user') && last.querySelector('.dc-msg-body')?.textContent?.trim() === text) return;
+        const liveAi = el.thread.querySelector('[data-shc-live="ai"]');
+        const msg = addMessage('user', text, liveAi ? { before: liveAi } : {});
+        msg.dataset.shcLive = 'user';
+        window.HomeSharedConversations?.decorateMessage?.(msg, [{ type: 'shared_author', author, name: authorName }]);
+    }
+
+    // 围观端只展示过程（思考、工具、状态）；审批按钮等只给提问者本人
+    const LIVE_ACTIVITY_TYPES = new Set(['thinking', 'tool_start', 'tool_result', 'compaction']);
+    function feedLiveActivity(activity, event) {
+        if (!activity || !event) return;
+        if (event.type === 'status') activity.status(event.status);
+        else if (LIVE_ACTIVITY_TYPES.has(event.type)) activity.event(event);
+    }
+
+    function startLiveAnswer({ author, authorName, text = '', events = [] }) {
+        // 追流（重连 / 中途加入）总是从头重建回答气泡，免得已生成的文字被追加两遍
+        el.thread.querySelector('[data-shc-live="ai"]')?.remove();
+        const liveMsg = addMessage('ai', '');
+        liveMsg.dataset.shcLive = 'ai';
+        window.HomeSharedConversations?.decorateMessage?.(liveMsg, [{ type: 'shared_author', author, name: authorName }]);
+        const activity = showThinking(liveMsg);
+        const renderer = createRenderer(liveMsg, activity);
+        sharedLiveState = { sessionId: state.sessionId, author, authorName, busy: true, liveMsg, activity, renderer, at: Date.now() };
+        for (const ev of events || []) feedLiveActivity(activity, ev);
+        if (text) renderer.append(text);
+    }
+
+    async function finishLiveAnswer(sessionId, { text, error } = {}) {
+        const s = sharedLiveState;
+        sharedLiveState = null;
+        updateSharedTurnNotice({ busy: false });
+        if (s?.renderer) s.renderer.finish(text ?? s.renderer.current?.());
+        else s?.activity?.finish();
+        s?.liveMsg?.classList.remove('is-streaming');
+        const replaced = await appendSharedMessages(sessionId);
+        if (error) {
+            const target = (!replaced && s?.liveMsg?.isConnected) ? s.liveMsg : [...el.thread.querySelectorAll('.dc-msg--ai')].at(-1);
+            target?.querySelector('.dc-msg-body')?.insertAdjacentHTML('beforeend', `<p class="dc-shared-live-error">⚠️ ${escapeHtml(error)}</p>`);
+        }
+    }
+
+    function handleSharedLiveEvent(event) {
+        if (!event || state.controller) return;
+        // 正在渲染这段对话的历史：先不画实时气泡（历史渲染完会强制重连拿追流内容）
+        if (state.restoring && !['turn_ended', 'turn_idle', 'idle', 'stream_finish'].includes(event.type)) return;
+        const sessionId = state.sessionId;
+        if (!sessionId || !window.HomeSharedConversations?.isShared?.(sessionId)) return;
+        if (sharedLiveState && sharedLiveState.sessionId !== sessionId) resetSharedLive();
+        if (event.by && isSameUser(event.by, currentUser())) return;
+        // 主线允许多人同时提问：实时气泡只跟一位提问者，其他人的增量 / 过程事件忽略（结束后统一拉取落库消息）
+        const otherAsker = event.by && sharedLiveState?.author && !isSameUser(event.by, sharedLiveState.author);
+        if (otherAsker && !['stream_start', 'catchup', 'turn_busy'].includes(event.type)) return;
+        if (otherAsker && sharedLiveState?.renderer) return;
+
+        switch (event.type) {
+            case 'stream_start':
+            case 'catchup': {
+                const author = event.by;
+                const authorName = event.name || author;
+                updateSharedTurnNotice({ by: author, name: authorName, busy: true });
+                const fresh = event.type === 'stream_start' || !sharedLiveState?.renderer || event.text || event.events?.length;
+                if (fresh) startLiveAnswer({ author, authorName, text: event.text, events: event.events });
+                ensureLiveQuestion(event.question, author, authorName);
+                scrollThread(true);
+                return;
+            }
+            case 'turn_busy':
+                // /sync 轮询发现有人在提问（/live 没连上时的兜底）：只锁输入框、补上提问
+                updateSharedTurnNotice({ by: event.by, name: event.name || event.by, busy: true });
+                ensureLiveQuestion(event.question, event.by, event.name || event.by);
+                return;
+            case 'delta':
+                sharedLiveState?.renderer?.append(event.delta);
+                return;
+            case 'error':
+                if (sharedLiveState) sharedLiveState.error = event.error || '回答中断';
+                return;
+            case 'stream_finish':
+                if (sharedLiveState) finishLiveAnswer(sessionId, { text: event.text, error: event.error || sharedLiveState.error });
+                return;
+            case 'turn_idle':
+                // 轮询结果早于这一轮开始（请求发出后才收到 stream_start）：过时信息，忽略
+                if (event.since && sharedLiveState && sharedLiveState.at > event.since) return;
+                if (sharedLiveState) finishLiveAnswer(sessionId, { error: sharedLiveState.error });
+                return;
+            case 'turn_ended':
+            case 'idle':
+                // 没收到 stream_finish（断线、提问者失联、服务重启）：同样收尾并用落库消息对齐
+                if (sharedLiveState) finishLiveAnswer(sessionId, { error: sharedLiveState.error });
+                return;
+            default:
+                feedLiveActivity(sharedLiveState?.activity, event);
+        }
     }
 
     // 上一轮因服务重启或崩溃中断（没有结束记录）：在最后一条回答下面提供「继续执行」，接着保存的步骤往下做
@@ -2955,6 +3117,7 @@
     async function openSession(item) {
         if (!item || !leaveReply()) return;
         const epoch = ++resumeEpoch;
+        resetSharedLive();
         window.DragonHtmlSwarm?.deactivate?.();
         if (typeof item === 'string') {
             const found = chatList.items?.find(row => row.id === item) || chatList.cached?.find(row => row.id === item);
@@ -2988,6 +3151,8 @@
             const agent = item.agent || (local?.sessionId === item.id ? local.agent : null);
             await resumeChat({ sessionId: item.id, discussionMode:item.discussionMode, items, cursor: page.cursor, hasMore: page.hasMore, total: page.total, time: formatChatTime(items.length ? items[items.length - 1].created_at : (item.updatedAt || new Date().toISOString())), agent }, epoch);
             if (page.live && epoch === resumeEpoch && state.sessionId === item.id) attachLive(item.id);;
+            // 历史渲染完再接共享对话的实时流：追流内容要接在这段对话的末尾
+            if (epoch === resumeEpoch && state.sessionId === item.id) window.HomeSharedConversations?.connectLive?.(item.id, true);
         } catch (error) {
             if (epoch !== resumeEpoch) return;
             finishHistoryLoading(false);
@@ -3893,6 +4058,7 @@
 
     function newChat({ clearWorkspace = true, root = null } = {}) {
         chatList.latestSeq++;
+        resetSharedLive();
         state.attachments = [];
         renderAttachments();
         window.HomeDesktopModels?.resetDraft?.();
@@ -4521,7 +4687,7 @@
             }
             return composePrompt(lines, { send: false, append: true });
         }
-        window.DragonClaw = { dismissPanel, panelDismissed, refreshModelPicker: renderModelPicker, startWithSkill, showTourLanding, startTourDemo, enterExternal, exitExternal, newChat, openSchedules: openSchedulePanel, openChat: openChatFromList, appendSharedMessages, openLatest:openLatestChat, currentSessionId:()=>state.sessionId, lang, isExternal: () => external.active, composePrompt, attachPickedElement, getRunStatus: () => ({ generating: Boolean(state.controller), sessionId: state.sessionId, external: external.active }), markActiveChat };
+        window.DragonClaw = { dismissPanel, panelDismissed, refreshModelPicker: renderModelPicker, startWithSkill, showTourLanding, startTourDemo, enterExternal, exitExternal, newChat, openSchedules: openSchedulePanel, openChat: openChatFromList, appendSharedMessages, handleSharedLiveEvent, openLatest:openLatestChat, currentSessionId:()=>state.sessionId, lang, isExternal: () => external.active, composePrompt, attachPickedElement, getRunStatus: () => ({ generating: Boolean(state.controller), sessionId: state.sessionId, external: external.active }), markActiveChat };
         // 其他页面或新标签打开的 /?skill=<id>：直接进入该技能的新对话
         const linkedSkill = new URLSearchParams(location.search).get('skill');
         if (linkedSkill) {

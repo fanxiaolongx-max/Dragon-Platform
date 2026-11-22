@@ -122,6 +122,74 @@ test('a conversation shared across team accounts syncs context both ways without
     assert.equal((await call('alice', 'POST', `/session/${aliceSession}/sync`)).body.result.pushed, 0);
     assert.equal((await call('bob', 'POST', `/session/${bobSession}/sync`)).body.result.pulled, 0);
 
+    // 实时围观：Alice 在自己的副本里提问，Bob 打开的同一共享对话实时看到正在生成的回答
+    const { EventEmitter } = require('node:events');
+    const chatLiveRuns = require('../backend/models/chat-live-runs');
+    require('../backend/models/shared-live');
+    const openLive = async (user, sessionId) => {
+        const res = await fetch(`${base}/session/${sessionId}/live`, { headers: { Authorization: `Bearer tok-${user}` } });
+        assert.equal(res.status, 200);
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffered = '';
+        const events = [];
+        const until = async (predicate) => {
+            for (;;) {
+                const found = events.find(predicate);
+                if (found) return found;
+                const { value, done } = await reader.read();
+                if (done) return null;
+                buffered += decoder.decode(value, { stream: true });
+                const lines = buffered.split('\n');
+                buffered = lines.pop();
+                for (const line of lines) if (line.trim()) events.push(JSON.parse(line));
+            }
+        };
+        return { events, until, reader };
+    };
+    const bobLive = await openLive('bob', bobSession);
+    assert.equal((await bobLive.until(() => true)).type, 'idle');
+    const run = { id: 'run-live-1', tenant: 'alice', owner: 'alice', sessionId: '', question: 'Alice 的实时提问', events: [], emitter: new EventEmitter(), startedAt: Date.now(), done: false };
+    const emitRun = event => { run.events.push(event); run.emitter.emit('event', event); };
+    run.sessionId = aliceSession;
+    chatLiveRuns.lifecycle.emit('session', run);
+    const started = await bobLive.until(event => event.type === 'stream_start');
+    assert.equal(started.by, 'alice');
+    assert.equal(started.name, 'ALICE');
+    assert.equal(started.question, 'Alice 的实时提问');
+    emitRun({ type: 'delta', delta: '第一段' });
+    emitRun({ type: 'tool_start', callId: 'c1', tool: 'read_file', args: { path: aliceUpload.path } });
+    const toolEvent = await bobLive.until(event => event.type === 'tool_start');
+    assert.equal(toolEvent.tool, 'read_file');
+    assert.equal(toolEvent.args, undefined, 'tool arguments (paths in the asker\'s sandbox) are not broadcast');
+    assert.equal((await bobLive.until(event => event.type === 'delta')).delta, '第一段');
+    // 中途加入：先收到已生成部分；提问者自己不会收到自己这一轮；/sync 带上谁在提问
+    const lateLive = await openLive('bob', bobSession);
+    const catchup = await lateLive.until(() => true);
+    assert.equal(catchup.type, 'catchup');
+    assert.equal(catchup.text, '第一段');
+    assert.deepEqual(catchup.events.map(event => event.type), ['tool_start']);
+    await lateLive.reader.cancel();
+    const aliceLive = await openLive('alice', aliceSession);
+    assert.equal((await aliceLive.until(() => true)).type, 'idle');
+    await aliceLive.reader.cancel();
+    assert.deepEqual((await call('bob', 'POST', `/session/${bobSession}/sync`)).body.result.activeTurn, { by: 'alice', name: 'ALICE', question: 'Alice 的实时提问' });
+    assert.equal((await call('alice', 'POST', `/session/${aliceSession}/sync`)).body.result.activeTurn, null);
+    // 结束：先把 Alice 的新消息推到中转表，Bob 收到结束后立刻能拉到
+    await runWithTenant('alice', async () => {
+        await chat.addMessage({ sessionId: aliceSession, owner: 'alice', pagePath: '/', role: 'user', content: 'Alice 的实时提问' });
+        await chat.addMessage({ sessionId: aliceSession, owner: 'alice', pagePath: '/', role: 'model', content: '第一段' });
+    });
+    emitRun({ type: 'done', reply: '第一段完整' });
+    run.done = true;
+    run.emitter.emit('end');
+    const finished = await bobLive.until(event => event.type === 'stream_finish');
+    assert.equal(finished.text, '第一段完整');
+    await bobLive.until(event => event.type === 'turn_ended');
+    const afterTurn = (await call('bob', 'POST', `/session/${bobSession}/sync`)).body.result;
+    assert.equal(afterTurn.pulled, 2, 'asker messages are pushed before viewers are told the turn ended');
+    assert.equal(afterTurn.activeTurn, null);
+
     // Carol 通过链接加入：先成为待接受邀请，忽略后仍可通过链接再次进入
     await call('carol', 'POST', `/invites/${inbox.body.items[0].shareId}/respond`, { action: 'ignore' });
     assert.equal((await call('carol', 'GET', '/inbox')).body.items.length, 0);
@@ -141,7 +209,10 @@ test('a conversation shared across team accounts syncs context both ways without
     assert.equal((await call('carol', 'POST', `/session/${bobSession}/leave`)).status, 404);
 
     // Bob 删除本地副本 = 退出共享；Alice 停止共享后不再出现在双方「共享对话」列表中
+    // 退出时仍连着的实时围观连接收到 revoked 并被断开
     await call('bob', 'POST', `/session/${bobSession}/leave`);
+    assert.ok(await bobLive.until(event => event.type === 'revoked'), 'live viewer is told it was revoked');
+    assert.equal((await bobLive.reader.read()).done, true, 'and the live connection is closed');
     assert.equal((await call('bob', 'GET', '/mine')).body.items.length, 0);
     assert.deepEqual((await call('alice', 'POST', `/session/${aliceSession}/leave`)).body, { closed: true });
     assert.equal((await call('alice', 'GET', '/mine')).body.items.length, 0, 'closed share must be removed from initiator /mine list');

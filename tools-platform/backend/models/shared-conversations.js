@@ -8,6 +8,7 @@
 // - 新的模型调用、文件与命令都在当前操作者自己的账号 / 团队沙箱里执行；只共享上下文（历史消息与其中的对话附件）。
 //   对话附件推送时复制到共享文件区，拉取时再复制进接收者自己的附件目录，路径各自改写，不暴露对方的目录。
 const crypto = require('crypto');
+const { EventEmitter } = require('events');
 const fs = require('fs');
 const fsp = require('fs/promises');
 const path = require('path');
@@ -144,6 +145,12 @@ async function displayNames(usernames) {
     for (const name of usernames) result[name] = map[name]?.displayName || name;
     return result;
 }
+
+// 共享关系变化通知（shared-live.js 据此断开被移除成员的实时围观连接）：
+// 'revoked' { shareId, username }，username 为空表示整个共享已停止
+const shareEvents = new EventEmitter();
+shareEvents.setMaxListeners(50);
+const notifyRevoked = (shareId, username = '') => { try { shareEvents.emit('revoked', { shareId: String(shareId || ''), username: String(username || '') }); } catch { /* 通知失败不影响主流程 */ } };
 
 // ── 进程内互斥：同一成员的推送 / 拉取不并发，避免重复写入 ──
 const locks = new Map();
@@ -849,6 +856,7 @@ async function closeShareAndPurge(share) {
     await run("UPDATE shared_conversations SET status = 'closed', updated_at = CURRENT_TIMESTAMP WHERE id = ?", [share.id]);
     await run("UPDATE shared_conversation_members SET status = 'removed', responded_at = CURRENT_TIMESTAMP WHERE share_id = ? AND username <> ? AND status IN ('accepted', 'pending', 'ignored', 'declined')", [share.id, share.owner]);
     linkedCache = null;
+    notifyRevoked(share.id);
     await Promise.all(membersToPurge.map(row => purgeRevokedMemberCopy(share.id, row)));
 }
 
@@ -863,6 +871,7 @@ async function leave({ tenantId, username, sessionId }) {
     }
     await run("UPDATE shared_conversation_members SET status = 'left', responded_at = CURRENT_TIMESTAMP WHERE share_id = ? AND username = ?", [share.id, username]);
     linkedCache = null;
+    notifyRevoked(share.id, username);
     return { left: true };
 }
 
@@ -875,6 +884,7 @@ async function removeMember({ tenantId, username, sessionId, target }) {
     const targetMember = await getMember(share.id, cleanTarget);
     await run("UPDATE shared_conversation_members SET status = 'removed', responded_at = CURRENT_TIMESTAMP WHERE share_id = ? AND username = ?", [share.id, cleanTarget]);
     linkedCache = null;
+    notifyRevoked(share.id, cleanTarget);
     if (targetMember?.local_session_id) await purgeRevokedMemberCopy(share.id, targetMember);
     return describe(share, username);
 }
@@ -889,7 +899,7 @@ async function onLocalDeleted({ tenantId, username, sessionId }) {
         await closeShareAndPurge(share);
     }
     const result = await run("UPDATE shared_conversation_members SET status = 'left', responded_at = CURRENT_TIMESTAMP WHERE tenant_id = ? AND username = ? AND local_session_id = ? AND status = 'accepted'", [tenantId, username, String(sessionId || '')]);
-    if (result.changes) linkedCache = null;
+    if (result.changes) { linkedCache = null; notifyRevoked(member.share_id, username); }
     const normalizedTenant = tenantContext.normalizeTenantId(tenantId);
     const cleanUser = cleanName(username);
     if (cleanUser) await fsp.rm(path.join(uploadDirFor(normalizedTenant, cleanUser), `shared-${member.share_id}`), { recursive: true, force: true }).catch(() => {});
@@ -989,6 +999,17 @@ function filesOf(events) {
     }
     return [...found.values()];
 }
+/** 本地对话对应的进行中共享（实时围观用）：未共享、未接受或已停止都返回 null */
+async function liveShareForLocal({ tenantId, username, sessionId }) {
+    if (!sessionId || !username) return null;
+    const set = await linkedSet();
+    if (!set.has(`${tenantId}\n${username}\n${sessionId}`)) return null;
+    const member = await memberByLocal(tenantId, username, sessionId);
+    if (!member || member.share_status !== 'active') return null;
+    const names = await displayNames([username]).catch(() => ({}));
+    return { shareId: member.share_id, name: names[username] || username };
+}
+
 async function syncIfShared({ tenantId, username, sessionId }) {
     if (!sessionId || !username) return null;
     const set = await linkedSet();
@@ -1438,6 +1459,7 @@ module.exports = {
     onLocalDeleted, purgeRevokedForUser, isRevokedSession, accounts, listGroups, saveGroup, deleteGroup, recent, authorOf, filesOf, linkFor, sharedFilesBase,
     sessionCapabilities, grantedSkillMemberships, requestSkillShare, respondSkillRequest,
     isShareableWorkspaceRoot, syncOriginWorkspaceRoot, resolveSharedWorkspace, isSharedWorkspaceActive,
+    liveShareForLocal, shareEvents,
     _resetCache: () => {
         linkedCache = null;
         for (const timer of pending.values()) clearTimeout(timer);

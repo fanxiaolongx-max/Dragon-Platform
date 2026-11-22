@@ -13,6 +13,10 @@ const MAX_BUFFER_BYTES = 8 * 1024 * 1024;
 // 增量事件：相邻同类合并，补放时一次给全
 const MERGE_FIELDS = { delta: 'delta', thinking: 'delta' };
 
+// 回复拿到会话号时发 'session'(run)：共享对话据此把这一轮实时广播给其他成员（shared-live.js）
+const lifecycle = new EventEmitter();
+lifecycle.setMaxListeners(20);
+
 const runs = new Map(); // runId → run
 const bySession = new Map(); // tenant:sessionId → run
 
@@ -76,6 +80,7 @@ function createRunResponse(run) {
             if (event.type === 'start' && event.sessionId && !run.sessionId) {
                 run.sessionId = String(event.sessionId);
                 bySession.set(sessionKey(run.tenant, run.sessionId), run);
+                try { lifecycle.emit('session', run); } catch (error) { console.warn('[AI] live session hook failed:', error?.message || error); }
             }
             pushEvent(run, event);
             run.emitter.emit('event', event);
@@ -209,4 +214,4 @@ function runningSessions(owner) {
     return out;
 }
 
-module.exports = { start, attachLive, stop, isRunning, findBySession, runningSessions, MAX_PARALLEL, _runs: runs };
+module.exports = { start, attachLive, stop, isRunning, findBySession, runningSessions, lifecycle, MAX_PARALLEL, _runs: runs };
