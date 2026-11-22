@@ -7,7 +7,8 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const mainlineRoot = path.resolve(__dirname, '..');
-const baseRoot = '/Volumes/512G/06-工具开发/digital-human-web';
+const baseRoot = process.env.DH_WEB_ROOT || path.resolve(mainlineRoot, '../../digital-human-web');
+const hasBaseRepo = fs.existsSync(path.join(baseRoot, 'static/index.html'));
 
 test('Mainline chat action buttons have icons, labels, titles and never-wrap structure', () => {
     const html = fs.readFileSync(path.join(mainlineRoot, 'frontend/index.html'), 'utf8');
@@ -37,7 +38,8 @@ test('Mainline chat action buttons have icons, labels, titles and never-wrap str
     assert.ok(actionsHtml.includes('class="dc-model-caret"'), 'Export log includes dropdown caret');
 });
 
-test('Base (digital-human-web) chat action buttons have icons, labels, titles and never-wrap structure', () => {
+test('Base (digital-human-web) chat action buttons have icons, labels, titles and never-wrap structure', (t) => {
+    if (!hasBaseRepo) return t.skip('digital-human-web sibling repo not present');
     const html = fs.readFileSync(path.join(baseRoot, 'static/index.html'), 'utf8');
     const startIdx = html.indexOf('<div class="dc-chat-actions">');
     const endIdx = html.indexOf('</header>', startIdx);
@@ -77,11 +79,15 @@ test('Agent radar in mainline supports squeezed compact state with dot and count
     assert.ok(radarCode.includes('dc-radar-label'), 'agent-radar.js wraps full status in dc-radar-label');
 });
 
+function targetsFor(mainPaths, basePaths) {
+    return hasBaseRepo ? [['mainline', ...mainPaths], ['base', ...basePaths]] : [['mainline', ...mainPaths]];
+}
+
 test('Dragon Claw CSS defines container query, smooth transitions, and squeezed icon-only modes in both repositories', () => {
-    for (const [name, cssPath] of [
-        ['mainline', path.join(mainlineRoot, 'frontend/css/dragon-claw.css')],
-        ['base', path.join(baseRoot, 'static/css/dragon-claw.css')]
-    ]) {
+    for (const [name, cssPath] of targetsFor(
+        [path.join(mainlineRoot, 'frontend/css/dragon-claw.css')],
+        [path.join(baseRoot, 'static/css/dragon-claw.css')]
+    )) {
         const css = fs.readFileSync(cssPath, 'utf8');
         assert.ok(css.includes('container-type: inline-size'), `${name} has container-type: inline-size`);
         assert.ok(css.includes('container-name: dc-chat'), `${name} has container-name: dc-chat`);
@@ -94,20 +100,20 @@ test('Dragon Claw CSS defines container query, smooth transitions, and squeezed 
 });
 
 test('Home theme CSS prevents wrapping of chat action buttons in both repositories', () => {
-    for (const [name, cssPath] of [
-        ['mainline', path.join(mainlineRoot, 'frontend/css/home-theme.css')],
-        ['base', path.join(baseRoot, 'static/css/home-theme.css')]
-    ]) {
+    for (const [name, cssPath] of targetsFor(
+        [path.join(mainlineRoot, 'frontend/css/home-theme.css')],
+        [path.join(baseRoot, 'static/css/home-theme.css')]
+    )) {
         const css = fs.readFileSync(cssPath, 'utf8');
         assert.ok(css.includes('.dc-chat-actions { flex: 0 1 auto; min-width: 0; flex-wrap: nowrap !important;'), `${name} forces flex-wrap: nowrap !important`);
     }
 });
 
 test('Ultra-squeezed dropdown menu (more actions) is present and styled in both repositories', () => {
-    for (const [name, htmlPath, cssPath, jsPath] of [
-        ['mainline', path.join(mainlineRoot, 'frontend/index.html'), path.join(mainlineRoot, 'frontend/css/dragon-claw.css'), path.join(mainlineRoot, 'frontend/js/home/dragon-claw.js')],
-        ['base', path.join(baseRoot, 'static/index.html'), path.join(baseRoot, 'static/css/dragon-claw.css'), path.join(baseRoot, 'static/js/home/dragon-claw.js')]
-    ]) {
+    for (const [name, htmlPath, cssPath, jsPath] of targetsFor(
+        [path.join(mainlineRoot, 'frontend/index.html'), path.join(mainlineRoot, 'frontend/css/dragon-claw.css'), path.join(mainlineRoot, 'frontend/js/home/dragon-claw.js')],
+        [path.join(baseRoot, 'static/index.html'), path.join(baseRoot, 'static/css/dragon-claw.css'), path.join(baseRoot, 'static/js/home/dragon-claw.js')]
+    )) {
         const html = fs.readFileSync(htmlPath, 'utf8');
         assert.ok(html.includes('id="dcActionsMore"'), `${name} index.html contains dcActionsMore`);
         assert.ok(html.includes('id="dcActionsMoreBtn"'), `${name} index.html contains dcActionsMoreBtn`);
