@@ -126,7 +126,11 @@ test('隐藏分类 PIN 使用加盐哈希存储并严格验证 4 位数字', () 
     const record = createCategoryPinRecord('2580');
     const category = { protected: true, ...record };
 
-    assert.equal(record.pinHash.includes('2580'), false);
+    // 只存盐和 64 位十六进制哈希，不存明文（随机哈希偶尔会碰巧含有 2580 这几个字符，不能用 includes 判断）
+    assert.deepEqual(Object.keys(record).sort(), ['pinHash', 'pinSalt']);
+    assert.match(record.pinHash, /^[0-9a-f]{64}$/);
+    assert.notEqual(record.pinHash, '2580');
+    assert.notEqual(createCategoryPinRecord('2580').pinHash, record.pinHash, 'salted: same PIN gives a different hash');
     assert.equal(verifyCategoryPin(category, '2580'), true);
     assert.equal(verifyCategoryPin(category, '2581'), false);
     assert.throws(() => createCategoryPinRecord('12345'), /4 位数字/);
