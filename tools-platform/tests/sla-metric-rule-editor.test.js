@@ -138,3 +138,52 @@ test('plain replacement, scope filters, warnings and permissions', () => runWith
     assert.equal(tools.isAdmin({ role: 'readonly' }), false);
     assert.equal(require('../backend/models/agent-tool-access').groupFor('sla_update_metric_conditions'), 'sla_rules', 'admins can switch the group off in tool settings');
 }));
+
+test('whole metric rules: read, preview values, add / update / remove, keep later edits on revert', () => runWithTenant('default', async () => {
+    await seed();
+    await require('../backend/models/sla-targets-repository').replaceTargets({ other_eos_m_1: { label: 'EOS 目标', target: 1 } });
+    const admin = { username: 'boss', role: 'admin' };
+    const set = tools.toolset({ owner: 'default::boss', user: admin });
+    assert.equal(set.kindOf('sla_edit_metric_rules'), 'confirm');
+    assert.equal(set.kindOf('sla_read_metric_rules'), 'read');
+    const run = (name, args) => set.execute({ name, args });
+
+    const tables = JSON.parse((await run('sla_read_metric_rules', {})).content).tables;
+    assert.deepEqual(tables.find(t => t.prefKey === PREF_KEY).metrics.map(m => m.id), ['m_1', 'm_2']);
+    const one = JSON.parse((await run('sla_read_metric_rules', { metricId: 'm_1' })).content).items[0];
+    assert.deepEqual([one.metric.label, one.latest.value, one.latest.matchedRows], ['全量EOS-产品', '0.97', 1]);
+
+    const args = { summary: '调整口径', edits: [
+        { op: 'update', prefKey: PREF_KEY, metricId: 'm_2', set: { valY: 'etisalat系统部', conditions: [] } },
+        { op: 'add', prefKey: PREF_KEY, metric: { label: 'Vodafone 闭环率', type: 'extract', colX: 'name', valY: 'Vodafone系统部', colZ: 'closed_rate' } },
+        { op: 'remove', prefKey: PREF_KEY, metricId: 'm_1' }
+    ] };
+    await assert.rejects(() => editor.planMetricEdits({ edits: [{ op: 'update', prefKey: PREF_KEY, metricId: 'm_2', set: { id: 'x' } }] }), /不能改/);
+    await assert.rejects(() => editor.planMetricEdits({ edits: [{ op: 'add', prefKey: PREF_KEY, metric: { type: 'extract' } }] }), /label/);
+    const preview = await set.preview('sla_edit_metric_rules', args);
+    assert.match(preview.path, /修改 3 条指标规则/);
+    assert.match(preview.diff, /ET 计数[\s\S]*改 valY、conditions[\s\S]*命中 0 → 1 行/);
+    assert.match(preview.diff, /Vodafone 闭环率[\s\S]*值 — → 1/);
+    assert.match(preview.message, /预警目标/);
+
+    const applied = await run('sla_edit_metric_rules', args);
+    assert.ok(!applied.isError, applied.content);
+    const changeId = applied.content.match(/rc_[a-z0-9_]+/)[0];
+    let metrics = await currentMetrics();
+    assert.deepEqual(metrics.map(m => m.label), ['ET 计数', 'Vodafone 闭环率']);
+    assert.equal(metrics[1].sourceSecId, 'other_eos');
+
+    const prefs = (await prefsRepo.getPrefsObject({ mode: 'auto' })).items[PREF_KEY];
+    prefs.customMetrics[1].label = '手动改名';
+    await prefsRepo.upsertPrefItem(PREF_KEY, prefs);
+    const reverted = await run('sla_revert_metric_rule_change', { changeId });
+    assert.ok(!reverted.isError, reverted.content);
+    assert.match(reverted.content, /已回退 2 处/);
+    metrics = await currentMetrics();
+    assert.deepEqual(metrics.map(m => m.id).slice(0, 2), ['m_1', 'm_2']);
+    assert.equal(metrics[1].valY, 'e&系统部');
+    assert.equal(metrics[2].label, '手动改名', 'a rule edited afterwards is not overwritten');
+    const history = await editor.listChanges();
+    assert.equal(history[0].revertOf, changeId);
+    assert.equal(history[1].count, 3);
+}));

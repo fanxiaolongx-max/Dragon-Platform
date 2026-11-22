@@ -156,6 +156,11 @@ test('step cap, busy session and permission helpers', async () => {
     assert.equal(manager.classifyDecision(session, 'delete_path'), 'ask');
     assert.equal(manager.classifyDecision(session, 'insert_database_row'), 'allow');
     assert.equal(manager.classifyDecision(session, 'update_database_rows'), 'allow');
+    assert.equal(manager.classifyDecision(session, 'save_uiv_script'), 'ask', 'scraping scripts are confirmed even in auto mode');
+    assert.equal(manager.classifyDecision(session, 'move_uiv_script'), 'ask');
+    session.alwaysAllow.add('save_uiv_script');
+    assert.equal(manager.classifyDecision(session, 'save_uiv_script'), 'allow', 'unless the user chose always allow for this chat');
+    session.alwaysAllow.delete('save_uiv_script');
     assert.equal(manager.classifyDecision(session, 'delete_database_rows'), 'ask');
     assert.equal(manager.classifyDecision(session, 'unknown_tool'), 'deny');
     assert.throws(() => manager.ensureSession({ agentSessionId: 'short', user, tenantId: 'default', root }), /无效/);

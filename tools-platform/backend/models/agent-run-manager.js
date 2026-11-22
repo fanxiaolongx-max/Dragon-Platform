@@ -756,6 +756,8 @@ function dangerHits(session, toolName, args) {
     return [];
 }
 
+const CONFIRM_IN_AUTO = new Set(['save_uiv_script', 'move_uiv_script']);
+
 function classifyDecision(session, toolName, args = null, kind = toolsService.kindOf(toolName, args), { confirmInFull = false } = {}) {
     if (!kind) return 'deny';
     if (kind === 'read') return 'allow';
@@ -776,7 +778,8 @@ function classifyDecision(session, toolName, args = null, kind = toolsService.ki
     // ask / auto 仍逐条确认风险命令，不受某类工具「总是允许」影响。
     if (toolName === 'run_command' && args && commandGuard.assessCommand(args.command, session.root).risky) return 'ask';
     if (session.alwaysAllow.has(toolName)) return 'allow';
-    if (session.permissionMode === 'auto' && kind === 'write') return 'allow';
+    // 抓取脚本仓库的保存与移动：「自动」模式下也逐次确认（审批卡里能看到改了哪些字段）；可选本对话总是允许
+    if (session.permissionMode === 'auto' && kind === 'write' && !CONFIRM_IN_AUTO.has(toolName)) return 'allow';
     return session.unattended ? 'unattended' : 'ask';
 }
 

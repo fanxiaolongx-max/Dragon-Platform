@@ -215,10 +215,27 @@ test('home administrator can commit and verify database edits without a workspac
         const copied = await request('admin-default', { stream: true,
             messages: [{ role: 'user', content: '复制 PBI示例 抓取脚本为一个新副本' }],
             ...(withWorkspace ? { workspace: { root: workspaceRoot, agentSessionId: 'script-workspace-test', permissionMode: 'full' } } : {}) });
-        const events = (await copied.text()).trim().split('\n').map(line => JSON.parse(line));
+        // 普通对话（自动模式）保存抓取脚本要先确认：读流时看到审批卡就点允许；完全访问的工作区不弹卡
+        const events = [];
+        const reader = copied.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop();
+            for (const line of lines.filter(Boolean)) {
+                const event = JSON.parse(line);
+                events.push(event);
+                if (event.type === 'approval') require('../backend/models/agent-run-manager').resolveApproval(event.id, 'allow', { username: 'admin-default', role: 'admin' }, 'default');
+            }
+        }
+        if (buffer.trim()) events.push(JSON.parse(buffer));
         assert.ok(events.find(event => event.type === 'start').skills.some(skill => skill.id === 'script-data'));
         assert.match(events.find(event => event.type === 'done')?.reply || JSON.stringify(events), /副本已保存并核对/);
-        assert.equal(events.some(event => event.type === 'approval'), false);
+        assert.equal(events.filter(event => event.type === 'approval').length, withWorkspace ? 0 : 1);
         assert.ok(await appDb.get('SELECT id FROM uiv_scripts WHERE id = ?', [newId]));
         if (!withWorkspace) {
             const done = events.find(event => event.type === 'done');

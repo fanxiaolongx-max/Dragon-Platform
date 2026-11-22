@@ -105,7 +105,7 @@ test('new macro scripts validate executeScript targets, hide credentials, and ke
     assert.equal(viewer.includes('save_uiv_script') || viewer.includes('delete_uiv_script'), false);
     for (const mode of ['ask', 'auto', 'full']) {
         const session = { permissionMode: mode, readOnly: false, alwaysAllow: new Set() };
-        assert.equal(manager.classifyDecision(session, 'save_uiv_script'), mode === 'ask' ? 'ask' : 'allow');
+        assert.equal(manager.classifyDecision(session, 'save_uiv_script'), mode === 'full' ? 'allow' : 'ask', '自动模式下保存脚本也要确认');
         assert.equal(manager.classifyDecision(session, 'delete_uiv_script'), mode === 'full' ? 'allow' : 'ask');
     }
     const sensitive = { ...original, id: 'sensitive', name: '敏感脚本', payload: '{"password":"never-send-this-password"}' };
