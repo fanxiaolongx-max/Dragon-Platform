@@ -348,11 +348,11 @@ async function antigravityTimestamps(ids = []) {
         const map = new Map();
         for (const r of rows) {
             if (!r.conversation_id) continue;
-            const raw = r.last_modified_time || r.last_user_input_time;
-            if (!raw) continue;
-            const parsed = Date.parse(raw);
-            if (!Number.isNaN(parsed)) {
-                map.set(r.conversation_id, new Date(parsed).toISOString());
+            const tMod = r.last_modified_time ? Date.parse(r.last_modified_time) : NaN;
+            const tUser = r.last_user_input_time ? Date.parse(r.last_user_input_time) : NaN;
+            const best = Math.max(Number.isFinite(tMod) ? tMod : 0, Number.isFinite(tUser) ? tUser : 0);
+            if (best > 0) {
+                map.set(r.conversation_id, new Date(best).toISOString());
             }
         }
         return map;
@@ -377,17 +377,18 @@ async function antigravity(limit) {
             `SELECT conversation_id, title, preview, last_modified_time, last_user_input_time, workspace_uris, status, not_fully_idle
              FROM conversation_summaries
              WHERE COALESCE(parent_conversation_id, '') = '' AND COALESCE(killed, 0) = 0
-             ORDER BY COALESCE(last_modified_time, last_user_input_time) DESC
+             ORDER BY MAX(COALESCE(last_modified_time, ''), COALESCE(last_user_input_time, '')) DESC
              LIMIT ?`, [limit]);
         const now = new Date().toISOString();
         return rows.filter(r => typeof r.conversation_id === 'string' && /^[a-f0-9-]{36}$/i.test(r.conversation_id) && (r.title || r.preview)).map((r, i) => {
-            const rawTime = r.last_modified_time || r.last_user_input_time;
-            const parsed = rawTime ? Date.parse(rawTime) : NaN;
+            const tMod = r.last_modified_time ? Date.parse(r.last_modified_time) : NaN;
+            const tUser = r.last_user_input_time ? Date.parse(r.last_user_input_time) : NaN;
+            const best = Math.max(Number.isFinite(tMod) ? tMod : 0, Number.isFinite(tUser) ? tUser : 0);
             return {
                 id: r.conversation_id,
                 provider: 'antigravity',
                 title: safe(r.title || r.preview || 'Antigravity'),
-                updatedAt: Number.isNaN(parsed) ? null : new Date(parsed).toISOString(),
+                updatedAt: best > 0 ? new Date(best).toISOString() : null,
                 observedAt: now,
                 order: i,
                 cwd: parseWorkspaceCwd(r.workspace_uris),
@@ -409,9 +410,10 @@ async function antigravityBusyIds() {
         const ids = new Set();
         for (const r of rows) {
             if (!r.conversation_id || !/^[a-f0-9-]{36}$/i.test(r.conversation_id)) continue;
-            const raw = r.last_modified_time || r.last_user_input_time;
-            const ts = raw ? Date.parse(raw) : NaN;
-            if (Number.isNaN(ts) || Date.now() - ts < STALE_MS) ids.add(r.conversation_id);
+            const tMod = r.last_modified_time ? Date.parse(r.last_modified_time) : NaN;
+            const tUser = r.last_user_input_time ? Date.parse(r.last_user_input_time) : NaN;
+            const ts = Math.max(Number.isFinite(tMod) ? tMod : 0, Number.isFinite(tUser) ? tUser : 0);
+            if (ts === 0 || Date.now() - ts < STALE_MS) ids.add(r.conversation_id);
         }
         return ids;
     } catch {

@@ -1,14 +1,14 @@
 {
   "zh": [
-    "智能体流式生成时待审批卡片常驻停靠在输入框上方，避免被长回答冲刷出视野；完成审批后平滑归位至对话记录。",
-    "优化智能体雷达弹窗定位与视口自适应，修复侧栏拖拽与滚动时的遮挡问题；增强桌面端工作区面板标题吸顶。",
-    "技能自我进化（save_skill）支持工作区长文本草稿读取，优化上下文压缩预算与单步输出超限保护。",
-    "工具中心新增「非内置」来源分类筛选与专属高亮标识，完善键盘导航与搜索框轮廓无障碍体验。"
+    "优化 Antigravity 桌面与移动端会话排序算法：准确比对用户最新交互时间与完成时间的最大值，避免会话生成中因旧轮次时间戳导致列表沉底或落入昨天分类。",
+    "完善移动端抽屉最近会话与置顶拖拽的平滑动画，消除第三方桌面智能体（Codex / Antigravity / Claude）在网络刷新与本地缓存间的时序抖动。",
+    "智能体流式生成时待审批卡片常驻停靠在输入框上方，审批完成后平滑归位至对话记录。",
+    "优化智能体雷达弹窗定位与视口自适应，修复侧栏拖拽与滚动时的遮挡问题；增强桌面端工作区面板标题吸顶。"
   ],
   "en": [
+    "Refined Antigravity session sorting across desktop and mobile by taking the max of latest user interaction and completion timestamp, preventing in-progress turns from being sorted into yesterday.",
+    "Polished mobile sidebar drawer smooth reordering animations and eliminated timing jitter between cached desktop agent sessions and remote polling.",
     "Pending approval cards remain docked above the composer while responses stream, preventing them from scrolling offscreen, and smoothly return to history once settled.",
-    "Refined Agent Radar popover positioning with viewport boundary clamping during sidebar resize and scroll, and added sticky workspace panel headers on desktop.",
-    "Skill evolution (save_skill) supports workspace drafts for large skills, and improves context compaction headroom and output truncation recovery.",
-    "Added Non-builtin source filtering and distinct badge styling in Skill Hub, with refined keyboard focus-visible outlines for search input."
+    "Refined Agent Radar popover positioning with viewport boundary clamping during sidebar resize and scroll, and added sticky workspace panel headers on desktop."
   ]
 }

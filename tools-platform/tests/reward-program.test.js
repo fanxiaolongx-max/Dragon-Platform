@@ -85,11 +85,11 @@ test('applications stay tenant-scoped and enforce ownership, revision, approval 
 test('position incentives require a configured fixed role and amount', async () => {
     const server = app(), base = '/api/reward-program';
     const payload = { category: 'position', ruleId: 'position-fixed', title: '9 月岗位激励', summary: '承担固定岗位职责', totalAmountMinor: 50000, recipients: [{ name: '张三', mode: 'amount', amountMinor: 50000 }] };
-    const draft = (await request(server).post(base + '/applications').send(payload).expect(201)).body;
-    await request(server).post(`${base}/applications/${draft.id}/submit`).send({ ...payload, revision: 1 }).expect(400);
-    await request(server).put(`${base}/rules/position-fixed`).set('x-role', 'admin').send({ category: 'position', name: '值班岗位激励', positionName: '值班工程师', cycle: '月度', unitAmountMinor: 50000, approvalFlow: ['department', 'at'] }).expect(200);
-    await request(server).put(`${base}/rules/position-fixed`).set('x-role', 'admin').send({ category: 'position', name: '值班岗位激励', positionName: '值班工程师', cycle: '月度', unitAmountMinor: 50000, approvalFlow: ['department', 'publicity', 'at'] }).expect(400);
-    const submitted = (await request(server).post(`${base}/applications/${draft.id}/submit`).send({ ...payload, revision: 1 }).expect(200)).body;
+    const draft = (await request(server).post(base + '/applications').set('x-user', 'admin').send(payload).expect(201)).body;
+    await request(server).post(`${base}/applications/${draft.id}/submit`).set('x-user', 'admin').send({ ...payload, revision: 1 }).expect(400);
+    await request(server).put(`${base}/rules/position-fixed`).set('x-user', 'admin').set('x-role', 'admin').send({ category: 'position', name: '值班岗位激励', positionName: '值班工程师', cycle: '月度', unitAmountMinor: 50000, approvalFlow: ['department', 'at'] }).expect(200);
+    await request(server).put(`${base}/rules/position-fixed`).set('x-user', 'admin').set('x-role', 'admin').send({ category: 'position', name: '值班岗位激励', positionName: '值班工程师', cycle: '月度', unitAmountMinor: 50000, approvalFlow: ['department', 'publicity', 'at'] }).expect(400);
+    const submitted = (await request(server).post(`${base}/applications/${draft.id}/submit`).set('x-user', 'admin').send({ ...payload, revision: 1 }).expect(200)).body;
     assert.equal(submitted.ruleSnapshot.positionName, '值班工程师');
     assert.equal(submitted.ruleSnapshot.unitAmountMinor, 50000);
 });
