@@ -1,14 +1,14 @@
 {
   "zh": [
-    "优化 Antigravity 桌面与移动端会话排序算法：准确比对用户最新交互时间与完成时间的最大值，避免会话生成中因旧轮次时间戳导致列表沉底或落入昨天分类。",
-    "完善移动端抽屉最近会话与置顶拖拽的平滑动画，消除第三方桌面智能体（Codex / Antigravity / Claude）在网络刷新与本地缓存间的时序抖动。",
-    "智能体流式生成时待审批卡片常驻停靠在输入框上方，审批完成后平滑归位至对话记录。",
-    "优化智能体雷达弹窗定位与视口自适应，修复侧栏拖拽与滚动时的遮挡问题；增强桌面端工作区面板标题吸顶。"
+    "频道运营计划支持按专题或指定单个功能亮点（如会话共享、长期记忆、上下文管理）定向生成，新增 Dragon Claw 工作技巧模版。",
+    "运营设置支持动态级联选择具体亮点与专题联动切换，技能提示词同步支持点名介绍特定功能。",
+    "增强 Windows 便携版自更新原子替换与容灾机制：支持进程退出重试与 EBUSY 共享冲突等待，替换失败自动回退旧版并保留原程序。",
+    "便携版更新包统一暂存至用户数据目录下的专用更新目录，并按官方资产标准命名，启动时安全清理历史残余缓存。"
   ],
   "en": [
-    "Refined Antigravity session sorting across desktop and mobile by taking the max of latest user interaction and completion timestamp, preventing in-progress turns from being sorted into yesterday.",
-    "Polished mobile sidebar drawer smooth reordering animations and eliminated timing jitter between cached desktop agent sessions and remote polling.",
-    "Pending approval cards remain docked above the composer while responses stream, preventing them from scrolling offscreen, and smoothly return to history once settled.",
-    "Refined Agent Radar popover positioning with viewport boundary clamping during sidebar resize and scroll, and added sticky workspace panel headers on desktop."
+    "Channel operations plans now support targeting specific feature highlights (e.g., chat sharing, persistent memory, context compaction) alongside random rotation, adding Dragon Claw productivity templates.",
+    "Operations settings dynamic cascade selection enables choosing specific highlights per topic, and ops skills support targeting named features directly.",
+    "Enhanced Windows portable app self-updater reliability with atomic executable replacement, automatic EBUSY retries, and safe rollback on failure.",
+    "Portable update packages stage cleanly in a dedicated updates directory with standard asset names, safely cleaning up old cache on startup."
   ]
 }

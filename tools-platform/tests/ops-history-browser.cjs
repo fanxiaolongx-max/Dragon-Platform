@@ -47,7 +47,7 @@ app.whenReady().then(async () => {
         const { items: runs, ...runsPagination } = page(req.query.runPage);
         res.json({ settings: { styleGuide: '规范', publicBaseUrl: '' }, groups: [{ ...target, profile: '', interactionPrompt: '' }], plans: [plan], runs, runsPagination, draftCounts: { 'plan-one': 1 } });
     });
-    web.get('/api/channels/ops/library', (_, res) => res.json({ topics: [], angles: [], presets: [] }));
+    web.get('/api/channels/ops/library', (_, res) => res.json({ topics: require('../backend/models/channels/ops-library').listTopics(), angles: [], presets: [] }));
     web.get('/api/channels/ops/runs', async (req, res) => {
         if (holdPage) { holdPage = false; await new Promise(resolve => { releasePage = resolve; }); }
         if (failPage) return res.status(503).json({ error: 'network unavailable' });
@@ -70,6 +70,16 @@ app.whenReady().then(async () => {
     await fill('[data-ops-group-field="profile"]', '尚未保存的画像');
     await fill('[data-ops-draft="run-0"]', '翻页后保留的正文');
     await click('[data-ops-action="new-plan"]');
+    const selectOption = (key, value) => evaluate(`(() => {
+        const field = document.querySelector('[data-ops-plan="${key}"]');
+        field.value = '${value}';
+        field.dispatchEvent(new Event('change', { bubbles: true }));
+    })()`);
+    await selectOption('options.highlightTopic', 'dragon-claw');
+    await selectOption('options.highlightId', 'share-chat');
+    assert.equal(await evaluate(`document.querySelector('[data-ops-plan="options.highlightId"]').value`), 'share-chat');
+    await selectOption('options.highlightTopic', 'ai-report');
+    assert.equal(await evaluate(`document.querySelector('[data-ops-plan="options.highlightId"]').value`), '');
     // 打开编辑器后再次输入，翻页只应替换记录卡片。
     await fill('[data-ops-plan="name"]', '尚未保存的计划');
     await fill('[data-ops-field="styleGuide"]', '尚未保存的规范');

@@ -1,9 +1,17 @@
 const { app, BrowserWindow, dialog, ipcMain, session, shell, Tray, Menu, nativeImage, nativeTheme, clipboard, net, screen, systemPreferences, crashReporter } = require('electron');
+const path = require('path');
+const fs = require('fs');
+const util = require('util');
+const userDataPath = app.getPath('userData');
+const electronLogRoot = path.join(userDataPath, 'logs');
 
 // 绿色版自动更新的最后一步：新版先等旧版进程全部退出，再把自己换到原 EXE 的位置（必须在单实例锁之前）
 const portableSwap = process.platform === 'win32' && process.env.PORTABLE_EXECUTABLE_FILE
     ? require('./desktop-portable-updater').completePortableSwap()
     : null;
+if (portableSwap) {
+    appendElectronLog(portableSwap.error ? 'error' : 'out', ['[Updater] Portable swap:', JSON.stringify(portableSwap)]);
+}
 
 // 保证程序单实例运行，避免多开冲突导致 SQLite 锁死 (SQLITE_BUSY: database is locked)
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
@@ -17,14 +25,10 @@ if (!hasSingleInstanceLock) {
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
 const { autoUpdater } = require('electron-updater');
-const path = require('path');
-const fs = require('fs');
-const util = require('util');
 const { spawn } = require('child_process');
 const http = require('http');
 
 // IMPORTANT: Set the data directory to the OS's native user data path BEFORE requiring server.js
-const userDataPath = app.getPath('userData');
 process.env.TOOLS_DATA_DIR = path.join(userDataPath, 'data');
 process.env.TOOLS_BRANDING_DIR = path.join(userDataPath, 'branding');
 process.env.TOOLS_PROMO_CACHE_DIR = path.join(userDataPath, 'cache', 'home-videos');
@@ -34,7 +38,6 @@ if (app.isPackaged) {
     process.env.TOOLS_MEDIA_DIR = path.join(userDataPath, 'media');
 }
 process.env.TOOLS_DESKTOP_RUNTIME = '1';
-const electronLogRoot = path.join(userDataPath, 'logs');
 const desktopLicenseStatePath = path.join(userDataPath, 'desktop-license.json');
 const desktopLicensePublicStatusPath = path.join(userDataPath, 'desktop-license-public-status.json');
 const desktopLicenseRequestPath = path.join(userDataPath, 'desktop-license-request.json');
@@ -52,9 +55,9 @@ const desktopLicenseClient = createDesktopLicenseClient({
 const runtimeStatusPath = path.join(electronLogRoot, 'runtime-status.json');
 const runtimeCommandPath = path.join(electronLogRoot, 'runtime-command.json');
 const isPortableWindows = process.platform === 'win32' && Boolean(process.env.PORTABLE_EXECUTABLE_FILE);
-// 绿色版 EXE 的位置：刚完成自动更新时是被替换的原文件（当前进程仍从临时的 .update.exe 运行）
-const portableExePath = portableSwap?.swapped ? portableSwap.target : process.env.PORTABLE_EXECUTABLE_FILE;
-if (portableSwap) console.log('[Updater] Portable swap:', JSON.stringify(portableSwap));
+// 更新启动时进程仍从临时 EXE 运行，后续更新应继续使用原文件路径。
+const portableRunningExePath = process.env.PORTABLE_EXECUTABLE_FILE;
+const portableExePath = portableSwap?.target || portableRunningExePath;
 const latestReleaseUrl = 'https://github.com/fanxiaolongx-max/Dragon-Platform/releases/latest';
 process.env.TOOLS_LOG_DIR = electronLogRoot;
 if (process.env.TOOLS_DAILY_LOGS === undefined) {
@@ -981,8 +984,15 @@ function registerDesktopIpcHandlers() {
 function scheduleStartupUpdateCheck() {
     if (!app.isPackaged) return;
     if (isPortableWindows) {
-        // 上次更新留下的 .old / .update.exe：现在已不在使用，清掉
-        try { require('./desktop-portable-updater').cleanupPortableLeftovers({ exePath: portableExePath, userDataDir: userDataPath }); } catch (_) {}
+        if (!portableSwap || portableSwap.swapped) {
+            try {
+                require('./desktop-portable-updater').cleanupPortableLeftovers({
+                    exePath: portableExePath,
+                    runningExePath: portableRunningExePath,
+                    userDataDir: userDataPath
+                });
+            } catch (_) {}
+        }
         setTimeout(() => runPortableUpdaterStep('check'), 3500);
         return;
     }

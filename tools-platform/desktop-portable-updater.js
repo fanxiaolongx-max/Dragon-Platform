@@ -3,7 +3,7 @@
 // electron-updater 只支持安装版：它下载 NSIS 安装包静默重装到安装目录；便携版没有安装目录，
 // electron-builder 也不给便携版生成 app-update.yml。这里自己实现：
 //   检查：读 GitHub 最新发行版，找 Dragon-Platform-Portable-<版本>.exe；
-//   下载：写到原 EXE 旁边的 <名称>-<版本>.update.exe（目录不可写时放用户数据目录），带进度，校验大小与 SHA-256；
+//   下载：写到用户数据目录的 portable-updates，使用发行资产名，校验大小与 SHA-256；
 //   安装：启动新 EXE 并带上旧进程 pid 后退出。旧版 NSIS 启动器运行期间锁着自己的 EXE（不允许改名），
 //        所以由新版在启动最早期等旧进程全部退出后，把旧 EXE 改名为 .old、把自己复制回原文件名；
 //        以后从原位置启动的就是新版，残留的 .old / .update.exe 下次启动时清理。
@@ -26,17 +26,6 @@ function compareVersions(a, b) {
 function parseRepo(releaseUrl) {
     const match = String(releaseUrl || '').match(/github\.com\/([^/]+)\/([^/]+)/);
     return match ? { owner: match[1], repo: match[2] } : null;
-}
-
-function writableDir(dir, fsImpl) {
-    try {
-        const probe = path.join(dir, `.dragon-update-probe-${process.pid}`);
-        fsImpl.writeFileSync(probe, '');
-        fsImpl.unlinkSync(probe);
-        return true;
-    } catch {
-        return false;
-    }
 }
 
 function createPortableUpdater({
@@ -71,30 +60,23 @@ function createPortableUpdater({
             sha256: digest ? digest[1].toLowerCase() : '',
             releaseNotes: String(data.body || '')
         };
-        if (downloadedPath && !downloadedPath.includes(`-${latestVersion}.update.exe`)) downloadedPath = '';
+        if (downloadedPath && path.basename(downloadedPath) !== stagedName(release)) downloadedPath = '';
         return onStatus({ state: 'available', latestVersion, releaseNotes: release.releaseNotes, message: `发现新版本 ${latestVersion}`, progress: 0 });
-    }
-
-    function targetPath() {
-        const dir = path.dirname(exePath);
-        const stem = path.basename(exePath, path.extname(exePath)).replace(/-\d+\.\d+\.\d+$/, '');
-        const base = `${stem}-${release.version}.update.exe`;
-        if (writableDir(dir, fsImpl)) return path.join(dir, base);
-        const fallback = path.join(userDataDir, 'portable-updates');
-        fsImpl.mkdirSync(fallback, { recursive: true });
-        return path.join(fallback, base);
     }
 
     async function download() {
         if (!release) throw new Error('请先检查并确认有可用更新');
         if (downloading) return downloading;
         downloading = (async () => {
-            const finalPath = targetPath();
+            const downloadingRelease = release;
+            const dir = path.join(userDataDir, 'portable-updates');
+            fsImpl.mkdirSync(dir, { recursive: true });
+            const finalPath = path.join(dir, stagedName(downloadingRelease));
             const partPath = `${finalPath}.part`;
-            onStatus({ state: 'downloading', message: '正在准备下载更新...', progress: 0, total: release.size, transferred: 0 });
-            const res = await fetchImpl(release.url, { headers: { 'User-Agent': 'DragonClaw-Portable-Updater' } });
+            onStatus({ state: 'downloading', message: '正在准备下载更新...', progress: 0, total: downloadingRelease.size, transferred: 0 });
+            const res = await fetchImpl(downloadingRelease.url, { headers: { 'User-Agent': 'DragonClaw-Portable-Updater' } });
             if (!res.ok || !res.body) throw new Error(`下载失败（HTTP ${res.status}）`);
-            const total = Number(res.headers?.get?.('content-length')) || release.size;
+            const total = Number(res.headers?.get?.('content-length')) || downloadingRelease.size;
             const hash = crypto.createHash('sha256');
             const fd = fsImpl.openSync(partPath, 'w');
             let transferred = 0;
@@ -120,14 +102,14 @@ function createPortableUpdater({
                 fsImpl.closeSync(fd);
             }
             const actual = hash.digest('hex');
-            if ((release.size && transferred !== release.size) || (release.sha256 && actual !== release.sha256)) {
+            if ((downloadingRelease.size && transferred !== downloadingRelease.size) || (downloadingRelease.sha256 && actual !== downloadingRelease.sha256)) {
                 try { fsImpl.unlinkSync(partPath); } catch { /* ignore */ }
                 throw new Error('下载的更新文件校验失败，请重试');
             }
             try { fsImpl.unlinkSync(finalPath); } catch { /* 不存在 */ }
             fsImpl.renameSync(partPath, finalPath);
             downloadedPath = finalPath;
-            onStatus({ state: 'downloaded', latestVersion: release.version, message: '更新已下载，重启后生效', progress: 100, transferred, total });
+            onStatus({ state: 'downloaded', latestVersion: downloadingRelease.version, message: '更新已下载，重启后生效', progress: 100, transferred, total });
             return finalPath;
         })();
         try { return await downloading; } finally { downloading = null; }
@@ -144,12 +126,29 @@ function createPortableUpdater({
     return { check, download, install, get release() { return release; }, get downloadedPath() { return downloadedPath; } };
 }
 
+function stagedName(release) {
+    return release.name.replace(/\.exe$/i, '.update.exe');
+}
+
 function pidAlive(pid) {
     try { process.kill(pid, 0); return true; } catch (error) { return error.code === 'EPERM'; }
 }
 
 function sleepSync(ms) {
     Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+function renameWithRetry(fsImpl, from, to, sleep) {
+    for (let attempt = 0; ; attempt += 1) {
+        try {
+            fsImpl.renameSync(from, to);
+            return;
+        } catch (error) {
+            // Windows can report both sharing conflicts and permanent access failures with these codes.
+            if (attempt === 5 || !['EBUSY', 'EACCES', 'EPERM'].includes(error.code)) throw error;
+            sleep(200);
+        }
+    }
 }
 
 /**
@@ -161,33 +160,60 @@ function completePortableSwap({ argv = process.argv, selfPath = process.env.PORT
     const swapArg = argv.find(arg => arg.startsWith(SWAP_ARG));
     if (!waitArg && !swapArg) return null;
     const pids = (waitArg ? waitArg.slice(WAIT_ARG.length) : '').split(',').map(Number).filter(n => Number.isInteger(n) && n > 0);
-    for (let waited = 0; pids.some(alive) && waited < limitMs; waited += 200) sleep(200);
+    for (let waited = 0; waited < limitMs && pids.some(alive); waited += 200) sleep(Math.min(200, limitMs - waited));
     if (!swapArg || !selfPath) return { swapped: false, target: '' };
     let target = '';
     try { target = Buffer.from(swapArg.slice(SWAP_ARG.length), 'base64url').toString(); } catch { target = ''; }
     if (!target || path.resolve(target) === path.resolve(selfPath)) return { swapped: false, target };
+    if (pids.some(alive)) {
+        return { swapped: false, target, stage: 'wait', code: 'ETIMEDOUT', error: '等待旧进程退出超时' };
+    }
+    const replacement = path.join(path.dirname(target), `.dragon-update-${crypto.randomUUID()}.part`);
+    const backup = `${target}.old`;
+    let stage = 'copy';
+    let movedOriginal = false;
     try {
-        if (fsImpl.existsSync(target)) fsImpl.renameSync(target, `${target}.old`);
-        fsImpl.copyFileSync(selfPath, target);
+        fsImpl.copyFileSync(selfPath, replacement);
+        if (fsImpl.existsSync(target)) {
+            stage = 'backup';
+            renameWithRetry(fsImpl, target, backup, sleep);
+            movedOriginal = true;
+        }
+        stage = 'replace';
+        renameWithRetry(fsImpl, replacement, target, sleep);
         return { swapped: true, target };
     } catch (error) {
-        return { swapped: false, target, error: error.message };
+        const result = { swapped: false, target, stage, code: error.code, error: error.message };
+        if (movedOriginal) {
+            try { renameWithRetry(fsImpl, backup, target, sleep); } catch (restoreError) {
+                result.error += `；恢复原文件失败：${restoreError.message}`;
+            }
+        }
+        return result;
+    } finally {
+        try { fsImpl.unlinkSync(replacement); } catch { /* 已移动或无法清理 */ }
     }
 }
 
 /** 从原位置启动时清理上次更新留下的 .old 与已用过的 .update.exe（正在运行的文件跳过）。 */
-function cleanupPortableLeftovers({ exePath = process.env.PORTABLE_EXECUTABLE_FILE, userDataDir = '', fsImpl = fs } = {}) {
+function cleanupPortableLeftovers({
+    exePath = process.env.PORTABLE_EXECUTABLE_FILE, runningExePath = exePath, userDataDir = '', fsImpl = fs
+} = {}) {
     if (!exePath) return [];
     const removed = [];
-    const dirs = [path.dirname(exePath), userDataDir && path.join(userDataDir, 'portable-updates')].filter(Boolean);
-    for (const dir of dirs) {
-        let names = [];
-        try { names = fsImpl.readdirSync(dir); } catch { continue; }
-        for (const name of names) {
-            const file = path.join(dir, name);
-            if (path.resolve(file) === path.resolve(exePath)) continue;
-            if (!/\.update\.exe(\.part)?$|\.exe\.old$/i.test(name)) continue;
-            try { fsImpl.unlinkSync(file); removed.push(file); } catch { /* 仍在使用，下次再清 */ }
+    const files = [`${exePath}.old`];
+    if (userDataDir) {
+        const dir = path.join(userDataDir, 'portable-updates');
+        try {
+            for (const name of fsImpl.readdirSync(dir)) {
+                if (/\.update\.exe(\.part)?$/i.test(name)) files.push(path.join(dir, name));
+            }
+        } catch { /* 更新目录尚未创建 */ }
+    }
+    const active = [exePath, runningExePath].filter(Boolean).map(file => path.resolve(file));
+    for (const file of files) {
+        if (!active.includes(path.resolve(file))) {
+            try { fsImpl.unlinkSync(file); removed.push(file); } catch { /* 仍在使用或已不存在 */ }
         }
     }
     return removed;

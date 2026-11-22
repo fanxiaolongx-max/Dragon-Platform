@@ -23,6 +23,7 @@ icon: 📣
    - 互动人设（interactionPrompt）：成员 @助手 时的语气、可以发起的小活动（每日一问、功能竞猜、用法征集）。
    微信只能选联系人（不能推群），且对方近期给助理发过消息才能收到推送。
 3. **建计划**：用户想快速开始或要「默认/内置提示词」时，先 `ops_list_presets` 看内置模板（如「AI 月报 · 每日亮点」「每周三招」「互动小测验」「月底冲刺提醒」「亮点卡片」），用 `ops_save_plan` 传 `presetId` + `targets` 一键创建，再按用户意见微调。也可以从零用 `ops_save_plan` 保存。新计划默认 `enabled=false`、`sendMode=draft`，先测试再启用。常见组合：
+   - 点名介绍某个功能时（如会话共享、长期记忆、上下文压缩），从 `ops_list_presets` 查看专题，再用 `ops_materials` 核对亮点 ID。在计划中设置 `options.highlightTopic` 和 `options.highlightId` 固定介绍该项，切回轮换时将 `highlightId` 设为空字符串。Dragon Claw 工作技巧卡片默认介绍会话共享。
    - 功能亮点轮播：素材 `highlights`，系统每次从内置亮点库（`options.highlightTopic`，默认 AI 月报）随机抽 `highlightCount` 个、避开最近推过的，并按 `options.angle`（random 每次换一种：一招鲜、痛点对比、场景故事、小测验、误区澄清、今日挑战）组织写法。`ops_materials` 的 `highlights` 可查看全部亮点。
    - 每日小技巧：AI 模式，素材 `features`，提示词写「挑一个最近上线或常被忽略的功能，讲清用途、入口和一个使用技巧，结尾抛一个小问题」。
    - 每日小视频：素材 `videos`（可限定 `options.videoCategory`），系统会自动挑一个这个计划还没推过的最新视频并附链接。

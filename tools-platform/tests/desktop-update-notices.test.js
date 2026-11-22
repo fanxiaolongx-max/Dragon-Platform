@@ -12,7 +12,7 @@ function fixture(state = {}) {
     const ctx = { Date, setTimeout: fn => fn(), app: { getVersion: () => '2.0.0', isPackaged: true },
         readLaunchState: () => saved, writeLaunchState: value => { saved = value; },
         autoUpdater: { on: (name, fn) => events[name] = fn, checkForUpdates: async () => { ctx.checks++; } },
-        checks: 0, isPortableWindows: false, updateStatus: {}, ipcMain: { handle: (name, fn) => handlers[name] = fn },
+        checks: 0, isPortableWindows: false, portableSwap: null, updateStatus: {}, ipcMain: { handle: (name, fn) => handlers[name] = fn },
         broadcastUpdateStatus: patch => ctx.updateStatus = { ...ctx.updateStatus, ...patch },
         stopUpdateProgressBalloons() {}, startUpdateProgressBalloons() {}, formatUpdaterError: e => ({ message: e.message }) };
     vm.createContext(ctx); vm.runInContext(functions, ctx);

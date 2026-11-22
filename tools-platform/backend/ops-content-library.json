@@ -125,6 +125,41 @@
           "howTo": "对话面板右上角打开「开发者」→ 点「⛶ 全屏」→ 划选看不懂的内容 → 点「✦ AI 对话」。"
         }
       ]
+    },
+    "dragon-claw": {
+      "name": "Dragon Claw 工作技巧",
+      "entry": "/",
+      "summary": "用共享对话交接工作、用长期记忆复用偏好，在长对话中管理上下文。",
+      "highlights": [
+        {
+          "id": "share-chat",
+          "title": "会话共享：让同事接着这段对话做",
+          "pain": "把最后一条回答发给同事，对方还得问目标是什么、哪些方案已经试过。",
+          "value": "把同事邀请到同一段对话。他可以翻看之前的问题和回答，直接补充条件或追问下一步，省去重新向 AI 交代背景的时间。",
+          "howTo": "在首页 Dragon Claw 的历史列表右键自己的对话，选择「共享」并邀请同事。同事接受后，从「共享对话」打开，接着提问。"
+        },
+        {
+          "id": "memory",
+          "title": "长期记忆：下次对话也沿用工作偏好",
+          "pain": "每次开新对话，都得再说一遍自己喜欢的输出格式。",
+          "value": "把反复使用的偏好保存为账号记忆，新对话也可以沿用。例如，约定写周报时先列风险，再列待办。",
+          "howTo": "告诉 Dragon Claw「记住：以后帮我写周报时先列风险，再列待办」，核对并确认记忆审批卡。"
+        },
+        {
+          "id": "compact",
+          "title": "上下文管理：长对话可以压缩后继续",
+          "pain": "排查了很多轮，前面的试错占用了上下文，另开对话又得从头交代。",
+          "value": "把较早的讨论整理成摘要，让后续问题用得上前面的结论。需要核对细节时，完整历史和工具记录仍然可查。",
+          "howTo": "在当前长对话输入 /compact，压缩完成后继续提问。"
+        },
+        {
+          "id": "saved-groups",
+          "title": "常用群组：把经常协作的人一次选好",
+          "pain": "每次共享排查过程，都要重新找同一批同事。",
+          "value": "可以把选好的成员保存成常用群组，下次共享另一段对话时直接选这组人。",
+          "howTo": "在对话共享窗口勾选成员，点击「把已选的人存为群组」，下次邀请时在常用群组中选择。"
+        }
+      ]
     }
   },
   "angles": [
@@ -189,6 +224,30 @@
       "sources": ["highlights"],
       "options": { "highlightTopic": "ai-report", "highlightCount": 1, "angle": "random" },
       "schedule": { "type": "daily", "times": ["10:00"], "workdaysOnly": true },
+      "sendMode": "draft"
+    },
+    {
+      "id": "dragon-claw-card",
+      "name": "Dragon Claw · 工作技巧卡片",
+      "description": "默认介绍会话共享，可改选其他工作技巧或按专题轮换。",
+      "contentMode": "template",
+      "template": "✨ Dragon Claw 工作技巧 · {{highlight_title}}\n\n{{highlight_pain}}\n\n{{highlight}}\n\n👉 {{highlight_howto}}\n{{highlight_link}}",
+      "sources": [
+        "highlights"
+      ],
+      "options": {
+        "highlightTopic": "dragon-claw",
+        "highlightCount": 1,
+        "angle": "random",
+        "highlightId": "share-chat"
+      },
+      "schedule": {
+        "type": "daily",
+        "times": [
+          "10:00"
+        ],
+        "workdaysOnly": true
+      },
       "sendMode": "draft"
     }
   ]

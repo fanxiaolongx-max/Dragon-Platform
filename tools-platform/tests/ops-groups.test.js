@@ -188,6 +188,13 @@ test('内置内容库：AI 月报亮点与模板齐全，模板一键建计划�
     assert.ok(library.listAngles().length >= 5);
     for (const preset of library.listPresets()) {
         const plan = await inTenant(() => opsService.createFromPreset(preset.id, { targets: [GROUP] }, 'admin'));
+        if (preset.id === 'dragon-claw-card') {
+            assert.equal(plan.options.highlightId, 'share-chat');
+            const draft = await inTenant(() => opsService.generate(plan));
+            assert.match(draft.content, /会话共享/);
+            plan.options.highlightId = 'compact';
+            assert.match((await inTenant(() => opsService.generate(plan))).content, /\/compact/);
+        }
         assert.equal(plan.name, preset.name);
         assert.equal(plan.enabled, false);
         assert.deepEqual(plan.sources, preset.sources);

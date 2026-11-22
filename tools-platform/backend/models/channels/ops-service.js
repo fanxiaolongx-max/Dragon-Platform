@@ -89,7 +89,7 @@ function aiContext({ plan, targets, found }) {
     ];
     if (found.settings.publicBaseUrl) lines.push('', `【平台访问地址】${found.settings.publicBaseUrl}（介绍功能时可拼接页面路径给出完整链接）`);
     if (found.highlights?.length) {
-        lines.push('', `【功能亮点（${found.highlightTopic?.name || ''}，本次随机抽取，只介绍这些）】`);
+        lines.push('', `【功能亮点（${found.highlightTopic?.name || ''}，本次选用，只介绍这些）】`);
         found.highlights.forEach((item, index) => lines.push(`${index + 1}. ${item.title}`, `   以前的麻烦：${item.pain}`, `   现在的做法：${item.value}`, `   怎么用：${item.howTo}`));
         if (found.highlightTopic?.link) lines.push(`入口链接：${found.highlightTopic.link}`);
         if (found.highlightTopic?.summary) lines.push(`（背景：${found.highlightTopic.summary}）`);

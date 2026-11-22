@@ -229,6 +229,7 @@ function normalizeOptions(input = {}) {
         videoCategory: clip(input.videoCategory, 120),
         featureDays: Math.min(90, Math.max(1, Math.round(Number(input.featureDays) || 7))),
         highlightTopic: clip(input.highlightTopic, 60) || 'ai-report',
+        highlightId: clip(input.highlightId, 80),
         highlightCount: Math.min(5, Math.max(1, Math.round(Number(input.highlightCount) || 1))),
         angle: clip(input.angle, 40) || 'random'
     };

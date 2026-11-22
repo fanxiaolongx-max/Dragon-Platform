@@ -1,5 +1,5 @@
 // 内置运营内容库（backend/ops-content-library.json，受版本控制）：
-// - topics：各专题的功能亮点（目前是 AI 月报），每次运行随机抽取，避开该计划最近推过的；
+// - topics：各专题的功能亮点，每次运行随机抽取，避开该计划最近推过的；
 // - angles：运营角度（一招鲜、小测验、场景故事……），random 时每次换一种写法，避免天天一个腔调；
 // - presets：内置运营计划模板（提示词 + 素材 + 定时），页面或 Dragon Claw 一键套用。
 const fs = require('fs');
@@ -15,7 +15,7 @@ function library() {
 }
 
 function listTopics() {
-    return Object.entries(library().topics).map(([id, topic]) => ({ id, name: topic.name, entry: topic.entry, summary: topic.summary, count: topic.highlights.length }));
+    return Object.entries(library().topics).map(([id, topic]) => ({ id, name: topic.name, entry: topic.entry, summary: topic.summary, count: topic.highlights.length, highlights: topic.highlights.map(({ id, title }) => ({ id, title })) }));
 }
 
 function getTopic(id) {
@@ -52,6 +52,11 @@ function shuffle(list, random) {
 async function pickHighlights(plan, { random = Math.random } = {}) {
     const topic = getTopic(plan.options?.highlightTopic || 'ai-report') || getTopic('ai-report');
     if (!topic) return { topic: null, items: [] };
+    if (plan.options?.highlightId) {
+        const selected = topic.highlights.find(item => item.id === plan.options.highlightId);
+        if (!selected) throw new Error('所选亮点不属于当前专题，请重新选择');
+        return { topic, items: [selected] };
+    }
     const count = Math.min(topic.highlights.length, plan.options?.highlightCount || 1);
     const window = Math.max(1, Math.floor((topic.highlights.length * 0.7) / count));
     const recent = plan.id ? await opsRepo.recentRunMetas(plan.id, window) : [];

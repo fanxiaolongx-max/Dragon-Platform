@@ -78,11 +78,11 @@ test('check reports up to date when the release is not newer or has no portable 
     await assert.rejects(updater.check(), /HTTP 403/);
 });
 
-test('download streams next to the EXE with rising progress, verifies the hash, and stages a .update.exe', async () => {
-    const { updater, statuses, dir } = setup();
+test('download streams into the update cache with rising progress and verifies the hash', async () => {
+    const { updater, statuses, userData } = setup();
     await updater.check();
     const file = await updater.download();
-    assert.equal(file, path.join(dir, 'Dragon-Platform-Portable-1.0.600.update.exe'));
+    assert.equal(file, path.join(userData, 'portable-updates', 'Dragon-Platform-Portable-1.0.600.update.exe'));
     assert.deepEqual(fs.readFileSync(file), payload);
     assert.equal(fs.existsSync(`${file}.part`), false);
     const progress = statuses.filter(s => s.state === 'downloading').map(s => s.progress);
@@ -95,19 +95,24 @@ test('download streams next to the EXE with rising progress, verifies the hash, 
 
 test('a corrupted or truncated download is rejected and removed', async () => {
     for (const release of [releaseJson({ digest: `sha256:${'0'.repeat(64)}` }), releaseJson({ size: payload.length + 1, digest: '' })]) {
-        const { updater, dir } = setup({ fetch: { release } });
+        const { updater, userData } = setup({ fetch: { release } });
         await updater.check();
         await assert.rejects(updater.download(), /校验失败/);
-        assert.deepEqual(fs.readdirSync(dir), ['Dragon-Platform-Portable-1.0.546.exe'], 'no partial or staged file left');
+        assert.deepEqual(fs.readdirSync(path.join(userData, 'portable-updates')), [], 'no partial or staged file left');
         assert.throws(() => updater.install(), /尚未下载完成/);
     }
 });
 
-test('when the EXE folder is not writable the update is staged under user data', async () => {
-    const { updater, dir, userData } = setup({ updater: { fsImpl: { ...fs, writeFileSync: (file, ...rest) => { if (path.dirname(file) === dir) throw Object.assign(new Error('EACCES'), { code: 'EACCES' }); return fs.writeFileSync(file, ...rest); } } } });
+test('updates from a legacy chained EXE name use only the next release name for staging', async () => {
+    const exePath = path.join(tmp(), 'Dragon-Platform-Portable-1.0.400.update-1.0.546.update.exe');
+    fs.writeFileSync(exePath, 'old build');
+    const { updater, userData, spawns } = setup({ updater: { exePath } });
     await updater.check();
-    const file = await updater.download();
-    assert.equal(path.dirname(file), path.join(userData, 'portable-updates'));
+    assert.equal(await updater.download(), path.join(userData, 'portable-updates', 'Dragon-Platform-Portable-1.0.600.update.exe'));
+    updater.install();
+    const result = completePortableSwap({ argv: spawns[0].args, selfPath: spawns[0].file, alive: () => false });
+    assert.deepEqual(result, { swapped: true, target: exePath });
+    assert.deepEqual(fs.readFileSync(exePath), payload);
 });
 
 test('install launches the staged EXE detached with the pids to wait for and the original path, then quits', async () => {
@@ -141,20 +146,76 @@ test('the new build waits for the old processes, then replaces the original EXE 
     // Ordinary launches and self-targets do nothing.
     assert.equal(completePortableSwap({ argv: ['app'], selfPath: self }), null);
     assert.equal(completePortableSwap({ argv: ['app', `${SWAP_ARG}${Buffer.from(self).toString('base64url')}`], selfPath: self, alive: () => false }).swapped, false);
-    // A process that never exits does not hang startup forever.
-    let waited = 0;
-    completePortableSwap({ argv: ['app', `${WAIT_ARG}111`], selfPath: self, alive: () => true, sleep: ms => { waited += ms; }, limitMs: 1000 });
-    assert.equal(waited, 1000);
 });
 
-test('leftovers from a finished update are cleaned on the next launch, never the running EXE', () => {
+test('a timeout leaves the original EXE untouched while an old process is still running', () => {
+    const dir = tmp();
+    const target = path.join(dir, 'Dragon.exe'), selfPath = path.join(dir, 'cached.exe');
+    fs.writeFileSync(target, 'old build');
+    fs.writeFileSync(selfPath, 'new build');
+    let waited = 0;
+    const result = completePortableSwap({
+        argv: [`${WAIT_ARG}111`, `${SWAP_ARG}${Buffer.from(target).toString('base64url')}`],
+        selfPath, alive: () => true, sleep: ms => { waited += ms; }, limitMs: 1050
+    });
+    assert.equal(waited, 1050);
+    assert.deepEqual(result, { swapped: false, target, stage: 'wait', code: 'ETIMEDOUT', error: '等待旧进程退出超时' });
+    assert.equal(fs.readFileSync(target, 'utf8'), 'old build');
+    assert.deepEqual(fs.readdirSync(dir).sort(), ['Dragon.exe', 'cached.exe']);
+});
+
+test('a transient sharing conflict during rename is retried', () => {
+    const dir = tmp();
+    const target = path.join(dir, 'Dragon.exe'), selfPath = path.join(dir, 'cached.exe');
+    fs.writeFileSync(target, 'old build');
+    fs.writeFileSync(selfPath, 'new build');
+    let retries = 0;
+    const fsImpl = { ...fs, renameSync(source, destination) {
+        if (source === target && retries < 2) throw Object.assign(new Error('file in use'), { code: 'EBUSY' });
+        fs.renameSync(source, destination);
+    } };
+    const result = completePortableSwap({
+        argv: [`${SWAP_ARG}${Buffer.from(target).toString('base64url')}`],
+        selfPath, fsImpl, sleep: () => { retries += 1; }
+    });
+    assert.equal(retries, 2);
+    assert.deepEqual(result, { swapped: true, target });
+    assert.equal(fs.readFileSync(target, 'utf8'), 'new build');
+});
+
+test('a failed replacement restores the original EXE and can be retried', () => {
+    const dir = tmp();
+    const target = path.join(dir, 'Dragon.exe'), selfPath = path.join(dir, 'cached.exe');
+    fs.writeFileSync(target, 'old build');
+    fs.writeFileSync(selfPath, 'new build');
+    const options = { argv: [`${SWAP_ARG}${Buffer.from(target).toString('base64url')}`], selfPath, alive: () => false, sleep: () => {} };
+    const fsImpl = { ...fs, renameSync(source, destination) {
+        if (source.endsWith('.part')) throw Object.assign(new Error('access denied'), { code: 'EACCES' });
+        fs.renameSync(source, destination);
+    } };
+    assert.deepEqual(completePortableSwap({ ...options, fsImpl }), { swapped: false, target, stage: 'replace', code: 'EACCES', error: 'access denied' });
+    assert.equal(fs.readFileSync(target, 'utf8'), 'old build');
+    assert.deepEqual(fs.readdirSync(dir).sort(), ['Dragon.exe', 'cached.exe']);
+    assert.deepEqual(completePortableSwap(options), { swapped: true, target });
+    assert.equal(fs.readFileSync(target, 'utf8'), 'new build');
+});
+
+test('cleanup removes the target backup and cached files while preserving running and neighboring EXEs', () => {
     const dir = tmp(), userData = tmp();
     const exe = path.join(dir, 'Dragon-Platform-Portable-1.0.546.exe');
     for (const name of ['Dragon-Platform-Portable-1.0.546.exe', 'Dragon-Platform-Portable-1.0.546.exe.old', 'Dragon-Platform-Portable-1.0.600.update.exe', 'Dragon-Platform-Portable-1.0.600.update.exe.part', 'notes.txt']) fs.writeFileSync(path.join(dir, name), 'x');
-    fs.mkdirSync(path.join(userData, 'portable-updates'));fs.writeFileSync(path.join(userData, 'portable-updates', 'Dragon-Platform-Portable-1.0.600.update.exe'), 'x');
-    const removed = cleanupPortableLeftovers({ exePath: exe, userDataDir: userData });
-    assert.equal(removed.length, 4);
-    assert.deepEqual(fs.readdirSync(dir).sort(), ['Dragon-Platform-Portable-1.0.546.exe', 'notes.txt']);
+    const cacheDir = path.join(userData, 'portable-updates');
+    const runningExePath = path.join(cacheDir, 'Dragon-Platform-Portable-1.0.600.update.exe');
+    const cachedPart = path.join(cacheDir, 'Dragon-Platform-Portable-1.0.650.update.exe.part');
+    fs.mkdirSync(cacheDir);
+    fs.writeFileSync(runningExePath, 'x');
+    fs.writeFileSync(cachedPart, 'x');
+    const removed = cleanupPortableLeftovers({ exePath: exe, runningExePath, userDataDir: userData });
+    assert.deepEqual(removed.sort(), [`${exe}.old`, cachedPart].sort());
+    assert.ok(fs.existsSync(exe));
+    assert.ok(fs.existsSync(runningExePath));
+    assert.ok(fs.existsSync(path.join(dir, 'Dragon-Platform-Portable-1.0.600.update.exe')));
+    assert.deepEqual(cleanupPortableLeftovers({ exePath: exe, userDataDir: userData }), [runningExePath]);
 });
 
 test('every root module electron-main.js requires is packaged (a missing file once broke 1.0.544)', () => {

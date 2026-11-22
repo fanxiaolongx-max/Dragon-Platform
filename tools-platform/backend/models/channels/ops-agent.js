@@ -38,6 +38,7 @@ const PLAN_PROPS = {
             videoCategory: { type: 'string', description: '只从该媒体分类（名称或 id）挑视频，留空为全部公开分类' },
             featureDays: { type: 'integer', description: '新功能回看天数，默认 7' },
             highlightTopic: { type: 'string', description: '亮点专题，默认 ai-report（AI 月报）' },
+            highlightId: { type: 'string', description: '指定当前专题中的一个亮点 ID（通过 ops_materials 查询），留空按专题随机轮换' },
             highlightCount: { type: 'integer', description: '每次抽几个亮点（1~5），默认 1' },
             angle: { type: 'string', description: '运营角度：random（每次随机）或 tip / pain / story / quiz / myth / challenge' }
         }
