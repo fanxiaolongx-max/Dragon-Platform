@@ -172,6 +172,23 @@ app.whenReady().then(async () => {
         res = await dragHandle('#dcTerminalPanel', 150);
         assert.ok(res.after <= res.before - 130, `narrow terminal shrink: ${res.before} -> ${res.after}`);
 
+        win.setSize(1440, 950);
+        await until(() => ev('innerWidth > 860'));
+        await ev(fs.readFileSync(path.join(root, 'frontend/js/home/dragon-claw.js'), 'utf8'));
+        await until(() => ev('!!window.DragonClaw'));
+        await ev("document.querySelector('[data-term-action=close]').click()");
+        await ev("window.runCommand = () => dispatchEvent(new CustomEvent('dragon-claw:command', { detail: { type: 'command_start', command: 'pwd' } })); runCommand()");
+        assert.equal(await ev('DragonTerminalSidebar.isOpen()'), false);
+        await ev("window.browserUpdate = () => dispatchEvent(new CustomEvent('dragon-claw:browser-update', {detail:{tool:'browser_navigate'}})); browserUpdate()");
+        assert.equal(await ev('DragonBrowserSidebar.isOpen()'), true);
+        await ev('dcBrowserToggle.click(); browserUpdate()');
+        assert.equal(await ev('DragonBrowserSidebar.isOpen()'), false);
+        await ev('dcBrowserToggle.click()');
+        assert.equal(await ev('DragonBrowserSidebar.isOpen()'), true);
+        await ev('dcBrowserToggle.click(); DragonClaw.newChat(); runCommand()');
+        assert.equal(await ev('DragonTerminalSidebar.isOpen()'), true);
+        await ev('browserUpdate()');
+        assert.equal(await ev('DragonBrowserSidebar.isOpen()'), true);
         console.log('PASS: all workspace right sidebars resize via pointer drag in desktop and narrow layouts.');
     } finally {
         win?.destroy();

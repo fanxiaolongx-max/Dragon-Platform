@@ -20,7 +20,7 @@ const REPORT_SCOPED = ['report.db'];
 const SKIPPED_FILE = /backup|before|corrupt|repaired|archive|restore|hosted-simulated-business|\.bak|\.old|\.tmp/i;
 const DB_LABELS = {
     'tools.db': '平台业务主库',
-    'report.db': '历史兼容报表库',
+    'report.db': '报表指标与催办业务库',
     'ai-knowledge.db': 'AI 知识库',
     'datacom-knowledge.db': '数通知识库',
     'requirements.db': '需求广场库',
@@ -41,7 +41,7 @@ function describeTablePurpose(table) {
     try {
         const meta = require('./db-explorer-catalog').describeTable(clean);
         if (!meta?.documented || !meta.description) return '';
-        return String(meta.description).split(/[。；;\n]/)[0].trim().slice(0, 28);
+        return String(meta.description).split(/[。；;\n]/)[0].trim().slice(0, 36);
     } catch {
         return '';
     }
@@ -329,13 +329,36 @@ async function readTable(ctx, args) {
         const selected = Array.isArray(args.columns) && args.columns.length ? args.columns : available.slice(0, 16).map(row => row.name);
         if (!selected.length || selected.length > 16 || selected.some(name => !available.some(row => row.name === name))) throw fail('列不存在、属于敏感字段，或超过单次 16 列上限');
         const params = [];
-        let where = '';
-        if (args.filter) {
-            if (!selected.includes(args.filter.column) || !['eq', 'contains'].includes(args.filter.op)) throw fail('筛选仅支持本次所选列的 eq / contains');
-            if (!['string', 'number', 'boolean'].includes(typeof args.filter.value)) throw fail('筛选值必须为字符串、数字或布尔值');
-            where = args.filter.op === 'eq' ? ` WHERE ${quote(args.filter.column)} = ?` : ` WHERE instr(CAST(${quote(args.filter.column)} AS TEXT), ?) > 0`;
-            params.push(args.filter.value);
+        const whereClauses = [];
+        if (args.filter !== undefined && args.filter !== null) {
+            if (typeof args.filter !== 'object') throw fail('filter 必须为对象或数组');
         }
+        if (args.filters !== undefined && args.filters !== null && !args.operation) {
+            if (!Array.isArray(args.filters)) throw fail('filters 必须为数组');
+        }
+        const rawFilters = Array.isArray(args.filters) && !args.operation
+            ? args.filters
+            : (Array.isArray(args.filter) ? args.filter : (args.filter ? [args.filter] : []));
+        for (const item of rawFilters) {
+            if (!item || typeof item !== 'object') throw fail('筛选条件必须为包含 column、op 与 value 的对象');
+            const col = item.column;
+            const op = item.op;
+            const val = item.value;
+            if (!col || !available.some(row => row.name === col) || !['eq', 'contains'].includes(op)) {
+                throw fail('筛选列不存在、属于敏感字段，或操作仅支持 eq / contains');
+            }
+            if (!['string', 'number', 'boolean'].includes(typeof val)) {
+                throw fail('筛选值必须为字符串、数字或布尔值');
+            }
+            if (op === 'eq') {
+                whereClauses.push(`${quote(col)} = ?`);
+                params.push(val);
+            } else {
+                whereClauses.push(`instr(CAST(${quote(col)} AS TEXT), ?) > 0`);
+                params.push(val);
+            }
+        }
+        const where = whereClauses.length ? ` WHERE ${whereClauses.join(' AND ')}` : '';
         let orderClause = '';
         if (args.orderBy !== undefined && args.orderBy !== null) {
             if (typeof args.orderBy !== 'object' || Array.isArray(args.orderBy)) throw fail('orderBy 必须为包含 column 与可选 direction 的对象');

@@ -29,7 +29,7 @@ if (process.isMainFrame) contextBridge.exposeInMainWorld('DragonBrowser', {
         return () => ipcRenderer.removeListener('dragon-browser:uiv-import', listener);
     },
     onReveal: callback => {
-        const listener = () => callback();
+        const listener = (_event, reason) => callback(reason);
         ipcRenderer.on('dragon-browser:reveal', listener);
         return () => ipcRenderer.removeListener('dragon-browser:reveal', listener);
     },

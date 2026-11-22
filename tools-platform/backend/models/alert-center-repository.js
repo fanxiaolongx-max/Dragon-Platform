@@ -203,7 +203,7 @@ async function addEvent({
     return item;
 }
 
-async function listEvents({ status, eventType, severity, limit = 80 } = {}) {
+async function listEvents({ status, eventType, severity, before, warningsOnly, limit = 80 } = {}) {
     await ensureReady();
     const where = [];
     const params = [];
@@ -216,6 +216,11 @@ async function listEvents({ status, eventType, severity, limit = 80 } = {}) {
     if (eventType && eventType !== 'all') {
         where.push('event_type = ?');
         params.push(normalizeType(eventType));
+    }
+    if (warningsOnly) where.push("severity IN ('warn','error','critical')");
+    if (before) {
+        where.push('(datetime(created_at), rowid) < (SELECT datetime(created_at), rowid FROM alert_center_events WHERE id = ?)');
+        params.push(String(before));
     }
     if (severity && severity !== 'all') {
         where.push('severity = ?');

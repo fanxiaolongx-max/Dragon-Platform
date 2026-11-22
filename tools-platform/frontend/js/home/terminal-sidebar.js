@@ -118,7 +118,7 @@
             const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
             const cmd = IS_MAC ? event.metaKey : event.ctrlKey;
             const send = data => { event.preventDefault(); if (tab.kind === 'shell' && !tab.exited) (tab.pty === false ? localEdit(tab, data) : sendInput(tab, data)); return false; };
-            if (key === '`' && event.ctrlKey && !event.metaKey && !event.altKey) { event.preventDefault(); close(); return false; }
+            if (key === '`' && event.ctrlKey && !event.metaKey && !event.altKey) { event.preventDefault(); close(true); return false; }
             if ((key === 'c' && (event.metaKey || event.ctrlKey) && (term.hasSelection() || event.shiftKey)) || (key === 'Insert' && event.ctrlKey)) { event.preventDefault(); copyFrom(tab); return false; }
             if ((key === 'v' && (IS_MAC ? event.metaKey : event.ctrlKey)) || (key === 'Insert' && event.shiftKey)) {
                 if (tab.kind !== 'shell') { flashReadonly(); return false; }
@@ -421,7 +421,7 @@
         tab.term?.dispose(); tab.node.remove();
         api(`/sessions/${encodeURIComponent(id)}`, { method: 'DELETE' }).catch(() => {});
         // 关掉最后一个终端且没有 Agent 输出：收起面板
-        if (![...tabs.values()].some(visibleTab)) { activeId = 'agent'; renderTabs(); close(); return; }
+        if (![...tabs.values()].some(visibleTab)) { activeId = 'agent'; renderTabs(); close(true); return; }
         if (activeId === id) select(fallbackTabId()); else renderTabs();
     }
     let restoring = null;
@@ -459,7 +459,7 @@
         window.dispatchEvent(new Event('dragon-claw:sidebar-layout'));
     }
     async function show({ tab, auto = false } = {}) {
-        if (!panel) return;
+        if (!panel || (auto && window.DragonClaw?.panelDismissed?.('terminal'))) return;
         window.ChatFiles?.closePreview?.();
         window.DragonClawWorkspace?.closePanel?.();
         if (document.body.classList.contains('dc-browser-open')) window.DragonBrowserSidebar?.close?.();
@@ -471,11 +471,13 @@
             await restored;
             if (open && ![...tabs.values()].some(visibleTab) && isAdmin()) { await newTerminal(); if (!auto) tabs.get(activeId)?.term?.focus(); return; }
         }
+        if (!open) return;
         select(tab || activeId);
         if (!auto) tabs.get(activeId)?.term?.focus();
     }
-    function close() {
+    function close(userDismissed = false) {
         if (!open) return;
+        if (userDismissed) window.DragonClaw?.dismissPanel?.('terminal');
         open = false; menuNode.hidden = true; visibility();
     }
     function init() {
@@ -485,7 +487,9 @@
         toggle = document.createElement('button');
         toggle.type = 'button'; toggle.className = 'dc-ghost-btn'; toggle.id = 'dcTerminalToggle';
         toggle.setAttribute('aria-pressed', 'false');
-        toggle.textContent = L('终端', 'Terminal');
+        toggle.innerHTML = `<svg class="dc-btn-ico" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1.75" y="2.5" width="12.5" height="11" rx="2"/><path d="m4.5 6 2.5 2-2.5 2M9 10.5h3"/></svg><span class="dc-btn-label">${esc(L('终端', 'Terminal'))}</span>`;
+        toggle.title = L('终端', 'Terminal');
+        toggle.setAttribute('aria-label', L('终端', 'Terminal'));
         toggle.hidden = !isAdmin(); // 只有管理员能执行命令和打开终端
         browserToggle.after(toggle);
 
@@ -511,7 +515,7 @@
         renderMenu(); renderTabs();
 
         window.SidebarResize?.bind({ panel, cssVar: '--terminal-panel-width', storageKey: 'dragon_terminal_sidebar_width', defaultWidth: 560 });
-        toggle.addEventListener('click', () => open ? close() : show());
+        toggle.addEventListener('click', () => open ? close(true) : show());
         continueButton.addEventListener('click', async () => {
             const cwd = continuationDirectory();
             if (!cwd) return;
@@ -528,7 +532,7 @@
             const action = button.dataset.termAction;
             if (action === 'new') newTerminal();
             if (action === 'menu') { restoreSessions(); menuNode.hidden = !menuNode.hidden; }
-            if (action === 'close') close();
+            if (action === 'close') close(true);
             if (action === 'copy') copyFrom(tabs.get(activeId));
             if (action === 'clear') { const tab = tabs.get(activeId); tab?.term?.clear(); }
             if (action === 'interrupt') { const tab = tabs.get(activeId); if (tab?.kind === 'shell') api(`/sessions/${tab.id}/interrupt`, { method: 'POST' }).catch(error => showError(error.message)); }
@@ -566,13 +570,21 @@
         document.addEventListener('keydown', event => {
             if (event.key === 'Escape' && !menuNode.hidden) { menuNode.hidden = true; event.preventDefault(); }
             // Ctrl+` 切换终端面板（与常见编辑器一致）
-            if (event.key === '`' && event.ctrlKey && !event.metaKey && !event.altKey) { event.preventDefault(); open ? close() : show(); }
+            if (event.key === '`' && event.ctrlKey && !event.metaKey && !event.altKey) { event.preventDefault(); open ? close(true) : show(); }
         });
         new ResizeObserver(() => fitTab(tabs.get(activeId))).observe(body);
         window.addEventListener('dragon-claw:command', event => onCommand(event.detail));
         new MutationObserver(() => { for (const tab of tabs.values()) if (tab.term) tab.term.options.theme = theme(); })
             .observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-        window.addEventListener('tools:languagechange', () => { toggle.textContent = L('终端', 'Terminal'); renderMenu(); renderTabs(); });
+        window.addEventListener('tools:languagechange', () => {
+            const termLabel = toggle.querySelector('.dc-btn-label');
+            if (termLabel) termLabel.textContent = L('终端', 'Terminal');
+            else toggle.textContent = L('终端', 'Terminal');
+            toggle.title = L('终端', 'Terminal');
+            toggle.setAttribute('aria-label', L('终端', 'Terminal'));
+            renderMenu();
+            renderTabs();
+        });
         window.matchMedia('(max-width: 860px)').addEventListener('change', event => { if (event.matches) close(); });
         // 首页其他模式（工具页、频道）遮住对话时一并收起
         for (const name of ['home:hub', 'home:tool-frame']) window.addEventListener(name, event => { if (event.detail?.open) close(); });

@@ -108,11 +108,12 @@ const DEFINITIONS = [
     },
     {
         name: 'read_database_table', kind: 'read',
-        description: '只读分页读取业务表，不接受 SQL。默认按表内顺序返回前 16 列、20 行（最多 50 行），且单页超过 18KB 会提前截断。查“最新/Top”记录请传 orderBy（如 {"column":"id","direction":"desc"}）并用 columns 只选必要列（跳过大 JSON 列）；只要 nextOffset 不为 null 就必须继续翻页，禁止仅凭第一页下全表结论。',
+        description: '只读分页读取业务表，不接受 SQL。默认按表内顺序返回前 16 列、20 行（最多 50 行），且单页超过 18KB 会提前截断。查“最新/Top”记录请传 orderBy（如 {"column":"id","direction":"desc"}）并用 columns 只选必要列（跳过大 JSON 列）；支持 filter（单条件对象）或 filters（多条件数组，以 AND 串联），筛选列无需包含在 columns 中；只要 nextOffset 不为 null 就必须继续翻页，禁止仅凭第一页下全表结论。',
         parameters: { type: 'object', properties: {
             database: { type: 'string' }, table: { type: 'string' }, columns: { type: 'array', items: { type: 'string' } },
             limit: { type: 'integer' }, offset: { type: 'integer' },
-            filter: { type: 'object', properties: { column: { type: 'string' }, op: { type: 'string', enum: ['eq', 'contains'] }, value: { type: 'string' } }, required: ['column', 'op', 'value'] },
+            filter: { type: 'object', description: '单条件筛选，如 {"column":"key_name","op":"eq","value":"welink_policy_v2"}', properties: { column: { type: 'string' }, op: { type: 'string', enum: ['eq', 'contains'] }, value: { type: 'string' } }, required: ['column', 'op', 'value'] },
+            filters: { type: 'array', description: '多条件组合筛选（以 AND 串联），如 [{"column":"snapshot_id","op":"eq","value":"..."},{"column":"is_failing","op":"eq","value":"1"}]', items: { type: 'object', properties: { column: { type: 'string' }, op: { type: 'string', enum: ['eq', 'contains'] }, value: { type: 'string' } }, required: ['column', 'op', 'value'] } },
             orderBy: { type: 'object', description: '可选排序，如 {"column":"id","direction":"desc"}', properties: { column: { type: 'string' }, direction: { type: 'string', enum: ['asc', 'desc'] } }, required: ['column'] }
         }, required: ['database', 'table'] }
     },

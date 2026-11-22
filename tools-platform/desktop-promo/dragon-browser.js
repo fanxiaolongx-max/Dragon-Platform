@@ -173,14 +173,14 @@ function createDragonBrowser({ onOpenAppUrl = () => false, partition, whenReady,
         onVisibilityChange();
     }
 
-    function showTab(id) {
+    function showTab(id, revealReason = 'manual') {
         if (!tabs.some(tab => tab.id === id)) return;
         if (id !== activeId) closeFind();
         activeId = id;
         if (win.isMinimized()) win.restore();
         visibility(true);
         layout();
-        if (sidebarMode && sidebarHost && !sidebarHost.isDestroyed()) sidebarHost.webContents.send('dragon-browser:reveal');
+        if (sidebarMode && sidebarHost && !sidebarHost.isDestroyed()) sidebarHost.webContents.send('dragon-browser:reveal', revealReason);
         else { win.show(); win.focus(); active().page.webContents.focus(); }
         sendZoomState(active(), { announce: tabZoomPercent(active()) !== 100 });
         pushState();
@@ -573,7 +573,7 @@ function createDragonBrowser({ onOpenAppUrl = () => false, partition, whenReady,
             onPageCreated(tab);
             whenReady().then(() => { if (!tab.closed && !wc.isDestroyed()) wc.loadURL(tab.link.url, options.loadOptions).catch(() => {}); });
         }
-        showTab(tab.id);
+        showTab(tab.id, options.revealReason);
         return tab;
     }
 

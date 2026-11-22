@@ -1,14 +1,14 @@
 {
   "zh": [
+    "对话顶栏功能区（工作区、浏览器、终端、导出日志、新对话、浏览工具）全面升级矢量图标与平滑过渡动画；在右侧工作区、内置浏览器、终端侧边栏展开或窄屏挤压时，自适应收拢为优雅美观的纯图标模式，彻底杜绝换行折叠与遮挡对话内容。",
+    "智能体状态雷达自适应支持紧凑模式，在挤压状态下智能折叠长文案并保留脉冲呼吸灯与运行/阻塞数量角标，中英双语提示（title / aria-label）无缝对齐。",
     "频道运营计划支持按专题或指定单个功能亮点（如会话共享、长期记忆、上下文管理）定向生成，新增 Dragon Claw 工作技巧模版。",
-    "运营设置支持动态级联选择具体亮点与专题联动切换，技能提示词同步支持点名介绍特定功能。",
-    "增强 Windows 便携版自更新原子替换与容灾机制：支持进程退出重试与 EBUSY 共享冲突等待，替换失败自动回退旧版并保留原程序。",
-    "便携版更新包统一暂存至用户数据目录下的专用更新目录，并按官方资产标准命名，启动时安全清理历史残余缓存。"
+    "增强 Windows 便携版自更新原子替换与容灾机制：支持进程退出重试与 EBUSY 共享冲突等待，替换失败自动回退旧版并保留原程序。"
   ],
   "en": [
+    "Refined chat action buttons (workspace, browser, terminal, export log, new chat, browse tools) with vector icons and smooth transition animations; auto-collapsing to compact icon mode without multi-line wrapping when squeezed by sidebars or narrow viewports.",
+    "Added compact responsive state for Agent Status Radar, preserving live pulse indicator and running/blocked counts while gracefully hiding long labels when space is tight.",
     "Channel operations plans now support targeting specific feature highlights (e.g., chat sharing, persistent memory, context compaction) alongside random rotation, adding Dragon Claw productivity templates.",
-    "Operations settings dynamic cascade selection enables choosing specific highlights per topic, and ops skills support targeting named features directly.",
-    "Enhanced Windows portable app self-updater reliability with atomic executable replacement, automatic EBUSY retries, and safe rollback on failure.",
-    "Portable update packages stage cleanly in a dedicated updates directory with standard asset names, safely cleaning up old cache on startup."
+    "Enhanced Windows portable app self-updater reliability with atomic executable replacement, automatic EBUSY retries, and safe rollback on failure."
   ]
 }

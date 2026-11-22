@@ -125,7 +125,13 @@ app.whenReady().then(async () => {
             : JSON.stringify({ type: 'snapshot', snapshot: { type: 'qrcode_generated', qrcode: 'q1', display: { qrcode: 'q1', weUrl: 'https://welink.example/qr/q1', pcUrl: '' } } })+'\n'));
         web.post('/api/channels/weixin/qrcode-auth', (_, res) => res.type('application/x-ndjson').send(JSON.stringify({ type: 'expired' })+'\n'));
     }
-    web.get('/api/alert-center/events', (_, res) => setTimeout(() => res.json({ events: [] }), process.env.HOME_MESSAGES_AUDIT ? 200 : 0));
+    web.get('/api/alert-center/events', (req, res) => {
+        if (!process.env.HOME_MESSAGES_AUDIT) return res.json({ events: [] });
+        const events = Array.from({ length: 42 }, (_, i) => ({ id: String(i + 1), title: 'Alert ' + (i + 1), status: 'unread', severity: i < 40 ? 'info' : 'warn' }));
+        const after = Number(req.query.before || 0);
+        const matches = events.filter(item => Number(item.id) > after && (req.query.warnings !== '1' || item.severity === 'warn'));
+        setTimeout(() => res.json({ events: matches.slice(0, Number(req.query.limit)) }), 100);
+    });
     web.get('/scroll-fixture', (_, res) => res.send('<!doctype html><title>Scrollable tool</title><div style="height:4000px">Tool content</div>'));
     if(process.env.HOME_TOOL_EXTERNAL_AUDIT)web.get(['/uivf12','/monthly','/report','/sla','/expedite','/bigscreen','/topic-analysis','/tools/external-fixture'],(_,res)=>res.send(require('../backend/models/asset-versioning').injectPlatformTheme('<!doctype html><head><title>Tool fixture</title><link rel="stylesheet" href="/css/shared.css"></head><body><div id="navbar-container"></div><main id="fixture-tool">Tool content</main><script src="/js/shared/platform-core.js"></script></body>',{toolPath:'pages/report.html'})));
     if(process.env.HOME_TOOL_EXTERNAL_AUDIT)web.get('/custom-tools/external-fixture/index.html',(_,res)=>res.send(require('../backend/models/asset-versioning').injectPlatformTheme('<!doctype html><head></head><a id=rawReport href="/report?month=9#row" target="_blank">Report</a>',{toolPath:'custom-tools/external-fixture/index.html'})));
@@ -806,6 +812,15 @@ app.whenReady().then(async () => {
             assert.equal(await isOpen(), true, 'bell opens message center');
         };
         await open();
+        await until("document.querySelectorAll('.v2-msg').length === 20");
+        await evaluate("document.querySelector('[data-msg-next]').click()");
+        await until("document.querySelector('.v2-msg')?.dataset.id === '21'");
+        await evaluate("document.querySelector('[data-msg-next]').click()");
+        await until("document.querySelectorAll('.v2-msg').length === 2 && document.querySelector('[data-msg-next]').disabled");
+        await evaluate("document.querySelector('[data-msg-prev]').click()");
+        await until("document.querySelector('.v2-msg')?.dataset.id === '21'");
+        await evaluate("document.querySelector('[data-msg-filter=warn]').click()");
+        await until("document.querySelector('.v2-msg')?.dataset.id === '41' && document.querySelector('[data-msg-pages]').hidden");
         await evaluate(`document.querySelector('[data-msg-filter="unread"]').click()`);
         assert.equal(await isOpen(), true, 'message filter keeps center open');
         await evaluate(`document.getElementById('v2AlertBtn').click()`);

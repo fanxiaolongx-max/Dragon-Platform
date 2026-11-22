@@ -22,6 +22,8 @@ router.get('/events', async (req, res, next) => {
             status: req.query.status,
             eventType: req.query.type,
             severity: req.query.severity,
+            before: req.query.before,
+            warningsOnly: req.query.warnings === '1',
             limit: req.query.limit
         });
         res.json({ events });

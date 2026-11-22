@@ -63,6 +63,15 @@ test('local SQLite reads exclude credentials and views and use parameterized str
     assert.equal(keyValue.rows[0].value, '[REDACTED]', 'omitting key_name from requested columns cannot bypass credential filtering');
     const empty = await service.readTable(ctx, { database: 'local:local.db', table: 'records', filter: { column: 'label', op: 'eq', value: "' OR 1=1 --" } });
     assert.deepEqual(empty.rows, []);
+    const unselectedFilter = await service.readTable(ctx, { database: 'local:local.db', table: 'records', columns: ['payload'], filter: { column: 'id', op: 'eq', value: 1 } });
+    assert.equal(unselectedFilter.rows.length, 1);
+    assert.equal(unselectedFilter.rows[0].id, undefined);
+    const multiFilter = await service.readTable(ctx, { database: 'local:local.db', table: 'records', filter: [{ column: 'id', op: 'eq', value: 1 }, { column: 'label', op: 'eq', value: 'normal' }] });
+    assert.equal(multiFilter.rows.length, 1);
+    const explicitFilters = await service.readTable(ctx, { database: 'local:local.db', table: 'records', filters: [{ column: 'id', op: 'eq', value: 1 }, { column: 'label', op: 'eq', value: 'normal' }] });
+    assert.equal(explicitFilters.rows.length, 1);
+    const multiFilterMismatch = await service.readTable(ctx, { database: 'local:local.db', table: 'records', filter: [{ column: 'id', op: 'eq', value: 1 }, { column: 'label', op: 'eq', value: 'mismatch' }] });
+    assert.equal(multiFilterMismatch.rows.length, 0);
     for (const args of [{ table: 'disguised' }, { table: 'records; DROP TABLE records' }, { table: 'records', columns: ['api_token'] }, { table: 'records', columns: ['(SELECT password FROM auth_users)'] }, { table: 'records', orderBy: { column: 'api_token', direction: 'desc' } }, { table: 'records', orderBy: { column: 'id', direction: 'desc; DROP TABLE records' } }, { table: 'records', orderBy: 'id' }]) {
         await assert.rejects(service.readTable(ctx, { database: 'local:local.db', ...args }), { code: 'AGENT_DATABASE_FORBIDDEN' });
     }

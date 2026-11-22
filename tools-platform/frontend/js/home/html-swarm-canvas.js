@@ -2362,6 +2362,10 @@
         } catch (_e) { /* noop */ }
     }
 
+    function previewDismissed() {
+        return window.DragonClaw?.panelDismissed?.('browser') && !window.DragonBrowserSidebar?.isOpen?.();
+    }
+
     function openBrowserStage() {
         const stage = ensureStage();
         if (!stage) return false;
@@ -2381,6 +2385,7 @@
 
     // ── 外部生命周期接口 ──────────────────────────────────────
     function startSession({ prompt = '', title = '' } = {}) {
+        if (previewDismissed()) return;
         clearTimeout(state.replayTimer);
         clearTimeout(state.fadeTimer);
         clearTimeout(state.pacingTimer);
@@ -2498,6 +2503,7 @@
     }
 
     function onStreamDelta(fullStreamText, { prompt = '' } = {}) {
+        if (previewDismissed()) return false;
         const extracted = extractStreamingHtml(fullStreamText);
         if (!extracted.found) return false;
 
@@ -2513,6 +2519,7 @@
     }
 
     function onStreamFinish(finalText = '', { prompt = '' } = {}) {
+        if (previewDismissed()) return false;
         clearTimeout(state.renderTimer);
         state.renderTimer = null;
 
@@ -2605,6 +2612,7 @@
 
     // 用于工作区 write_file / edit_file 生成完 HTML 文件、或点击「重播绘制」时的高速流式仿真演练
     function playFullHtml(htmlContent, { title = '' } = {}) {
+        if (previewDismissed()) return;
         const code = String(htmlContent || '').trim();
         if (!code) return;
         startSession({ title: title || extractTitle(code) });
@@ -2754,7 +2762,7 @@
         btn.className = 'dc-swarm-inline-trigger';
         btn.innerHTML = `<span class="dc-swarm-inline-mark" aria-hidden="true"></span><span>${esc(L('右侧浏览器 AI 指针群协同绘制预览', 'AI Cursor Swarm Live Preview in Browser'))}</span>`;
         btn.addEventListener('click', async () => {
-            if (window.innerWidth <= 860) {
+            if (!window.DragonBrowserSidebar?.isOpen?.()) {
                 window.DragonBrowserSidebar?.open?.({ liveCanvas: true, createEmpty: false });
             }
             if (hasExtracted) {

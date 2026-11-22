@@ -379,12 +379,19 @@ body:not(.dc-chatting) .shc-cap-bar{display:none}
     }
 
     // ── 消息中心：顶部列出待处理的共享邀请与私有 Skill 授权审批 ──
+    let inboxLimit = 3;
     function renderInto(host) {
         if (!host) return;
         ensureStyle();
         if (state.host !== host) {
             state.host = host;
+            inboxLimit = 3;
             host.addEventListener('click', async event => {
+                if (event.target.closest('[data-shc-inbox-more]')) {
+                    inboxLimit += 5;
+                    renderInbox();
+                    return;
+                }
                 const skillBtn = event.target.closest('[data-shc-skill-respond]');
                 if (skillBtn) {
                     const card = skillBtn.closest('[data-request-id]');
@@ -417,17 +424,18 @@ body:not(.dc-chatting) .shc-cap-bar{display:none}
         const hasAny = state.inbox.length > 0 || state.skillRequests.length > 0;
         host.hidden = !hasAny;
         if (!hasAny) { host.innerHTML = ''; return; }
-        const inviteHtml = state.inbox.length ? `<div class="shc-inbox-head"><span class="shc-ico">${icon.people}</span>${esc(L('共享对话邀请', 'Shared conversation invites'))}<b>${state.inbox.length}</b></div>` + state.inbox.map((item, index) => `
+        const inviteHtml = state.inbox.length ? `<div class="shc-inbox-head"><span class="shc-ico">${icon.people}</span>${esc(L('共享对话邀请', 'Shared conversation invites'))}<b>${state.inbox.length}</b></div>` + state.inbox.slice(0, inboxLimit).map((item, index) => `
             <div class="shc-card" data-share-id="${esc(item.shareId)}" style="animation-delay:${index * 30}ms">${avatar(item.invitedBy || item.owner, item.invitedByName || item.ownerName, 'lg')}
                 <div class="shc-banner-text"><strong>「${esc(item.title)}」</strong><p>${esc(inviteLine(item))} · ${esc(inviteMeta(item))}</p></div>
                 <div class="shc-actions"><button type="button" class="shc-btn primary sm" data-shc-respond="accept">${esc(L('接受', 'Accept'))}</button><button type="button" class="shc-btn sm" data-shc-respond="decline">${esc(L('拒绝', 'Decline'))}</button><button type="button" class="shc-btn ghost sm" data-shc-respond="ignore">${esc(L('忽略', 'Ignore'))}</button></div>
             </div>`).join('') : '';
-        const skillHtml = state.skillRequests.length ? `<div class="shc-inbox-head"><span class="shc-ico">${icon.share}</span>${esc(L('私有技能授权审批', 'Private skill access requests'))}<b>${state.skillRequests.length}</b></div>` + state.skillRequests.map((item, index) => `
+        const skillHtml = state.skillRequests.length ? `<div class="shc-inbox-head"><span class="shc-ico">${icon.share}</span>${esc(L('私有技能授权审批', 'Private skill access requests'))}<b>${state.skillRequests.length}</b></div>` + state.skillRequests.slice(0, inboxLimit).map((item, index) => `
             <div class="shc-card is-skill" data-request-id="${esc(item.id)}" style="animation-delay:${index * 30}ms">${avatar(item.requestedBy, item.requestedByName, 'lg')}
                 <div class="shc-banner-text"><strong>「${esc(item.title || '')}」 · @${esc(item.skillId)}（${esc(item.skillName || item.skillId)}）</strong><p>${esc(skillRequestLine(item))} · ${esc(L('同意后仅向本共享对话成员开放', 'Shared only with members of this conversation'))}</p></div>
                 <div class="shc-actions"><button type="button" class="shc-btn primary sm" data-shc-skill-respond="approve">${esc(L('同意并共享', 'Approve'))}</button><button type="button" class="shc-btn sm" data-shc-skill-respond="reject">${esc(L('拒绝', 'Reject'))}</button></div>
             </div>`).join('') : '';
-        host.innerHTML = inviteHtml + skillHtml;
+        const more = Math.max(state.inbox.length, state.skillRequests.length) > inboxLimit;
+        host.innerHTML = inviteHtml + skillHtml + (more ? `<button type="button" class="shc-btn sm" data-shc-inbox-more>${esc(L('查看更多待处理请求', 'Show more requests'))}</button>` : '');
     }
 
     // ── 共享链接加入 ──

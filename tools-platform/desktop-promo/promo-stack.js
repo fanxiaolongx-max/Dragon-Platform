@@ -59,15 +59,15 @@ function createPromoStack({ statePath, extensionsStatePath, siteScriptsPath, get
     });
 
     // All application-driven browser opens share the main window's sidebar.
-    function prepareSidebar(){
+    function prepareSidebar(reason='manual'){
         if(!getSidebarHost)return;
         const host=getSidebarHost();if(!host||host.isDestroyed())throw Error(T('主窗口尚未就绪，请打开平台后重试','Open the platform main window and try again'));
-        pendingSidebarReveal=true;browser.setSidebar(host);
+        pendingSidebarReveal=reason;browser.setSidebar(host);
         // A page that already connected never calls setBrowserSidebar again, so the pending
         // reveal would wait forever and the new tab (e.g. a batch run's login page) stays hidden.
-        if(!host.webContents.isLoading())host.webContents.send('dragon-browser:reveal');
+        if(!host.webContents.isLoading())host.webContents.send('dragon-browser:reveal',reason);
     }
-    function openBrowser(options){ensureSession();prepareSidebar();return browser.open(options);}
+    function openBrowser(options){ensureSession();prepareSidebar(options.revealReason);return browser.open(options);}
     function rebuildSidebarPromotions(){
         const active=stackWanted()&&!state.paused&&!hiddenToday(),links=active?enabledLinks().slice(0,Math.max(1,Number(config?.maxLinks)||3)):[];
         const signature=JSON.stringify(links.map(link=>[link.id,link.url]));if(signature===promotionSignature)return;
@@ -76,11 +76,11 @@ function createPromoStack({ statePath, extensionsStatePath, siteScriptsPath, get
         let first=null;
         for(const link of links){
             let tab=browser.list().find(tab=>tab.id===promotionTabs.get(link.id));
-            if(!tab){tab=openBrowser({link:{...link}});promotionTabs.set(link.id,tab.id);}
+            if(!tab){tab=openBrowser({link:{...link},revealReason:'automatic'});promotionTabs.set(link.id,tab.id);}
             else if(tab.link.url!==link.url){tab.link={...link};tab.page.webContents.loadURL(link.url).catch(()=>{});}
             if(!first)first=tab;
         }
-        if(first){prepareSidebar();browser.showTab(first.id);}
+        if(first){prepareSidebar('automatic');browser.showTab(first.id,'automatic');}
         promotionSignature=signature;clearInterval(rotateTimer);rotateTimer=null;updateFullscreenWatch();
     }
     function readState() {
@@ -616,13 +616,13 @@ function createPromoStack({ statePath, extensionsStatePath, siteScriptsPath, get
         },
         // Dragon Claw 的浏览器工具：新开一个 Dragon 浏览器标签交给智能体（经 webContents.debugger 控制，见 backend/models/agent-browser.js）。
         // 等空白页首次加载完再交出，避免随后加载 about:blank 盖掉智能体的导航
-        setBrowserSidebar(host) { ensureSession(); browser.setSidebar(host);if(pendingSidebarReveal){pendingSidebarReveal=false;host.webContents.send('dragon-browser:reveal');} },
+        setBrowserSidebar(host) { ensureSession(); browser.setSidebar(host);if(pendingSidebarReveal){host.webContents.send('dragon-browser:reveal',pendingSidebarReveal);pendingSidebarReveal=false;} },
         setBrowserSidebarBounds(bounds) { if(bounds)pendingSidebarReveal=false;browser.setSidebarBounds(bounds); },
         browserSidebarAction(sender, action, payload) { return browser.handleAction(sender, action, payload); },
         popoutBrowser() { browser.popout(); },
-        openAgentPage({ name = 'Dragon Claw', url = 'about:blank' } = {}) {
+        openAgentPage({ name = 'Dragon Claw', url = 'about:blank', revealReason = 'manual' } = {}) {
             ensureSession();
-            const tab = openBrowser({ link: { name, url } });
+            const tab = openBrowser({ link: { name, url }, revealReason });
             const wc = tab.page.webContents;
             return new Promise(resolve => {
                 const timer = setTimeout(done, 3000);

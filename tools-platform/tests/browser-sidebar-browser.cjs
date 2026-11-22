@@ -375,6 +375,11 @@ app.whenReady().then(async()=>{
  const beforeLegacy=externalOpens.length;stack.popoutBrowser();await until(()=>externalOpens.length===beforeLegacy+1);assert.equal(host.getBrowserViews().length,1);
  const routed=await stack.openAgentPage({url:base+'/site',name:'Automatic browser entry'});await until(()=>host.getBrowserViews().some(view=>view.webContents===routed.webContents));
  const independent=BrowserWindow.getAllWindows().filter(window=>window!==host&&window.isVisible()&&window.getBrowserViews().length);assert.equal(independent.length,0,'no automatic standalone Dragon window');
+ await evaluate("window.DragonClaw = { panelDismissed: () => true }; dcBrowserToggle.click()");
+ await until(()=>host.getBrowserViews().length===0);
+ const background=await stack.openAgentPage({url:base+'/site',revealReason:'automatic'});
+ assert.equal(background.webContents.isDestroyed(),false);
+ assert.equal(await evaluate('DragonBrowserSidebar.isOpen()'),false,'a background AI tab respects dismissal');
  stack.open({name:'Clicked promotion',url:base+'/second'});await until(()=>host.getBrowserViews()[0]?.webContents.getURL().endsWith('/second'));
  shell.openExternal=originalExternal;Menu.buildFromTemplate=originalBuild;stack.destroy();host.destroy();server.close();clearTimeout(timeout);await wait(500);console.log('PASS: unified browser, manual input, tabs, handback, workspace resize, panel switching, mobile, desktop docking, preserved page state, AI opens, drag, modal occlusion and external browser opening. '+temp);app.exit(0);
 }).catch(e=>{console.error(e);stack?.destroy();host?.destroy();server?.close();app.exit(1)});

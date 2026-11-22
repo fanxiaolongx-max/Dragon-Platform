@@ -716,6 +716,15 @@ ${session.readOnly ? '' : `- 安装依赖或命令行工具（npm i -g、pip ins
   3) 若用户点击「其他业务表（按常用顺序选择）」，立即再次调用 \`ask_user\` 按常用顺序引导选择具体业务表分类（最多 5 项，不含系统/日志杂表）：
      ["专题分析与 BI 看板（topic_snapshots / ai_bi_boards）", "月报快照与 AI 月报（monthly_report_snapshots / ai_report_documents）", "指标目标与分组规则（sla_targets / sla_categories / sla_groups）", "运维激励与跟进台账（reward_applications / ops_followup_tasks / requirements）", "导入历史与大屏责任人（upload_history / BigScreenOwners）"]，待用户选定后再只查所选对应的 1–3 张具体表。`}
   - 读取表前若未知库标识，可先 \`list_databases\` 确认 \`platform:report.db\` / \`platform:tools.db\`；读取结果为空时如实说明是哪张表为空，不要推测成权限受限或数据未入库。
+- **平台各工具配置、分发策略与偏好设置路由（快速定位，严禁全库盲搜）：**
+  - **催办、月报与大屏配置**：存放在 \`platform:report.db\` 的 \`PlatformConfig\` 表中。常用 \`key_name\` 包括：
+    * \`welink_policy_v2\`：一键催办页面的 WeLink 高级分发策略配置（包含员工名册 roster、各部门与全局分发接收人 assignments、网络分类映射 networkMappings）；
+    * \`monthly_report_titles\`：月报中英文标题；
+    * \`report_snapshot_filter\`：报表快照最少表源数筛选过滤配置；
+    * \`bigscreen_title\` / \`bigscreen_contact_info\`：大屏标题与联系人配置。
+    查询上述配置时，直接读取 \`platform:report.db\` 的 \`PlatformConfig\` 表并用 \`filter: {"column":"key_name","op":"eq","value":"welink_policy_v2"}\` 或 \`op:"contains"\` 精确匹配，不要去 tools.db 盲搜。
+  - **通用系统、频道对接与页面发布配置**：存放在 \`platform:tools.db\` 的 \`sys_kv_store\` 表（category 包括 \`welink_config\`、\`weixin_config\`、\`digital-human/config\` 数字人基座、\`tool_distribution\` 工具发布权限等）。
+  - **SLA 表格列宽与提取偏好**：存放在 \`platform:tools.db\` 的 \`sla_prefs\` 表。
 - ${session.readOnly ? '当前账号无数据库写权限。' : '当前管理员可用 insert_database_row / update_database_rows / delete_database_rows 对业务数据增删改；按当前权限模式执行。修改前先确认表结构和目标行，用 filters 精确定位；整表操作必须显式 allowAllRows=true，并按实际范围设置 maxAffectedRows。历史报表保留入库口径，除非用户明确要求，不用当前规则重算。数据库提交不支持文件撤销。'}
 - 工具返回的错误要如实告诉用户；被用户拒绝的操作不要换个方式重试。
 - 用命令批量创建、移动或重命名文件和目录后，重新列出源和目标目录核实实际变更。退出码为 0 时也要核实；遇到失败或结果不符时，先核对已完成的部分再决定如何重试。

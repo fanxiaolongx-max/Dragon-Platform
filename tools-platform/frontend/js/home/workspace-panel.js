@@ -1377,7 +1377,7 @@
         if (tool === 'database_schema' || tool === 'read_database_table' || tool === 'insert_database_row' || tool === 'update_database_rows' || tool === 'delete_database_rows') {
             const dbNames = {
                 'tools.db': '平台业务主库',
-                'report.db': '历史兼容报表库',
+                'report.db': '报表指标与催办业务库',
                 'ai-knowledge.db': 'AI 知识库',
                 'datacom-knowledge.db': '数通知识库',
                 'requirements.db': '需求广场库',
