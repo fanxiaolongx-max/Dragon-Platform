@@ -123,6 +123,70 @@ app.whenReady().then(async () => {
     assert.ok(squeezedInfo.maxIconWidth <= 34, `Buttons collapse into compact square icon buttons (max width ${squeezedInfo.maxIconWidth}px)`);
 
     console.log('PASS: Chat actions smoothly collapse into elegant icon buttons without wrapping under squeeze conditions!');
+
+    // Simulate ultra-squeezed condition:
+    // Squeeze window down to extreme narrow width (e.g. 360px)
+    win.setSize(420, 800);
+    await evaluate(`
+        document.querySelector('.dc-chat-head').classList.add('is-ultra-squeezed');
+        document.querySelector('.dc-chat-actions').classList.add('is-ultra-squeezed');
+        const moreWrap = document.getElementById('dcActionsMore');
+        if (moreWrap) moreWrap.hidden = false;
+    `);
+    await new Promise(r => setTimeout(r, 350));
+
+    const ultraInfo = await evaluate(`(() => {
+        const moreWrap = document.getElementById('dcActionsMore');
+        const moreBtn = document.getElementById('dcActionsMoreBtn');
+        const menu = document.getElementById('dcActionsMenu');
+        const normalBtns = [
+            document.getElementById('dcWorkspaceToggle'),
+            document.getElementById('dcBrowserToggle'),
+            document.getElementById('dcHistoryBtn'),
+            document.getElementById('dcExport'),
+            document.getElementById('dcNewChat'),
+            document.getElementById('dcBackToTools')
+        ].filter(Boolean);
+        const title = document.querySelector('.dc-chat-title');
+
+        const allNormalHidden = normalBtns.every(b => window.getComputedStyle(b).display === 'none');
+        const moreVisible = window.getComputedStyle(moreWrap).display !== 'none' && moreBtn.offsetWidth > 0;
+        const titleRect = title.getBoundingClientRect();
+        const moreRect = moreBtn.getBoundingClientRect();
+        const noOverlap = titleRect.right <= moreRect.left;
+
+        // Test opening menu
+        moreBtn.click();
+        const menuOpenAfterClick = !menu.hidden && window.getComputedStyle(menu).display !== 'none';
+        const menuItemsCount = menu.querySelectorAll('.dc-actions-item').length;
+
+        // Test closing menu by clicking outside
+        document.body.click();
+        const menuClosedAfterOutsideClick = menu.hidden;
+
+        return {
+            titleRect: { left: titleRect.left, right: titleRect.right, width: titleRect.width },
+            moreRect: { left: moreRect.left, right: moreRect.right, width: moreRect.width },
+            allNormalHidden,
+            moreVisible,
+            moreWidth: moreRect.width,
+            noOverlap,
+            menuOpenAfterClick,
+            menuItemsCount,
+            menuClosedAfterOutsideClick
+        };
+    })()`);
+
+    console.log('Ultra-squeezed mode info:', ultraInfo);
+    assert.ok(ultraInfo.allNormalHidden, 'In ultra-squeezed mode, all normal action buttons must be hidden (display: none)');
+    assert.ok(ultraInfo.moreVisible, 'More actions button (···) is visible in ultra-squeezed mode');
+    assert.ok(ultraInfo.moreWidth <= 34, `More actions button is compact square (width ${ultraInfo.moreWidth}px)`);
+    assert.ok(ultraInfo.noOverlap, 'Zero collision/overlap between chat title and action button');
+    assert.ok(ultraInfo.menuOpenAfterClick, 'Clicking more button opens dropdown menu');
+    assert.ok(ultraInfo.menuItemsCount >= 5, `Dropdown menu contains all actions (${ultraInfo.menuItemsCount} items)`);
+    assert.ok(ultraInfo.menuClosedAfterOutsideClick, 'Clicking outside closes dropdown menu');
+
+    console.log('PASS: Ultra-squeezed dropdown menu smoothly replaces cramped icons with zero text overlap!');
     win.destroy();
     server.close();
     app.exit(0);

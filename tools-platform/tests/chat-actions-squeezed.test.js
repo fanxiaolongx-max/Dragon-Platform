@@ -102,3 +102,27 @@ test('Home theme CSS prevents wrapping of chat action buttons in both repositori
         assert.ok(css.includes('.dc-chat-actions { flex: 0 1 auto; min-width: 0; flex-wrap: nowrap !important;'), `${name} forces flex-wrap: nowrap !important`);
     }
 });
+
+test('Ultra-squeezed dropdown menu (more actions) is present and styled in both repositories', () => {
+    for (const [name, htmlPath, cssPath, jsPath] of [
+        ['mainline', path.join(mainlineRoot, 'frontend/index.html'), path.join(mainlineRoot, 'frontend/css/dragon-claw.css'), path.join(mainlineRoot, 'frontend/js/home/dragon-claw.js')],
+        ['base', path.join(baseRoot, 'static/index.html'), path.join(baseRoot, 'static/css/dragon-claw.css'), path.join(baseRoot, 'static/js/home/dragon-claw.js')]
+    ]) {
+        const html = fs.readFileSync(htmlPath, 'utf8');
+        assert.ok(html.includes('id="dcActionsMore"'), `${name} index.html contains dcActionsMore`);
+        assert.ok(html.includes('id="dcActionsMoreBtn"'), `${name} index.html contains dcActionsMoreBtn`);
+        assert.ok(html.includes('id="dcActionsMenu"'), `${name} index.html contains dcActionsMenu`);
+
+        const css = fs.readFileSync(cssPath, 'utf8');
+        assert.ok(css.includes('.is-ultra-squeezed'), `${name} css defines .is-ultra-squeezed`);
+        assert.ok(css.includes('.dc-actions-more'), `${name} css styles .dc-actions-more`);
+        assert.ok(css.includes('.dc-actions-menu'), `${name} css styles .dc-actions-menu`);
+        assert.ok(css.includes('@container dc-chat (max-width: 460px)'), `${name} css defines container query for ultra squeeze`);
+
+        const js = fs.readFileSync(jsPath, 'utf8');
+        assert.ok(js.includes('moreActions: \'更多操作\''), `${name} js defines moreActions zh text`);
+        assert.ok(js.includes('moreActions: \'More actions\''), `${name} js defines moreActions en text`);
+        assert.ok(js.includes('function bindActionsMore()'), `${name} js implements bindActionsMore`);
+        assert.ok(js.includes('function renderActionsMenu()'), `${name} js implements renderActionsMenu`);
+    }
+});

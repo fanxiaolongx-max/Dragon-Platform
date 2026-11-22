@@ -140,9 +140,9 @@ html.platform-home :is(button, a, input, textarea):focus-visible { outline: 2px 
 ::highlight(dc-find-current) { background: #087f62; color: #fff; }
 @media (max-width: 640px) {
 
-.dc-chat-head { flex-wrap: wrap; }
+.dc-chat-head { flex-wrap: nowrap !important; }
 
-.dc-chat-actions { width: 100%; gap: 4px; }
+.dc-chat-actions { width: auto; flex: 0 0 auto; gap: 4px; }
 
 .dc-find:has(.dc-find-bar:not([hidden])) { width: 100%; }
 

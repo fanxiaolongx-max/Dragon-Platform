@@ -16,7 +16,7 @@
             btwTitle: '顺便问', btwBadge: '不计入当前对话', btwNeedQuestion: '请在 /btw 后写上问题', btwClose: '关闭', btwFailed: '回答失败', btwPending: '（主对话里我刚问了：{text}，回复还在生成）',
             scheduleNew: '新建定时任务', pushTo: '推送到', pushAdd: '+ 选择 WeLink/微信 的人或群（可选）', pushAddMore: '+ 添加', pushRemove: '移除', pushTitle: '推送到', pushSearch: '搜索名称或账号，支持拼音…', pushGroup: '群', pushUser: '联系人', pushSelected: '已选 {count} 个', pushHint: '执行完成后把结果推送给所选对象', pushDone: '完成', pushEmpty: '还没有可推送的对象（联系人需先与助理单聊过，群需在群里用过助理）', pushNoMatch: '没有匹配的对象', pushNoChannel: '还没有对接 WeLink 或微信', pushLimit: '最多选择 10 个对象', scheduleCreatedPush: '，完成后推送给 {names}', schedulePushTo: '推送给 {names}', schedulePushResult: '上次推送：成功 {sent}，失败 {failed}',
             datacomTitle: '数通协议专家', datacomDescription: '协议图解 · 交互实验 · 视频讲解',
-            badge: '全能智能体', newChat: '新对话', history: '历史', browser: '浏览器', terminal: '终端', attach: '添加附件（Excel、CSV、Word、PPT、文本等，单个不超过 20MB）', attachLabel: '附件', attachUploading: '上传中…', attachFailed: '上传失败', attachRemove: '移除', attachTooMany: '一次最多 5 个附件', attachPending: '附件还在上传，请稍候', attachDrop: '松开即可添加附件', exportLog: '导出日志', exportLogEmpty: '当前对话还没有保存的记录，发送一条消息后再导出', exportLogDone: '对话日志已导出', exportLogFailed: '导出失败', exportLogBusy: '回复完成后再导出，日志才完整', exportMenu: '导出方式', exportHtml: '网页快照（HTML）', exportHtmlDesc: '最近 {days} 天、最多 {count} 条消息；与聊天界面一致，含表格、图片和文件，可直接转发', exportJson: '研发日志（JSON）', exportJsonDesc: '完整的工具过程与模型配置，便于研发定位问题', exportAgentJsonDesc: '当前 Agent 的可读取消息、附件信息与会话状态，最多 200 条', exportAgentHtmlDesc: '当前已加载的 Agent 对话快照，含图片、附件和静态预览，最多 200 条消息', exportHtmlWorking: '正在打包网页快照…', exportHtmlDone: '网页快照已导出', exportHtmlSkipped: '网页快照已导出，{count} 个大文件未打包',
+            badge: '全能智能体', newChat: '新对话', history: '历史', browser: '浏览器', terminal: '终端', moreActions: '更多操作', agentRadar: '智能体雷达', attach: '添加附件（Excel、CSV、Word、PPT、文本等，单个不超过 20MB）', attachLabel: '附件', attachUploading: '上传中…', attachFailed: '上传失败', attachRemove: '移除', attachTooMany: '一次最多 5 个附件', attachPending: '附件还在上传，请稍候', attachDrop: '松开即可添加附件', exportLog: '导出日志', exportLogEmpty: '当前对话还没有保存的记录，发送一条消息后再导出', exportLogDone: '对话日志已导出', exportLogFailed: '导出失败', exportLogBusy: '回复完成后再导出，日志才完整', exportMenu: '导出方式', exportHtml: '网页快照（HTML）', exportHtmlDesc: '最近 {days} 天、最多 {count} 条消息；与聊天界面一致，含表格、图片和文件，可直接转发', exportJson: '研发日志（JSON）', exportJsonDesc: '完整的工具过程与模型配置，便于研发定位问题', exportAgentJsonDesc: '当前 Agent 的可读取消息、附件信息与会话状态，最多 200 条', exportAgentHtmlDesc: '当前已加载的 Agent 对话快照，含图片、附件和静态预览，最多 200 条消息', exportHtmlWorking: '正在打包网页快照…', exportHtmlDone: '网页快照已导出', exportHtmlSkipped: '网页快照已导出，{count} 个大文件未打包',
             chatToday: '今天', chatYesterday: '昨天', chatWeek: '7 天内', chatMonth: '30 天内', chatOlder: '更早', chatEmpty: '还没有对话，发一条消息开始吧', chatNoMatch: '没有匹配的对话', chatLoadFailed: '历史对话加载失败', chatRetry: '重试', chatBusy: '正在回复中，请先停止当前回复再切换对话', chatBgDone: '「{title}」已回复完成', chatCount: '{count} 条', chatFolderTitle: '本地目录：{root}', chatRunning: '正在回答', chatDelete: '删除对话', chatDeleteConfirm: '删除「{title}」及其聊天记录？此操作无法撤销。', chatDeleteFailed: '删除失败，请稍后重试', chatDeleted: '对话已删除', chatLeaveShared: '退出并移除', chatLeaveSharedConfirm: '删除「{title}」将退出该共享对话并从你的列表移除，但不会影响发起者和其他成员的记录。确定退出并移除？', chatLeftShared: '已退出共享对话', chatDeleteSharedOwnerConfirm: '你是「{title}」的共享发起者。删除原对话后将同时停止共享，并从所有成员的共享列表中收回。确定删除？', chatDeletedSharedOwner: '已删除对话并停止共享',
             activityThinking: '正在思考…', activityCompacting: '上下文快满了，正在把较早内容整理成摘要…', autoCompactDone: '已自动压缩上下文：较早的 {count} 条记录整理成摘要（约 {before} → {after} tokens），完整过程仍保留在会话档案中', autoCompactFailed: '自动压缩没有成功（{error}），改为移出较早的轮次', thinkLabel: '思考过程', thinkDone: '已思考', thinkPhase_ponder: '构思', thinkPhase_plan: '规划', thinkPhase_search: '检索', thinkPhase_analyze: '分析', thinkPhase_calc: '计算', thinkPhase_verify: '核对', thinkPhase_code: '推敲代码', thinkPhase_conclude: '归纳', activityTool: '正在{tool}…', activityOrganizing: '正在整理结果…', activityResponding: '正在生成回复…', activityApproval: '等待你的批准…',
             resumeDismiss: '关闭此提示', resumeTitle: '继续上次对话', resumeMeta: '{time} · {count} 条消息', resumeAction: '继续对话', resumeBanner: '已恢复上次对话 · {time}', resumeDivider: '以上是历史记录，继续输入即可接着聊', resumeFailed: '上次对话加载失败，请稍后再试', toolOutput: '查看输出', toolArtifact: '完整结果（{lines} 行）', toolInterrupted: '未完成', sessionTitle: '历史会话', sessionSearch: '搜索会话内容…', sessionEmpty: '还没有历史会话', sessionNoMatch: '没有匹配的会话', sessionLoading: '正在加载…', sessionMeta: '{time} · {count} 条消息', sessionArchived: '已归档', sessionCurrent: '当前', sessionHint: '↑↓ 选择 · Enter 打开 · Esc 关闭', sessionLoadFailed: '历史会话加载失败，请稍后再试', slashSession: '查看并恢复历史会话', slashNew: '开始新对话', slashHint: '↑↓ 选择 · Enter 执行 · Tab 补全', recallTitle: '最近的问题', recallHint: '↑↓ 选择 · Enter 填入 · Esc 关闭', resumeDirMissing: '上次的目录「{name}」无法打开，对话已恢复，请重新选择目录', externalTag: '外部', commandTag: '命令', commandChangeHint: '由智能体执行的命令产生的改动，可撤销', riskTitle: '此命令可能访问工作目录之外或敏感文件，当前审批模式需要你确认', revertConflictTitle: '文件已被再次修改', revertConflictMessage: '{path} 在这次改动之后又被修改过（手动或其他程序）。撤销会把文件恢复到改动前，后续修改将一起丢失。', revertConflictConfirm: '仍然撤销', binaryChange: '二进制', binaryChangeHint: '二进制文件（如数据库、图片）内容有变化，没有可比较的文本行', externalChange: '工作区里的其他改动（手动或其他程序修改），可查看差异，不能在这里撤销', backToTools: '浏览工具', browseTools: '浏览全部工具',
@@ -89,7 +89,7 @@
             btwTitle: 'By the way', btwBadge: 'Not added to this chat', btwNeedQuestion: 'Add a question after /btw', btwClose: 'Close', btwFailed: 'Could not answer', btwPending: '(In the main chat I just asked: {text}; the reply is still coming)',
             scheduleNew: 'New task', pushTo: 'Push to', pushAdd: '+ Pick WeLink/WeChat people or groups (optional)', pushAddMore: '+ Add', pushRemove: 'Remove', pushTitle: 'Push to', pushSearch: 'Search name or account (pinyin works)…', pushGroup: ' group', pushUser: ' contact', pushSelected: '{count} selected', pushHint: 'The result is pushed to them after it runs', pushDone: 'Done', pushEmpty: 'Nobody can be pushed to yet (contacts must chat with the assistant first; groups must have used it)', pushNoMatch: 'No matches', pushNoChannel: 'WeLink or WeChat is not connected yet', pushLimit: 'Pick up to 10', scheduleCreatedPush: ', then push to {names}', schedulePushTo: 'Push to {names}', schedulePushResult: 'Last push: {sent} sent, {failed} failed',
             datacomTitle: 'Datacom Protocol Expert', datacomDescription: 'Visual guides · Interactive labs · Videos',
-            badge: 'All-round agent', newChat: 'New chat', history: 'History', browser: 'Browser', terminal: 'Terminal', attach: 'Attach files (Excel, CSV, Word, PowerPoint, text…, up to 20 MB each)', attachLabel: 'Attachments', attachUploading: 'Uploading…', attachFailed: 'Upload failed', attachRemove: 'Remove', attachTooMany: 'Up to 5 attachments at a time', attachPending: 'Attachments are still uploading', attachDrop: 'Drop to attach', exportLog: 'Export log', exportLogEmpty: 'Nothing saved in this chat yet. Send a message first.', exportLogDone: 'Chat log exported', exportLogFailed: 'Export failed', exportLogBusy: 'Export after the reply finishes so the log is complete', exportMenu: 'Export as', exportHtml: 'Web page (HTML)', exportHtmlDesc: 'Last {days} days, up to {count} messages. Looks like this chat, with tables, images and files', exportJson: 'Debug log (JSON)', exportJsonDesc: 'Full tool steps and model settings for troubleshooting', exportAgentJsonDesc: 'Available agent messages, attachment metadata and session status, up to 200 messages', exportAgentHtmlDesc: 'Snapshot of the loaded agent conversation, with images, files and static previews, up to 200 messages', exportHtmlWorking: 'Packing the web page…', exportHtmlDone: 'Web page exported', exportHtmlSkipped: 'Web page exported; {count} large file(s) left out',
+            badge: 'All-round agent', newChat: 'New chat', history: 'History', browser: 'Browser', terminal: 'Terminal', moreActions: 'More actions', agentRadar: 'Agent radar', attach: 'Attach files (Excel, CSV, Word, PowerPoint, text…, up to 20 MB each)', attachLabel: 'Attachments', attachUploading: 'Uploading…', attachFailed: 'Upload failed', attachRemove: 'Remove', attachTooMany: 'Up to 5 attachments at a time', attachPending: 'Attachments are still uploading', attachDrop: 'Drop to attach', exportLog: 'Export log', exportLogEmpty: 'Nothing saved in this chat yet. Send a message first.', exportLogDone: 'Chat log exported', exportLogFailed: 'Export failed', exportLogBusy: 'Export after the reply finishes so the log is complete', exportMenu: 'Export as', exportHtml: 'Web page (HTML)', exportHtmlDesc: 'Last {days} days, up to {count} messages. Looks like this chat, with tables, images and files', exportJson: 'Debug log (JSON)', exportJsonDesc: 'Full tool steps and model settings for troubleshooting', exportAgentJsonDesc: 'Available agent messages, attachment metadata and session status, up to 200 messages', exportAgentHtmlDesc: 'Snapshot of the loaded agent conversation, with images, files and static previews, up to 200 messages', exportHtmlWorking: 'Packing the web page…', exportHtmlDone: 'Web page exported', exportHtmlSkipped: 'Web page exported; {count} large file(s) left out',
             chatToday: 'Today', chatYesterday: 'Yesterday', chatWeek: 'Previous 7 days', chatMonth: 'Previous 30 days', chatOlder: 'Older', chatEmpty: 'No chats yet. Send a message to start.', chatNoMatch: 'No matching chats', chatLoadFailed: 'Could not load chats', chatRetry: 'Retry', chatBusy: 'A reply is still being generated. Stop it before switching chats.', chatBgDone: '“{title}” has finished replying', chatCount: '{count}', chatFolderTitle: 'Local folder: {root}', chatRunning: 'Working', chatDelete: 'Delete chat', chatDeleteConfirm: 'Delete “{title}” and its messages? This cannot be undone.', chatDeleteFailed: 'Could not delete this chat. Try again later.', chatDeleted: 'Chat deleted', chatLeaveShared: 'Leave & remove', chatLeaveSharedConfirm: 'Deleting “{title}” will leave this shared conversation and remove it from your list without affecting the owner or other members. Continue?', chatLeftShared: 'Left the shared conversation', chatDeleteSharedOwnerConfirm: 'You own the shared conversation “{title}”. Deleting it will also stop sharing and revoke it from all members’ lists. Delete anyway?', chatDeletedSharedOwner: 'Chat deleted and sharing stopped',
             activityThinking: 'Thinking…', activityCompacting: 'Context is nearly full; summarizing earlier steps…', autoCompactDone: 'Context compacted automatically: {count} earlier entries were summarized (about {before} → {after} tokens). The full record stays in the session archive.', autoCompactFailed: 'Automatic compaction failed ({error}); dropping the earliest turns instead', thinkLabel: 'Thinking', thinkDone: 'Thought for', thinkPhase_ponder: 'Pondering', thinkPhase_plan: 'Planning', thinkPhase_search: 'Searching', thinkPhase_analyze: 'Analyzing', thinkPhase_calc: 'Calculating', thinkPhase_verify: 'Verifying', thinkPhase_code: 'Coding', thinkPhase_conclude: 'Concluding', activityTool: 'Working: {tool}…', activityOrganizing: 'Putting results together…', activityResponding: 'Composing a reply…', activityApproval: 'Waiting for your approval…',
             resumeDismiss: 'Dismiss this reminder', resumeTitle: 'Continue last chat', resumeMeta: '{time} · {count} messages', resumeAction: 'Continue', resumeBanner: 'Resumed your last chat · {time}', resumeDivider: 'Earlier messages above. Keep typing to continue.', resumeFailed: 'Could not load the last chat. Try again later.', toolOutput: 'Show output', toolArtifact: 'Full result ({lines} lines)', toolInterrupted: 'Not finished', sessionTitle: 'Chat history', sessionSearch: 'Search conversations…', sessionEmpty: 'No previous chats yet', sessionNoMatch: 'No matching chats', sessionLoading: 'Loading…', sessionMeta: '{time} · {count} messages', sessionArchived: 'Archived', sessionCurrent: 'Current', sessionHint: '↑↓ to move · Enter to open · Esc to close', sessionLoadFailed: 'Could not load chat history. Try again later.', slashSession: 'Browse and resume previous chats', slashNew: 'Start a new chat', slashHint: '↑↓ to choose · Enter to run · Tab to complete', recallTitle: 'Recent questions', recallHint: '↑↓ to choose · Enter to fill in · Esc to close', resumeDirMissing: 'The previous folder "{name}" could not be opened. The chat is restored; choose a folder again.', externalTag: 'External', commandTag: 'Command', commandChangeHint: 'Changed by a command the agent ran; can be undone', riskTitle: 'This command may reach outside the folder or touch sensitive files; your current approval mode requires confirmation', revertConflictTitle: 'File changed again', revertConflictMessage: '{path} was modified again after this change (by hand or another program). Undoing restores the earlier version and discards those later edits.', revertConflictConfirm: 'Undo anyway', binaryChange: 'Binary', binaryChangeHint: 'A binary file (such as a database or image) changed; there are no text lines to compare', externalChange: 'Other changes in the working tree (manual or by other programs). You can view the diff but not undo it here.', backToTools: 'Browse tools', browseTools: 'Browse all tools',
@@ -555,6 +555,124 @@
         });
         document.addEventListener('click', event => {
             if (!exportMenu.menu.hidden && !exportMenu.root.contains(event.target)) toggleExportMenu(false);
+        });
+    }
+
+    // 极窄与重叠碰撞态下的更多操作下拉菜单（新对话、工作区、浏览器、终端、快照、日志、历史、工具等）
+    const actionsMore = { wrap: null, button: null, menu: null, dot: null };
+
+    function renderActionsMenu() {
+        if (!actionsMore.menu) return;
+        const isWsOpen = document.body.classList.contains('dc-workspace-open');
+        const isBrowserOpen = document.body.classList.contains('dc-browser-open');
+        const isTermOpen = document.body.classList.contains('dc-terminal-open');
+        const termBtn = document.getElementById('dcTerminalToggle');
+        const hasTerm = Boolean(termBtn && !termBtn.hidden && window.getComputedStyle(termBtn).display !== 'none');
+        const radarPill = document.querySelector('.dc-radar-pill');
+        const hasRadar = Boolean(radarPill && window.getComputedStyle(radarPill).display !== 'none');
+        const radarWorking = radarPill?.classList.contains('is-working');
+        const radarBlocked = radarPill?.classList.contains('is-blocked');
+
+        if (actionsMore.dot) {
+            const activeSomething = isWsOpen || isBrowserOpen || isTermOpen || radarWorking || radarBlocked;
+            actionsMore.dot.hidden = !activeSomething;
+            actionsMore.dot.className = 'dc-actions-more-dot' + (radarBlocked ? ' is-blocked' : radarWorking ? ' is-working' : '');
+        }
+
+        const item = (action, iconSvg, label, active = false) => `
+            <button type="button" class="dc-actions-item" role="menuitem" data-action="${action}">
+                <span class="dc-actions-item-icon" aria-hidden="true">${iconSvg}</span>
+                <span class="dc-actions-item-label">${escapeHtml(label)}</span>
+                ${active ? '<span class="dc-actions-item-dot" aria-hidden="true"></span>' : ''}
+            </button>
+        `;
+        const divider = '<div class="dc-actions-divider" role="separator"></div>';
+
+        let html = '';
+        html += item('new-chat', '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v3.5a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h4.5"/><path d="M9.5 2.5 13.5 6.5 7 13H3V9l6.5-6.5z"/></svg>', tx('newChat'));
+        html += item('workspace', '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3.5A1.5 1.5 0 0 1 3.5 2h3l1.5 2H12.5A1.5 1.5 0 0 1 14 5.5v7a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 12.5v-9z"/></svg>', tx('workspace'), isWsOpen);
+        html += item('browser', '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.25"/><path d="M1.75 8h12.5M8 1.75a10 10 0 0 0-2.5 6.25 10 10 0 0 0 2.5 6.25 10 10 0 0 0 2.5-6.25A10 10 0 0 0 8 1.75z"/></svg>', tx('browser'), isBrowserOpen);
+        if (hasTerm) {
+            html += item('terminal', '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m3 4.5 4 3.5-4 3.5M8.5 11.5h4.5"/></svg>', tx('terminal'), isTermOpen);
+        }
+        if (hasRadar) {
+            html += item('radar', '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.25"/><circle cx="8" cy="8" r="2.5"/><path d="M8 1.75v3.75"/></svg>', tx('agentRadar'), radarWorking || radarBlocked);
+        }
+        html += divider;
+        html += item('export-html', '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v8.5M4.5 7.5 8 11l3.5-3.5M2.5 11.5v1.75A1.25 1.25 0 0 0 3.75 14.5h8.5a1.25 1.25 0 0 0 1.25-1.25V11.5"/></svg>', tx('exportHtml'));
+        html += item('export-log', '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2.5h5.5L13 6v7.5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-10a1 1 0 0 1 1-1z"/><path d="M9.5 2.5V6H13"/></svg>', tx('exportJson'));
+        html += divider;
+        html += item('history', '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.25"/><path d="M8 4.5V8l2.5 1.5"/></svg>', tx('sessionTitle'));
+        html += item('back-to-tools', '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="4.5" height="4.5" rx="1"/><rect x="9.5" y="2" width="4.5" height="4.5" rx="1"/><rect x="2" y="9.5" width="4.5" height="4.5" rx="1"/><rect x="9.5" y="9.5" width="4.5" height="4.5" rx="1"/></svg>', tx('backToTools'));
+
+        actionsMore.menu.innerHTML = html;
+        actionsMore.menu.setAttribute('aria-label', tx('moreActions'));
+    }
+
+    function toggleActionsMenu(open = actionsMore.menu?.hidden) {
+        if (!actionsMore.menu || !actionsMore.button) return;
+        renderActionsMenu();
+        const next = typeof open === 'boolean' ? open : actionsMore.menu.hidden;
+        actionsMore.menu.hidden = !next;
+        actionsMore.button.setAttribute('aria-expanded', String(next));
+        actionsMore.wrap?.classList.toggle('is-open', next);
+        if (next) actionsMore.menu.querySelector('.dc-actions-item')?.focus();
+    }
+
+    function bindActionsMore() {
+        actionsMore.wrap = document.getElementById('dcActionsMore');
+        actionsMore.button = document.getElementById('dcActionsMoreBtn');
+        actionsMore.menu = document.getElementById('dcActionsMenu');
+        actionsMore.dot = actionsMore.button?.querySelector('.dc-actions-more-dot');
+        if (!actionsMore.wrap || !actionsMore.button || !actionsMore.menu) return;
+        renderActionsMenu();
+        actionsMore.button.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleActionsMenu();
+        });
+        actionsMore.menu.addEventListener('click', (event) => {
+            const item = event.target.closest('[data-action]');
+            const action = item?.dataset.action;
+            if (!action) return;
+            toggleActionsMenu(false);
+            if (action === 'new-chat') {
+                el.newChat?.click();
+            } else if (action === 'workspace') {
+                document.getElementById('dcWorkspaceToggle')?.click();
+            } else if (action === 'browser') {
+                document.getElementById('dcBrowserToggle')?.click();
+            } else if (action === 'terminal') {
+                document.getElementById('dcTerminalToggle')?.click();
+            } else if (action === 'radar') {
+                document.querySelector('.dc-radar-pill')?.click();
+            } else if (action === 'export-html') {
+                exportChatHtml();
+            } else if (action === 'export-log') {
+                exportChatLog();
+            } else if (action === 'history') {
+                openSessionPicker();
+            } else if (action === 'back-to-tools') {
+                el.back?.click();
+            }
+        });
+        document.addEventListener('click', (event) => {
+            if (actionsMore.menu && !actionsMore.menu.hidden && !actionsMore.wrap?.contains(event.target)) {
+                toggleActionsMenu(false);
+            }
+        });
+        actionsMore.menu.addEventListener('keydown', (event) => {
+            const items = [...actionsMore.menu.querySelectorAll('.dc-actions-item')];
+            const index = items.indexOf(document.activeElement);
+            if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                event.preventDefault();
+                items[(index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length]?.focus();
+            } else if (event.key === 'Escape') {
+                event.preventDefault();
+                toggleActionsMenu(false);
+                actionsMore.button.focus();
+            } else if (event.key === 'Tab') {
+                toggleActionsMenu(false);
+            }
         });
     }
 
@@ -4231,6 +4349,7 @@
 
         el.newChat.addEventListener('click', newChat);
         bindExportMenu();
+        bindActionsMore();
         // 对话与工具是两种互斥模式（js/home/home-mode.js）：离开对话不清空当前对话，切回来原样继续
         el.back.addEventListener('click', () => window.HomeMode?.set?.('tools', { focus: true }));
         el.history?.addEventListener('click', () => openSessionPicker());
@@ -4247,6 +4366,7 @@
             if (!state.messages.length && !state.restoring && !external.active) refreshResumeCard();
             renderModelPicker();
             renderExportMenu();
+            renderActionsMenu();
             renderChatList();
         });
     }
@@ -4261,10 +4381,33 @@
             const isSidebarOpen = document.body.matches('.dc-workspace-open, .dc-browser-open, .dc-terminal-open, .ai-preview-open');
             const width = el.chatHead.clientWidth;
             const actions = el.chatActions;
+            const title = el.chatHead.querySelector('.dc-chat-title');
             const actionsOverflow = Boolean(actions && actions.scrollWidth > actions.clientWidth + 2);
             const squeezed = width > 0 && (width <= 840 || (isSidebarOpen && width <= 980) || actionsOverflow);
             el.chatHead.classList.toggle('is-squeezed', squeezed);
             actions?.classList.toggle('is-squeezed', squeezed);
+
+            // 极窄与重叠碰撞检测：当容器极窄（<= 460px）或标题与操作区重叠/碰撞时，切换至下拉菜单模式
+            const isCurrentlyUltra = el.chatHead.classList.contains('is-ultra-squeezed');
+            let ultraSqueezed = false;
+            if (width > 0) {
+                if (width <= 460) {
+                    ultraSqueezed = true;
+                } else if (title && actions) {
+                    const titleRect = title.getBoundingClientRect();
+                    const actionsRect = actions.getBoundingClientRect();
+                    if (isCurrentlyUltra) {
+                        ultraSqueezed = width < (titleRect.width + 250);
+                    } else {
+                        ultraSqueezed = (actionsRect.left - titleRect.right < 12) || (width < titleRect.width + 220);
+                    }
+                }
+            }
+            el.chatHead.classList.toggle('is-ultra-squeezed', ultraSqueezed);
+            actions?.classList.toggle('is-ultra-squeezed', ultraSqueezed);
+            const moreWrap = document.getElementById('dcActionsMore');
+            if (moreWrap) moreWrap.hidden = !ultraSqueezed;
+            if (ultraSqueezed) renderActionsMenu();
         }
         if (typeof ResizeObserver === 'function' && el.chatHead) {
             new ResizeObserver(checkHeaderSqueeze).observe(el.chatHead);
