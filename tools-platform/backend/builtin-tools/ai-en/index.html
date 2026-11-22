@@ -546,9 +546,14 @@ t-a{display:none}
     linear-gradient(var(--voice-cyan),var(--voice-cyan)) right bottom/94px 3px,
     linear-gradient(var(--voice-cyan),var(--voice-cyan)) right bottom/3px 55px;background-repeat:no-repeat}
 [data-deck-theme="dark"] #screen-glow{--voice-violet:#b787ff;--voice-cyan:#5ccfeb}
+#subtitleBand{position:fixed;bottom:0;left:0;right:0;text-align:center;background:var(--bg);color:var(--ink);border-top:1px solid var(--line);padding:clamp(4px,.7vh,12px) 5vw;z-index:8;pointer-events:none;font:500 clamp(14px,min(2.25vw,3.6vh),46px)/1.27 var(--sans);letter-spacing:-.012em}
+#subtitleBand{display:grid;align-content:center;min-height:clamp(50px,9vh,106px)}#subtitleBand[data-count="2"]{min-height:clamp(80px,15vh,172px)}#subtitleBand[hidden]{display:none}#subtitleBand p{margin:0 auto;max-width:80ch;text-wrap:pretty;overflow-wrap:anywhere}
+#subtitleBand p+p{font-size:.76em;font-weight:400;color:var(--muted);margin-top:.22em}
+#subtitleBand [lang="ar"]{font-family:Tahoma,Arial,sans-serif;line-height:1.48}
 </style>
 </head>
 <body>
+<div id="subtitleBand" data-tools-i18n-ignore hidden></div>
 <div id="viewport"><div id="stage"><div id="screen-glow" aria-hidden="true"></div>
 <div class="orb" id="orbA"></div><div class="orb" id="orbB"></div><div class="grain"></div>
 <div id="bar"></div>
@@ -882,8 +887,21 @@ function applySyncedLanguage(next){
   syncedLanguage=next;
   if(!lockedLanguage)setLang(next);
 }
-function resize(){scale=Math.min(innerWidth/1920,innerHeight/1080);$('stage').style.transform=`scale(${scale})`}
-addEventListener('resize',resize);resize();
+function displayCaptions(lines){
+  const band=$('subtitleBand');
+  const valid=Array.isArray(lines)?lines.slice(0,2).filter(l=>l&&isLanguage(l.lang)&&typeof l.text==='string'&&l.text.length<=1000):[];
+  const key=JSON.stringify(valid);
+  if(band.dataset.lines===key)return;
+  band.dataset.lines=key;band.dataset.count=String(valid.length);
+  band.replaceChildren(...valid.map(line=>{
+    const el=document.createElement('p');el.lang=line.lang;el.dir=line.lang==='ar'?'rtl':'auto';el.textContent=line.text;return el;
+  }));
+  band.hidden=!valid.length;resize();
+}
+function resize(){const height=$('subtitleBand').offsetHeight;
+  $('viewport').style.bottom=height+'px';
+  scale=Math.min(innerWidth/1920,Math.max(1,innerHeight-height)/1080);$('stage').style.transform=`scale(${scale})`}
+new ResizeObserver(resize).observe($('subtitleBand'));addEventListener('resize',resize);resize();
 function stagger(s){s.querySelectorAll('.r,.pop').forEach((el,i)=>{if(!el.style.getPropertyValue('--i'))el.style.setProperty('--i',i)})}
 function measure(s){s.querySelectorAll('.draw path').forEach(p=>{let l=1000;try{l=Math.ceil(p.getTotalLength())||2000}catch(e){}p.style.setProperty('--len',l)})}
 function positionBar(){const lv=+S[idx].dataset.lv;const btns=[...$('levels').querySelectorAll('button')];btns.forEach(b=>{const l=+b.dataset.l;b.classList.toggle('active',l===lv);b.classList.toggle('done',l<lv)});const ab=btns.find(b=>+b.dataset.l===lv);if(ab){$('lvBar').style.left=ab.offsetLeft+'px';$('lvBar').style.width=ab.offsetWidth+'px';$('lvBar').style.opacity=1}else $('lvBar').style.opacity=0}
@@ -943,7 +961,7 @@ function toggleSync(){
     return;
   }
   syncActive = !syncActive;
-  if(!syncActive){showScreenCue(null);showReadingFocus(idx)}
+  if(!syncActive){displayCaptions([]);showScreenCue(null);showReadingFocus(idx)}
   if(syncActive){
     crossSync?.refresh();
     if(defaultSync)defaultSync.joinDefault();
@@ -1226,6 +1244,7 @@ function handleSync(data, remote=false){
   if(!remote && data.from === 'ai-en') return;
   const target = typeof data.slideIndex === 'number' ? data.slideIndex : (typeof data.slideNum === 'number' ? data.slideNum - 1 : null);
   if(Number.isInteger(target) && target >= 0 && target < S.length){
+    displayCaptions(data.captions);
     showScreenCue(data.screenCue);
     applyDeckTheme(data.theme);
     syncBrandVisibility(data.hideBrands);
@@ -1324,6 +1343,7 @@ try{
     const d = JSON.parse(cached);
     if(Date.now() - (d.timestamp || 0) < 900000 && typeof d.slideIndex === 'number' && d.slideIndex >= 0 && d.slideIndex < S.length){
       initialSlide = d.slideIndex;
+      displayCaptions(d.captions);
       showScreenCue(d.screenCue);
       applyDeckTheme(d.theme);
       syncBrandVisibility(d.hideBrands);

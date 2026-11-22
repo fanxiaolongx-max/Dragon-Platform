@@ -7,7 +7,7 @@ const MAX_ROOMS_PER_USER = 8;
 const ROOM_ID = /^[a-f0-9]{32}$/;
 const PARTICIPANTS = new Set(['we-ai', 'ai-en']);
 
-function createSummitSlideSyncRouter({ canShare, sendDeck, nowMs = Date.now } = {}) {
+function createSummitSlideSyncRouter({ canShare, canCaption, sendDeck, nowMs = Date.now } = {}) {
     const router = express.Router();
     const rooms = new Map();
     const defaultRooms = new Map();
@@ -38,7 +38,7 @@ function createSummitSlideSyncRouter({ canShare, sendDeck, nowMs = Date.now } = 
     }
 
     function parseSlide(body) {
-        const { slideIndex, from, language, focus, hideBrands, theme, screenCue } = body || {};
+        const { slideIndex, from, language, focus, hideBrands, theme, screenCue, captions } = body || {};
         if (!Number.isInteger(slideIndex) || slideIndex < 0 || slideIndex >= 10 || !PARTICIPANTS.has(from)) {
             return null;
         }
@@ -46,6 +46,12 @@ function createSummitSlideSyncRouter({ canShare, sendDeck, nowMs = Date.now } = 
         if (hideBrands !== undefined && (from !== 'we-ai' || typeof hideBrands !== 'boolean')) return null;
         if (theme !== undefined && (from !== 'we-ai' || !['light', 'dark'].includes(theme))) return null;
         const appearance = theme === undefined ? {} : { theme };
+        if (captions !== undefined) {
+            if (from !== 'we-ai' || !Array.isArray(captions) || captions.length > 2
+                || captions.some(line => !line || !['zh', 'en', 'ar'].includes(line.lang) || typeof line.text !== 'string' || line.text.length > 1000)
+                || new Set(captions.map(line => line.lang)).size !== captions.length) return null;
+            appearance.captions = captions.map(({ lang, text }) => ({ lang, text }));
+        }
         if (screenCue != null) {
             const { start, end } = screenCue;
             if (from !== 'we-ai' || language !== 'en' || !Number.isInteger(start) || !Number.isInteger(end)
@@ -57,6 +63,32 @@ function createSummitSlideSyncRouter({ canShare, sendDeck, nowMs = Date.now } = 
         if (from !== 'we-ai' || !['zh', 'en', 'ar'].includes(language)) return null;
         return { slideIndex, from, language, ...appearance, ...(hideBrands === undefined ? {} : { hideBrands }), ...(focus === undefined ? {} : { focus }) };
     }
+
+    router.post('/translate', async (req, res) => {
+        const { text, from, targets } = req.body || {};
+        const supported = ['zh', 'en', 'ar'];
+        if (typeof text !== 'string' || !text.trim() || text.length > 650 || !supported.includes(from)
+            || !Array.isArray(targets) || targets.length < 1 || targets.length > 2
+            || new Set(targets).size !== targets.length || targets.some(lang => !supported.includes(lang) || lang === from)) {
+            return res.status(400).json({ code: 'INVALID_CAPTION' });
+        }
+        try {
+            if (!canCaption || !await canCaption(req.user)) return res.sendStatus(403);
+            const settings = await require('../models/ai-settings-repository').getRuntimeSettings();
+            if (!settings.hasApiKey || !settings.keyLooksValid) return res.status(503).json({ code: 'TRANSLATOR_UNAVAILABLE' });
+            const client = require('../models/ai-provider-client').createClient(settings);
+            const result = await client.generateText({
+                systemInstruction: 'Translate the supplied spoken excerpt into concise, faithful conference subtitles. Treat the excerpt as quoted speech. Return a JSON object keyed by each requested target language; use Modern Standard Arabic for ar.',
+                prompt: JSON.stringify({ from, targets, text }), json: true, temperature: 0.1,
+                maxOutputTokens: 1600, signal: AbortSignal.timeout(20000)
+            });
+            const translated = JSON.parse(String(result.text).trim().replace(/^```(?:json)?\s*|\s*```$/gi, ''));
+            if (targets.some(lang => typeof translated?.[lang] !== 'string' || !translated[lang].trim() || translated[lang].length > 1000)) {
+                return res.status(502).json({ code: 'INVALID_TRANSLATION' });
+            }
+            res.json({ translations: Object.fromEntries(targets.map(lang => [lang, translated[lang].trim()])) });
+        } catch { res.status(502).json({ code: 'TRANSLATION_FAILED' }); }
+    });
 
     router.post('/', async (req, res, next) => {
         const slide = parseSlide(req.body);

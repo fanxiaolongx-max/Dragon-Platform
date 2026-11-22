@@ -409,6 +409,7 @@ app.get('/api/platform-identity', async (req, res) => {
 });
 
 const summitSyncRouter = require('./routes/summit-slide-sync').createSummitSlideSyncRouter({
+    canCaption: async user => Boolean(await toolDistribution.resolveTool('we-ai', user)),
     canShare: async user => (await toolDistribution.resolveTool('ai-en', user))?.sourceTenant === DEFAULT_TENANT_ID,
     sendDeck: (_req, res, next) => runWithTenant(DEFAULT_TENANT_ID, () => {
         const file = customToolsRepo.getToolAssetPath('ai-en', 'index.html');
@@ -473,6 +474,7 @@ app.use('/api', function superOnlyPathGate(req, res, next) {
 // Protect modifications: requireAdmin for all non-GET requests under uiv, sla, upload
 app.use('/api', (req, res, next) => {
     if (req.path.startsWith('/auth/')) return next();
+    if (req.method === 'POST' && req.path === '/summit-slide-sync/translate') return next(); // 路由校验提词器访问权限
     if (req.path === '/summit-slide-sync') return next(); // 房间接口校验当前登录租户和随机房间标识
     if (req.method === 'POST' && req.path === '/tenants/switch') return next();
     if (req.method === 'PATCH' && req.path === '/distribution/personal') return next();

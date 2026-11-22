@@ -32,6 +32,11 @@ test('summit rooms share the slide and prompter language within the team and clo
 
     assert.equal((await request('POST', null, null, { from: 'we-ai', slideIndex: 4 })).status, 401);
     assert.equal((await request('POST', 'host', null, { from: 'ai-en', slideIndex: 4 })).status, 400);
+    const translate = (who, body) => fetch(url + '/translate', { method:'POST', headers:{ 'Content-Type':'application/json', ...(who ? {'X-Test-User':who} : {}) }, body:JSON.stringify(body) });
+    const utterance = { from:'en', targets:['ar','zh'], text:'Hello, everyone.' };
+    assert.equal((await translate(null, utterance)).status, 401);
+    assert.equal((await translate('host', { ...utterance, targets:['ar','ar'] })).status, 400);
+    assert.equal((await translate('host', utterance)).status, 403);
     const creation = await request('POST', 'host', null, { from: 'we-ai', slideIndex: 4 });
     assert.equal(creation.status, 201);
     const { room, viewer, expiresAt } = await creation.json();
@@ -97,6 +102,17 @@ test('summit rooms share the slide and prompter language within the team and clo
     clock += 3500;
     assert.equal((await (await watch(viewer)).json()).screenCue, null);
     assert.equal((await request('PUT', 'host', room, { ...cueWrite, screenCue: { start: 0, end: 30000 } })).status, 400);
+
+    const captions = [{ lang: 'ar', text: 'مرحبًا' }, { lang: 'en', text: 'Hello' }];
+    const captionWrite = { from: 'we-ai', language: 'zh', slideIndex: 7, captions };
+    assert.equal((await request('PUT', 'host', room, captionWrite)).status, 200);
+    assert.deepEqual((await (await watch(viewer)).json()).captions, captions);
+    for (const invalid of [[...captions, { lang: 'zh', text: '好' }], [captions[0], captions[0]], [{lang:'en',text:'a'.repeat(1001)}]]) {
+        assert.equal((await request('PUT', 'host', room, { ...captionWrite, captions:invalid })).status, 400);
+    }
+    assert.equal((await request('PUT', 'projector', room, { from:'ai-en', slideIndex:7, captions })).status, 400);
+    await request('PUT', 'host', room, { ...captionWrite, captions:[] });
+    assert.deepEqual((await (await watch(viewer)).json()).captions, []);
 
     assert.equal((await request('DELETE', 'projector', room)).status, 403);
     assert.equal((await request('DELETE', 'host', room)).status, 204);

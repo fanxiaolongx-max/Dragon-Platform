@@ -1,10 +1,12 @@
 {
   "zh": [
-    "修复对话顶栏「···」更多操作菜单：窗口或侧栏收窄后再拉宽时，按钮现在会自动恢复显示（之前会一直收在「···」里直到刷新）；收起时机改为按标题保底宽度判断，标题不再被挤得过窄；管理员的「终端」入口也会出现在「···」菜单中。",
-    "峰会演示翻页同步支持同步深浅色主题与英文旁白的屏幕提示时间点，提词器新增阿拉伯语。"
+    "峰会提词器与演示联动新增实时双语展示字幕（支持跟随讲稿与配音或现场麦克风翻译，覆盖中文、英文与阿拉伯语）及图标化控制栏。",
+    "同步更新峰会提词器中/英/阿多语种与慢速朗读音频清单并对接独立媒体仓库（we-ai-narration-20261122-1），保障材料正常按需拉取与播放音频。",
+    "修复对话顶栏「···」更多操作菜单：窗口或侧栏收窄后再拉宽时，按钮现在会自动恢复显示；收起时机改为按标题保底宽度判断，管理员的「终端」入口也会出现在「···」菜单中。"
   ],
   "en": [
-    "Fixed the chat header \"···\" more-actions menu: buttons now come back automatically when the window or sidebar is widened again (previously they stayed collapsed until reload); collapsing is based on a minimum title width so the title is no longer squeezed too far; the Terminal entry for admins now appears in the menu.",
-    "Summit slide sync now carries the light/dark theme and timed on-screen cues for the English narration; the prompter adds Arabic."
+    "Summit teleprompter and presentation sync now support live bilingual on-screen captions (following script/narration or live microphone translation across Chinese, English, and Arabic) with an iconified control bar.",
+    "Updated the Chinese, English, and Arabic teleprompter narration and slow-pace audio manifest backed by the standalone media repository (we-ai-narration-20261122-1) for reliable audio playback.",
+    "Fixed the chat header \"···\" more-actions menu: buttons now come back automatically when the window or sidebar is widened again, collapsing uses a minimum title width, and the Terminal entry for admins appears in the menu."
   ]
 }

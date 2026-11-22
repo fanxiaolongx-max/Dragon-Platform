@@ -38,6 +38,10 @@ button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
 .btn:hover{background:var(--hl)}
 .btn.on{color:var(--accT);background:var(--hl)}
 #play{width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,var(--acc),#7b45e0);color:#fff;font-size:18px;box-shadow:0 8px 24px -10px rgba(91,47,181,.9);margin-right:6px}
+html[data-tp-theme] #lang{background-color:var(--bg2);color:var(--ink);border:1px solid var(--line-c)}
+html[data-tp-theme="dark"] #lang{color-scheme:dark!important}
+html[data-tp-theme="light"] #lang{color-scheme:light!important}
+#lang option{color:var(--ink);background:var(--bg2)}
 #dragon-reply{width:32px;height:32px;flex:none;display:inline-grid;place-items:center;padding:0;border-radius:50%;border:1.5px solid var(--accT);background:var(--bg2);color:var(--accT)}
 #dragon-reply::before{content:"";margin-left:3px;border-left:11px solid currentColor;border-block:7px solid transparent}
 html[data-tp-theme="dark"] #dragon-reply{background:#37284d;color:#f5edff;border-color:#c9acf7}
@@ -225,13 +229,21 @@ kbd{font-family:"Inter",sans-serif;font-size:13px;font-weight:600;min-width:30px
   .keys{grid-template-columns:1fr}
 }
 body.m-ar .s .tx{display:block;direction:rtl;text-align:right;line-height:1.6;letter-spacing:normal}
+.summit-icon{width:36px;min-width:36px;padding:7px}
+.summit-icon svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.summit-icon:focus-visible{outline:2px solid var(--accT)}#brandToggle:not([aria-pressed="true"]) .eye-slash{display:none}
+#captionDialog{width:min(400px,92vw);padding:22px;border:1px solid var(--line-c);border-radius:18px;color:var(--ink);background:var(--bg2);box-shadow:0 18px 70px #0004}
+#captionDialog::backdrop{background:#1118}#captionDialog h2{font-size:20px;margin:0 0 18px}#ccClose{float:right;font-size:22px}
+#captionDialog fieldset{margin:15px 0;padding:0;border:0}#captionDialog legend{margin-bottom:8px}
+#captionDialog fieldset label{display:inline-flex;gap:4px;align-items:center;margin-right:12px}#captionDialog select{background:var(--bg);color:var(--ink);padding:6px;border:1px solid var(--line-c);border-radius:6px}
+#ccHint,#ccStatus{font-size:13px;color:var(--help-muted)}#ccAction{background:var(--acc);color:white;padding:8px 16px;border-radius:9px}
 </style>
 </head>
 <body class="m-zh">
 <header id="bar">
   <div class="brand"><b>TE <i>×</i> AI</b><span>峰会提词器 · TELEPROMPTER</span></div>
   <div class="ctl">
-    <button id="dragon-reply" type="button" hidden disabled aria-pressed="false" title="Dragon’s opening reply" aria-label="Dragon’s opening reply"></button>
+    <button id="dragon-reply" type="button" hidden disabled aria-pressed="false" aria-keyshortcuts="O" title="Dragon’s opening reply (O)" aria-label="Dragon’s opening reply"></button>
     <button id="play" title="播放 / 暂停（空格）" aria-label="play">▶</button>
     <button id="narration-toggle" type="button" role="switch" aria-checked="false"><span class="narration-switch" aria-hidden="true"></span><span id="narration-label">自动朗读</span></button>
     <details id="bgm-menu">
@@ -256,9 +268,10 @@ body.m-ar .s .tx{display:block;direction:rtl;text-align:right;line-height:1.6;le
     <button class="btn" id="tp-theme-button" title="深色 / 浅色（D）" aria-label="深色模式" aria-pressed="false">☾</button>
     <button class="btn" id="mirror" title="镜像（M）">⇋</button>
     <button class="btn" id="full" title="全屏（F）">⛶</button>
-    <button class="btn on" id="syncBtn" title="与演示同步页码和语言">🔗 幻灯联动</button>
-    <button class="btn" id="brandToggle" type="button" aria-pressed="false">隐藏公司标识</button>
-    <button class="btn" id="crossSyncBtn" type="button">跨电脑联动</button>
+    <button type="button" class="btn summit-icon" id="syncBtn" title="幻灯联动" aria-label="幻灯联动"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 13 4-4m-5 6-2 2a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m2 2 2-2a4 4 0 1 1 6 6l-4 4a4 4 0 0 1-6 0" transform="translate(1 -1)"/></svg></button>
+    <button type="button" class="btn summit-icon" id="brandToggle" title="品牌标识" aria-label="品牌标识"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12s3.3-6 9-6 9 6 9 6-3.3 6-9 6-9-6-9-6Z"/><circle cx="12" cy="12" r="2.5"/><path class="eye-slash" d="m4 3 16 18"/></svg></button>
+    <button type="button" class="btn summit-icon" id="crossSyncBtn" title="跨电脑联动" aria-label="跨电脑联动" aria-haspopup="dialog"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="4" width="14" height="10" rx="2"/><path d="M9 14v4m-4 1h7"/><rect x="15" y="10" width="7" height="11" rx="1.5"/></svg></button>
+    <button type="button" class="btn summit-icon" id="ccBtn" title="展示字幕" aria-label="展示字幕" aria-haspopup="dialog"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="M10 10a2.5 2.5 0 1 0 0 4m8-4a2.5 2.5 0 1 0 0 4"/></svg></button>
     <button class="btn" id="helpb" title="快捷键（?）">?</button>
   </div>
   <div class="timers">
@@ -307,6 +320,7 @@ body.m-ar .s .tx{display:block;direction:rtl;text-align:right;line-height:1.6;le
     <div><kbd>V</kbd>显示 / 隐藏生词下划线</div>
     <div><kbd>[</kbd><kbd>]</kbd>字号变小 / 变大</div>
     <div><kbd>,</kbd><kbd>.</kbd>停顿变短 / 变长</div>
+    <div><kbd>O</kbd>Dragon 开场接话（仅英文） · Opening reply (English only)</div>
     <div><kbd>D</kbd>深色 / 浅色</div>
     <div><kbd>M</kbd>镜像（提词器玻璃用）</div>
     <div><kbd>F</kbd>全屏</div>
@@ -320,6 +334,14 @@ body.m-ar .s .tx{display:block;direction:rtl;text-align:right;line-height:1.6;le
   </div>
   <p class="sub" style="margin-top:16px">遇到 ⏸ ➡️ 👉 等提示，滚动会自动稍停；停顿时长在底栏调。计时从第一次播放开始走，按页累计；超过建议时长会变红。</p>
 </dialog>
+<dialog id="captionDialog" aria-labelledby="ccTitle">
+  <button id="ccClose" type="button" aria-label="关闭 / Close">×</button><h2 id="ccTitle">展示字幕</h2>
+  <label><span id="ccFromLabel">字幕来源</span> <select id="ccSource"><option value="script">跟随讲稿与配音</option><option value="mic">现场麦克风翻译</option></select></label>
+  <fieldset><legend id="ccLanguagesLabel">显示语言 · 最多两种</legend><label><input type="checkbox" value="zh">中文</label><label><input type="checkbox" value="en">English</label><label><input type="checkbox" value="ar">العربية</label></fieldset>
+  <label id="ccPrimaryRow"><span id="ccPrimaryLabel">主字幕</span> <select id="ccPrimary"></select></label>
+  <p id="ccHint"></p><p id="ccStatus" role="status"></p><button id="ccAction" type="button">开启字幕</button>
+</dialog>
+<script src="/js/shared/summit-captions.js"></script>
 <script id="narration-data" type="application/json">{"zh":{"path":"audio/we-ai-zh-zixuan.mp3","duration":556.643,"pages":[0,35.579,88.111,161.959,209.136,260.101,309.864,385.384,443.454,527.516],"starts":[0,2.4,4.3,7.38,12.56,15.16,18.08,20.25,24.62,35.579,36.659,38.919,40.119,42.059,43.619,46.139,49.079,51.209,57.559,60.479,62.579,68.239,70.949,73.139,82.519,85.799,88.111,90.151,92.831,95.371,101.831,104.011,111.811,115.411,119.271,124.951,130.711,133.651,138.991,142.111,146.191,153.291,155.591,159.391,161.959,166.419,170.199,174.139,178.179,184.559,189.129,192.169,196.239,201.519,205.609,209.136,212.896,216.506,219.706,221.356,224.026,227.976,232.076,235.786,237.186,239.996,241.506,245.196,246.956,249.356,254.956,258.896,260.101,261.331,262.871,266.141,271.021,273.201,275.481,278.461,283.341,288.121,291.301,297.701,302.511,305.691,309.864,312.164,314.164,315.864,320.584,322.544,324.164,327.244,331.464,334.364,337.644,346.904,347.744,350.084,354.824,359.984,366.544,368.184,370.664,372.864,375.664,378.684,380.424,381.904,385.384,388.254,390.454,392.394,394.734,399.414,405.534,412.894,416.174,419.434,426.754,432.234,438.434,440.974,443.454,448.194,451.054,454.154,457.414,468.154,469.454,469.914,470.554,471.394,473.554,477.554,480.694,485.754,490.314,496.054,500.594,503.014,506.174,513.354,517.374,520.574,524.014,527.516,530.376,534.256,537.516,540.616,542.616,545.286,549.716,552.316,554.816,555.956],"slowPath":"audio/we-ai-zh-zixuan-slow.mp3"},"en":{"path":"audio/we-ai-en-kai-dragon-bright.mp3","duration":643.332,"pages":[0,37.982,103.601,196.362,252.107,310.439,367.333,451.813,519.131,613.798],"starts":[0,1.06,3.6,5.24,7.25,10.07,12.63,15.36,17.96,19.78,21.67,24.97,26.15,27.56,28.59,30.94,32.44,34.54,37.982,39.922,40.992,42.222,44.472,46.662,49.662,52.892,54.602,57.742,61.712,63.712,66.442,70.732,74.552,77.552,81.512,83.482,85.752,90.802,94.392,97.642,100.482,103.601,106.721,109.631,110.801,115.361,117.041,120.191,122.731,124.401,127.001,128.361,131.818,134.901,137.641,140.001,144.421,149.701,154.561,155.861,158.531,161.791,163.461,166.451,167.201,169.521,172.555,174.665,175.451,180.465,182.913,187.689,189.39,190.893,193.728,196.362,199.462,201.962,203.762,205.592,209.212,211.462,214.762,216.462,220.522,222.592,224.972,228.828,231.255,233.028,235.455,238.053,240.812,243.685,247.183,250.141,252.107,254.207,257.087,259.097,261.647,264.347,266.467,268.747,271.447,275.847,280.067,283.017,284.857,287.017,288.127,289.95,291.917,294.967,297.847,299.587,301.037,305.607,307.567,309.077,310.439,312.069,314.929,317.829,319.279,322.159,323.599,325.719,327.619,330.389,332.339,334.679,338.129,341.079,344.389,345.819,348.439,350.369,353.129,355.569,359.039,361.459,363.589,367.333,369.793,371.673,373.393,376.793,378.393,380.433,381.873,383.793,385.633,387.633,390.733,393.293,394.493,396.533,401.653,405.773,409.613,411.233,413.213,415.883,418.893,422.373,425.823,429.293,432.973,435.653,438.073,439.233,440.573,441.523,442.553,443.433,446.033,447.293,448.473,451.813,455.073,456.853,459.033,461.473,468.513,475.043,482.473,485.913,489.953,493.193,496.193,498.323,502.673,505.233,507.473,510.833,513.793,516.563,519.131,523.191,526.191,528.191,530.191,532.191,535.191,537.191,539.191,541.191,544.191,545.131,546.191,547.191,549.191,551.191,553.191,556.191,559.191,562.191,564.191,566.191,569.191,572.191,575.191,577.191,580.191,583.191,587.191,589.191,594.191,597.191,599.191,601.191,606.191,607.191,610.181,613.798,616.048,618.278,620.298,623.848,627.098,629.418,631.378,633.598,636.838,639.818,641.998,642.818],"slowPath":"audio/we-ai-en-kai-dragon-slow-bright.mp3"},"neutral":{"zh":{"path":"audio/we-ai-zh-zixuan-neutral.mp3","duration":558.028,"pages":[0,36.963,89.495,163.343,210.52,261.485,311.248,386.768,444.839,528.9],"starts":[0,2.7,3.47,6.69,12.11,15.55,19.39,21.81,26.05,36.963,38.043,40.303,41.503,43.443,45.003,47.523,50.463,52.593,58.943,61.863,63.963,69.623,72.333,74.523,83.903,87.183,89.495,91.535,94.215,96.755,103.215,105.395,113.195,116.795,120.655,126.335,132.095,135.035,140.375,143.495,147.575,154.675,156.975,160.775,163.343,167.803,171.583,175.523,179.563,185.943,190.513,193.553,197.623,202.903,206.993,210.52,214.28,217.89,221.09,222.74,225.41,229.36,233.46,237.17,238.57,241.38,242.89,246.58,248.34,250.74,256.34,260.28,261.485,262.715,264.255,267.525,272.405,274.585,276.865,279.845,284.725,289.505,292.685,299.085,303.895,307.075,311.248,313.548,315.548,317.248,321.968,323.928,325.548,328.628,332.848,335.748,339.028,348.288,349.128,351.468,356.208,361.368,367.928,369.568,372.048,374.248,377.048,380.068,381.808,383.288,386.768,389.638,391.838,393.778,396.118,400.798,406.918,414.278,417.558,420.818,428.138,433.618,439.818,442.358,444.839,449.579,452.439,455.539,458.799,469.539,470.839,471.299,471.939,472.779,474.939,478.939,482.079,487.139,491.699,497.439,501.979,504.399,507.559,514.739,518.759,521.959,525.399,528.9,531.76,535.64,538.9,542.0,544.0,546.67,551.1,553.7,556.2,557.34],"slowPath":"audio/we-ai-zh-zixuan-neutral-slow.mp3"},"en":{"path":"audio/we-ai-en-kai-neutral-bright.mp3","duration":640.653,"pages":[0,35.291,100.911,193.672,249.417,307.748,364.643,449.123,516.44,611.108],"starts":[0,0.96,2.03,3.81,5.43,7.95,10.47,13.35,16.63,18.42,20.09,23.47,24.43,25.63,26.49,28.47,30.07,32.07,35.291,37.231,38.301,39.531,41.781,43.971,46.971,50.201,51.911,55.051,59.021,61.021,63.751,68.041,71.861,74.861,78.821,80.791,83.061,88.111,91.701,94.951,97.791,100.911,104.031,106.941,108.111,112.671,114.351,117.501,120.041,121.711,124.311,125.671,129.128,132.211,134.951,137.311,141.731,147.011,151.871,153.171,155.841,159.101,160.771,163.761,164.511,166.831,169.865,171.974,172.76,177.775,180.222,184.998,186.7,188.202,191.038,193.672,196.772,199.272,201.072,202.902,206.522,208.772,212.072,213.772,217.832,219.902,222.282,226.137,228.564,230.337,232.764,235.362,238.121,240.994,244.492,247.45,249.417,251.517,254.397,256.407,258.957,261.657,263.777,266.057,268.757,273.157,277.377,280.327,282.167,284.327,285.437,287.259,289.227,292.277,295.157,296.897,298.347,302.917,304.877,306.387,307.748,309.378,312.238,315.138,316.588,319.468,320.908,323.028,324.928,327.698,329.648,331.988,335.438,338.388,341.698,343.128,345.748,347.678,350.438,352.878,356.348,358.768,360.898,364.643,367.103,368.983,370.703,374.103,375.703,377.743,379.183,381.103,382.943,384.943,388.043,390.603,391.803,393.843,398.963,403.083,406.923,408.543,410.523,413.193,416.203,419.683,423.133,426.603,430.283,432.963,435.383,436.543,437.883,438.833,439.863,440.743,443.343,444.603,445.783,449.123,452.383,454.163,456.343,458.783,465.823,472.353,479.783,483.223,487.263,490.503,493.503,495.633,499.983,502.543,504.783,508.143,511.103,513.873,516.44,520.5,523.5,525.5,527.5,529.5,532.5,534.5,536.5,538.5,541.5,542.44,543.5,544.5,546.5,548.5,550.5,553.5,556.5,559.5,561.5,563.5,566.5,569.5,572.5,574.5,577.5,580.5,584.5,586.5,591.5,594.5,596.5,598.5,603.5,604.5,607.49,611.108,613.358,615.588,617.608,621.158,624.408,626.728,628.688,630.908,634.148,637.128,639.308,640.128],"slowPath":"audio/we-ai-en-kai-neutral-slow-bright.mp3"},"ar":{"path":"audio/we-ai-ar-kai-neutral.mp3","slowPath":"audio/we-ai-ar-kai-neutral-slow.mp3","pages":[0.0,41.1286,111.5306,211.2114,271.0608,341.3322,404.538,501.6841,579.4139,676.251],"starts":[0.0,3.0518,3.9094,8.7637,14.7412,18.3416,22.36,24.4192,29.6392,41.1286,42.5347,45.7171,47.5151,50.3318,52.9657,56.0437,60.5845,63.0355,71.0506,74.1808,76.8147,84.1245,88.5086,91.6388,103.4939,107.6951,111.5306,115.0004,118.8882,123.5596,131.209,133.1376,141.022,147.5482,153.8914,160.7049,167.3616,171.6673,179.7608,184.8502,190.8539,197.4322,200.5102,206.3049,211.2114,216.4837,220.3192,224.442,230.6547,239.2184,245.3788,250.7816,256.0016,262.4755,266.2588,271.0608,276.0196,281.6053,286.5118,289.2763,292.5633,298.3057,304.7273,309.1114,311.5624,316.7302,319.0245,323.4086,326.0424,329.0943,335.7249,339.5082,341.3322,342.9473,345.2416,350.749,357.0922,360.4053,364.5543,367.9718,374.7331,377.811,381.4637,388.1204,395.9004,399.3702,404.538,407.6159,410.7461,414.242,418.7829,421.4951,422.5878,426.0837,430.4678,433.5196,438.6873,449.0796,450.7208,453.6159,460.2465,466.0673,473.3771,476.7424,480.4473,483.8127,487.7004,491.771,494.0653,496.9604,501.6841,504.971,508.049,510.082,512.742,521.6453,529.7127,536.7612,540.4922,545.66,554.8767,562.3433,571.978,575.709,579.4139,583.5367,587.4245,592.2788,596.0098,605.0959,606.502,607.6992,609.5233,611.3212,614.791,621.3171,623.1151,629.6412,634.3649,639.8722,643.4727,646.2371,649.7331,658.0355,661.7404,666.0722,671.1094,676.251,679.6686,684.3922,689.0637,694.2053,696.8392,699.6559,704.8237,707.771,711.5543,712.6992],"duration":713.6873}},"ar":{"path":"audio/we-ai-ar-kai.mp3","slowPath":"audio/we-ai-ar-kai-slow.mp3","pages":[0.0,42.278,112.68,212.3608,272.2102,342.4816,405.6873,502.8335,580.5633,677.4004],"starts":[0.0,3.0518,5.1633,10.0176,15.9951,19.7261,23.5094,25.5686,30.7886,42.278,43.6841,46.8665,48.6645,51.4812,54.1151,57.1931,61.7339,64.1849,72.2,75.3302,77.9641,85.2739,89.658,92.7882,104.6433,108.8445,112.68,116.1498,120.0376,124.709,132.3584,134.2869,142.1714,148.6976,155.0408,161.8543,168.511,172.8167,180.9102,185.9996,192.0033,198.5816,201.6596,207.4543,212.3608,217.6331,221.4686,225.5914,231.8041,240.3678,246.5282,251.931,257.151,263.6249,267.4082,272.2102,277.169,282.7547,287.6612,290.4257,293.7127,299.4551,305.8767,310.2608,312.7118,317.8796,320.1739,324.558,327.1918,330.2437,336.8743,340.6576,342.4816,344.0967,346.391,351.8984,358.2416,361.5547,365.7037,369.1212,375.8824,378.9604,382.6131,389.2698,397.0498,400.5196,405.6873,408.7653,411.8955,415.3914,419.9322,422.6445,423.7371,427.2331,431.6171,434.669,439.8367,450.229,451.8702,454.7653,461.3959,467.2167,474.5265,477.8918,481.5967,484.962,488.8498,492.9204,495.2147,498.1098,502.8335,506.1204,509.1984,511.2314,513.8914,522.7947,530.862,537.9106,541.6416,546.8094,556.0261,563.4927,573.1273,576.8584,580.5633,584.6861,588.5739,593.4282,597.1592,606.2453,607.6514,608.8486,610.6727,612.4706,615.9404,622.4665,624.2645,630.7906,635.5143,641.0216,644.622,647.3865,650.8824,659.1849,662.8898,667.2216,672.2588,677.4004,680.818,685.5416,690.2131,695.3547,697.9886,700.8053,705.9731,708.9204,712.7037,713.8486],"duration":714.8367}}</script>
 <script src="/js/shared/summit-slide-sync.js"></script>
 <script>
@@ -348,6 +370,7 @@ const esc=t=>String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'
 const fmt=s=>{s=Math.max(0,Math.floor(s));return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')};
 const mmss=m=>Math.floor(m)+':'+String(Math.round((m%1)*60)).padStart(2,'0');
 
+let captionControls=null,captionLines=[];
 let hideBrands=store.get('hideBrands',false)===true;
 let syncEnabled=store.get('sync',true);let lastBroadcastKey='';let receivingSlide=false;let syncChan=null;
 const crossSyncDialog=$('crossSync');
@@ -445,7 +468,7 @@ $('crossSyncStart').onclick=async()=>{
   button.disabled=true;
   crossStatus='connecting';renderCrossSync();
   try{
-    const room=await crossSync.start(pageOf(cur),S.mode,Number($('crossHours').value),readFocus(pageOf(cur)),hideBrands,S.theme,screenCue);
+    const room=await crossSync.start(pageOf(cur),S.mode,Number($('crossHours').value),readFocus(pageOf(cur)),hideBrands,S.theme,screenCue,captionLines);
     if(room){
       defaultSync?.leave();
       try{sessionStorage.setItem(summitRoomStorage,room)}catch(e){}
@@ -487,17 +510,17 @@ function broadcastSlide(si,force=false){
   const focus=readFocus(si),key=[si,S.mode,focus,hideBrands,S.theme].join(':');
   if(!force&&key===lastBroadcastKey)return;
   lastBroadcastKey=key;
-  if(crossSync?.room&&crossStatus!=='expired'){crossSync.send(si,S.mode,focus,hideBrands,S.theme,screenCue);return}
-  defaultSync?.send(si,S.mode,focus,hideBrands,S.theme,screenCue);
-  const msg={type:'we_ai_slide_sync',from:'we-ai',slideIndex:si,slideNum:si+1,language:S.mode,focus,hideBrands,theme:S.theme,screenCue,timestamp:Date.now()};
+  if(crossSync?.room&&crossStatus!=='expired'){crossSync.send(si,S.mode,focus,hideBrands,S.theme,screenCue,captionLines);return}
+  defaultSync?.send(si,S.mode,focus,hideBrands,S.theme,screenCue,captionLines);
+  const msg={type:'we_ai_slide_sync',from:'we-ai',slideIndex:si,slideNum:si+1,language:S.mode,focus,hideBrands,theme:S.theme,screenCue,captions:captionLines,timestamp:Date.now()};
   try{syncChan?.postMessage(msg)}catch(e){}
   try{localStorage.setItem('we_ai_synced_slide',JSON.stringify(msg))}catch(e){}
-  try{if(window.parent&&window.parent!==window)window.parent.postMessage(msg,'*')}catch(e){}
+  try{if(window.parent&&window.parent!==window)window.parent.postMessage(msg,location.origin)}catch(e){}
 }
 function updateSyncUI(){
   const btn=$('syncBtn');if(!btn)return;
   btn.classList.toggle('on',syncEnabled);
-  btn.innerHTML=syncEnabled?'🔗 联动开':'🔗 联动关';
+  btn.setAttribute('aria-pressed',String(syncEnabled));
   const activeCrossRoom=crossSync?.room&&crossStatus!=='expired';
   const activeStatus=activeCrossRoom?crossStatus:defaultStatus;
   btn.title=syncEnabled
@@ -507,9 +530,10 @@ function updateSyncUI(){
         ? crossLocalized('同机联动已开启，登录平台后可跨电脑联动','Local sync is on. Sign in to sync across computers.')
         : crossLocalized('演示页联动已开启（点击关闭）','Slide sync is on (click to turn off)')
     : crossLocalized('演示页联动已关闭（点击开启）','Slide sync is off (click to turn on)');
+  btn.setAttribute('aria-label',btn.title);
 }
 function toggleSync(){
-  if(syncEnabled&&screenCue)setScreenCue(null);
+  if(syncEnabled){captionControls?.stop();if(screenCue)setScreenCue(null)}
   syncEnabled=!syncEnabled;store.set('sync',syncEnabled);updateSyncUI();
   if(syncEnabled){
     if(!crossSync?.room||crossStatus==='expired')defaultSync?.joinDefault();
@@ -577,7 +601,11 @@ function build(){
   $('dragon-reply').disabled=S.mode!=='en'||playing;
   document.querySelector('.brand b').hidden=hideBrands;
   document.title=hideBrands?'峰会提词器':'TE × AI · 峰会提词器';
-  $('brandToggle').textContent=isZh()?(hideBrands?'显示公司标识':'隐藏公司标识'):(hideBrands?'Show branding':'Hide branding');
+  $('brandToggle').title=isZh()?(hideBrands?'显示公司标识':'隐藏公司标识'):(hideBrands?'Show branding':'Hide branding');
+  $('brandToggle').setAttribute('aria-label',$('brandToggle').title);
+  for(const [id,zh,en] of [['crossSyncBtn','跨电脑联动','Remote sync'],['ccBtn','展示字幕','Presentation captions']]){
+    $(id).title=crossLocalized(zh,en);$(id).setAttribute('aria-label',$(id).title);
+  }
   $('brandToggle').setAttribute('aria-pressed',String(hideBrands));
   const key=S.mode,primary=isZh()?'zh-CN':S.mode,other=isZh()?'en':'zh-CN';let h='';flat=[];
   DATA.slides.forEach((s,si)=>{
@@ -632,7 +660,7 @@ function setCur(i,{scroll=true,keepProg=false,fromNarration=false}={}){
     narrationDirty=true;
     if(playing&&narrationAudio.getAttribute('src')===narrationUrl())seekNarration();
   }
-  updateNav();
+  captionControls?.refresh();updateNav();
 }
 function pageOf(i){return flat[i]?flat[i].si:0}
 function firstOf(si){return flat.findIndex(f=>f.si===si&&f.it.t==='s')}
@@ -712,6 +740,7 @@ narrationAudio.addEventListener('waiting',()=>{if(replyActive)setScreenCue(null)
 function stopDragonReply(){
   if(!replyActive)return;
   replyActive=false;
+  captionControls?.refresh();
   setScreenCue(null);
   pauseNarration();
   $('dragon-reply').setAttribute('aria-pressed','false');
@@ -720,6 +749,8 @@ function toggleDragonReply(){
   if(S.mode!=='en'||playing)return;
   if(replyActive){stopDragonReply();return}
   stopSpeech();hidePop();
+  setCur(0);
+  $('stream').scrollTop=targetTop();
   replyActive=true;
   $('dragon-reply').setAttribute('aria-pressed','true');
   narrationDirty=true;
@@ -1143,7 +1174,7 @@ $('help').addEventListener('click',e=>{
 });
 document.querySelectorAll('button').forEach(b=>b.addEventListener('mouseup',()=>b.blur()));
 document.addEventListener('keydown',e=>{if(e.metaKey||e.ctrlKey||e.altKey)return;const k=e.key;
-  if(crossSyncDialog.open)return;
+  if(crossSyncDialog.open||$('captionDialog').open)return;
   if(k==='?'||k==='h'||k==='H'){toggleHelp();e.preventDefault();return}
   if(k==='Escape'){
     toggleHelp(false);stopDragonReply();stopSpeech();hidePop($('pop').contains(e.target));
@@ -1152,6 +1183,12 @@ document.addEventListener('keydown',e=>{if(e.metaKey||e.ctrlKey||e.altKey)return
   }
   if(e.target.closest?.('select,input[type=range]')||((k===' '||k==='Enter')&&e.target.closest?.('.word,.speak-word,.sentence-speak,#narration-toggle,#dragon-reply')))return;
   if($('help').open||bgmMenu.contains(e.target))return;
+  if(k.toLowerCase()==='o'){
+    if(e.repeat||e.isComposing||e.target.isContentEditable||e.target.closest?.('input,textarea')||$('dragon-reply').disabled)return;
+    e.preventDefault();
+    $('dragon-reply').click();
+    return;
+  }
   if(k===' '){e.preventDefault();setPlay(!playing)}
   else if(k==='+'||k==='='){speed(1)}else if(k==='-'||k==='_'){speed(-1)}
   else if(k==='ArrowDown'){e.preventDefault();setCur(cur+1)}else if(k==='ArrowUp'){e.preventDefault();setCur(cur-1)}
@@ -1170,6 +1207,37 @@ document.addEventListener('keydown',e=>{if(e.metaKey||e.ctrlKey||e.altKey)return
   else if(k==='t'||k==='T'){timerStarted=true;timerOn=!timerOn;toast(timerOn?'计时继续':'计时暂停')}
   else if(k==='r'||k==='R'){total=0;pageT.fill(0);toast('计时已清零')}
 });
+const englishArabicCaptions=[["أهلًا بكم جميعًا.","اسمي دراغون.","قبل أن نبدأ، كلمة واحدة.","هذا ليس عرضًا للبيع.","أودّ اليوم أن أتحدث عن سؤال عملي جدًا.","كيف نجعل الذكاء الاصطناعي يعمل فعلًا داخل المؤسسة؟","لهذا اخترت عنوان «تي إي × الذكاء الاصطناعي».","والعنوان الفرعي هو «الميل الأخير للذكاء الاصطناعي».","نلتقي اليوم لنتبادل الخبرات.","لن أتحدث عن أي مشروع بعينه.","سأشارككم بعض التوجهات والأساليب وقصة حقيقية.","إليكم خطة حديثي.","لدينا خمسة محاور.","التوجه العام.","لماذا يتعثر الذكاء الاصطناعي في الميل الأخير؟","ما دور مهندس النشر الميداني؟","ما المطلوب من كل مستوى في المؤسسة؟","ثم نرى ماذا يفعل رواد العالم ونسمع قصة من الميدان."],["لنبدأ بالتوجه العام.","موجة الذكاء الاصطناعي ليست في طريقها إلينا.","لقد وصلت بالفعل.","دعوني أعرض أربعة أرقام.","أولًا، 1.2 مليار.","هذا عدد من يستخدمون تشات جي بي تي كل أسبوع.","أعلنت أوبن إيه آي ذلك في سبتمبر 2026.","ثانيًا، 88٪.","أجرت ماكنزي استطلاعًا عام 2025.","تستخدم 88٪ من الشركات الذكاء الاصطناعي في جانب واحد على الأقل من أعمالها.","وقبل عام كانت النسبة 78٪.","ثالثًا، أكثر من 800٪.","بهذه النسبة زادت إعلانات وظائف مهندسي النشر الميداني بين يناير وسبتمبر 2025.","البيانات من إنديد، ونشرتها فايننشال تايمز.","اختصار FDE يعني مهندس النشر الميداني.","ببساطة، هو مهندس يعمل داخل مؤسسة العميل.","سأعود إلى هذا الدور بعد قليل.","رابعًا، أكثر من 8 مليارات دولار.","في 2026 استثمرت خمس شركات كبرى في إدخال الذكاء الاصطناعي إلى المؤسسات.","وهي أمازون ويب سيرفيسز، ومايكروسوفت، وأوبن إيه آي، وغوغل، وأنثروبيك.","تجاوز مجموع استثماراتها 8 مليارات دولار.","لقد تجاوزنا سؤال «هل نستخدم الذكاء الاصطناعي؟»","السؤال الحقيقي هو كم نحتاج من الوقت حتى نجعله يعمل فعلًا؟"],["والآن إليكم ما يدعو إلى دهشة أكبر.","بدأ الذكاء الاصطناعي يحسّن الذكاء الاصطناعي نفسه.","يسمّى هذا RSI.","وهو اختصار للتحسين الذاتي التكراري.","ببساطة، يساعد الذكاء الاصطناعي في بناء ذكاء اصطناعي أفضل.","أولًا يكتشف النظام نقاط ضعفه.","ثم يحسّن الشيفرة والأساليب.","ثم يختبر النتائج.","بعدها يبدأ نظام أقوى الدورة التالية.","إليكم مثالًا حقيقيًا.","أنثروبيك هي الشركة التي طوّرت نموذج كلود.","ومع كل نموذج جديد تجري الاختبار نفسه.","على النموذج تسريع شيفرة تدريب معيّنة.","ويجب أن تظل النتائج صحيحة.","في مايو 2025 رفع كلود أوبوس 4 السرعة إلى نحو ثلاثة أضعاف.","وفي أبريل 2026 رفعها كلود ميثوس بريفيو إلى نحو 52 ضعفًا.","يحتاج باحث متمرس إلى 4–8 ساعات ليبلغ نحو أربعة أضعاف السرعة.","لكن انتبهوا إلى هذه النقطة.","الرقم 52 يقيس سرعة تنفيذ الشيفرة.","ولا يعني أن النموذج أذكى 52 مرة.","هناك ثلاثة مستويات.","المستوى الأول أن يحسّن النظام أداء مهامه.","وقد تحقق ذلك.","المستوى الثاني أن يساعد الذكاء الاصطناعي في البحث.","وهذا تحقق أيضًا، مع بقاء التوجيه والمراجعة بيد البشر.","المستوى الثالث هو التحسين الذاتي التكراري الكامل.","ولم يتحقق بعد.","تقول أنثروبيك بوضوح إننا لم نصل إلى تلك المرحلة، وقد لا نصل إليها أبدًا.","ميتر مجموعة بحثية مستقلة.","تقدّر أن الذكاء الاصطناعي سرّع تقدم أنثروبيك إلى نحو 1.9 ضعف.","لكن هذا الرقم غير مؤكد.","إليكم المغزى.","الذكاء الاصطناعي يسرّع بالفعل أبحاث الذكاء الاصطناعي.","وشركة الاتصالات التي تنتظر ستتسع الفجوة بينها وبين الآخرين."],["فكم شخصًا حول العالم يستخدم الذكاء الاصطناعي فعلًا؟","هذا تقدير تقريبي وضعه أندريه كارباثي.","وهو خبير معروف في الذكاء الاصطناعي.","نشر تقديره على منصة إكس في أكتوبر.","ويوضح أن التقدير يبيّن حجم الأعداد فقط، من دون دقة إحصائية.","في الأعلى نحو ستة مليارات شخص.","قلّما استخدموا أداة محادثة ذكية.","ثم ما بين مليار وملياري شخص.","يستخدمون النسخة المجانية أحيانًا كمحرك بحث أفضل.","ثم نحو عشرين مليون شخص.","يفوّضون مشاريع بأكملها إلى وكلاء ذكاء اصطناعي.","الوكيل نظام ذكي يستطيع إنجاز مهمة كاملة بنفسه.","وفي الأسفل نحو خمسة آلاف شخص.","يعملون داخل أبرز مختبرات الذكاء الاصطناعي.","ويلفت كارباثي النظر إلى نقطة.","كثير من كبار القادة ما زالوا في المستوى الثاني.","يمضون معظم وقتهم في التواصل مع الناس.","لذلك يعرفون الذكاء الاصطناعي من تجارب الآخرين أكثر مما يعرفونه بالممارسة.","أدعوكم اليوم إلى أن ننزل جميعًا مستوى آخر.","لنتجاوز الأسئلة الصغيرة.","ولنوكل إليه مشكلات كبيرة."],["الذكاء الاصطناعي قوي حقًا.","فلماذا يتعثر استخدامه كثيرًا داخل الشركات؟","أصدر معهد ماساتشوستس للتكنولوجيا تقريرًا في 2025.","والأرقام صعبة التقبّل.","قيّمت 60٪ من الشركات أدوات ذكاء اصطناعي مخصّصة.","وبدأت 20٪ تجربة أولية.","والتجربة الأولية اختبار صغير النطاق.","استخدمت 5٪ فقط الأداة في العمل اليومي الفعلي.","ولم ترصد 95٪ أثرًا واضحًا على الأرباح والخسائر.","تقول ماكنزي إن نحو ثلثي الشركات لم تبدأ استخدام الذكاء الاصطناعي على نطاق واسع.","وما أود قوله أن المشكلة ليست في النموذج.","المشكلة في طريقة استخدامنا له.","أولًا، يتعطل سير العمل بسهولة.","تنجح الأداة في العرض التجريبي.","لكنها تفشل في العمل الفعلي.","ثانيًا، لا تفهم طبيعة العمل.","لا تتعلم بياناتكم أو قواعدكم أو حالاتكم الخاصة.","ثالثًا، هي بعيدة عن العمل اليومي.","لا أحد يتحمل مسؤولية النتيجة.","وتوصل المعهد إلى ملاحظة أخرى.","معدل النجاح مع شريك خارجي يقارب ضعف معدل التطوير المنفرد.","هل ترون تلك المسافة بين العرض التجريبي والعمل اليومي؟","إنها الميل الأخير.","ولا بدّ أن يقطعه أحد."],["فمن يقطعه؟","الجواب هو مهندس النشر الميداني، أو FDE.","يجمع هذا المهندس ثلاثة أدوار في شخص واحد.","أولًا، مطوّر شامل.","أي شخص يستطيع بناء الحل كاملًا.","ثانيًا، مستشار استراتيجي.","يكتشف أين تكمن القيمة الحقيقية.","ثالثًا، مدير منتج.","يتأكد من أن الناس يستخدمون الحل فعلًا.","وهنا النقطة الأهم.","يعمل مهندسو النشر داخل مؤسسة العميل.","يجلسون جنبًا إلى جنب مع فريق العمل حتى ينجح الحل فعليًا.","أطلقت بالانتير هذا النموذج قبل نحو عشرين عامًا.","واليوم يعمل نحو نصف موظفي بالانتير في النشر الميداني.","وغالبًا ما يعملون في ثنائي.","يتولى «إيكو» فهم الاحتياج الحقيقي.","ويتولى «دلتا» بناء الحل.","وقد عبّر نيك بريتيجون من بالانتير في بريطانيا عن ذلك بوضوح.","يسمّيه «اكتشاف احتياجات المنتج من الداخل».","تكتشف ما يجب بناؤه من خلال العمل داخل المؤسسة.","وليس من الضروري أن يكون هذا الدور وظيفة بدوام كامل.","سأروي لكم بعد قليل قصة حقيقية.","إنها عن موظف في الميدان تولّى دور مهندس النشر إلى جانب عمله."],["هذه أهم شريحة بالنسبة إليّ.","النشر الميداني يتجاوز المسمى الوظيفي.","إنه طريقة عمل كل مستوى في المؤسسة.","يظن البعض أن النشر الميداني يعني إرسال بضعة مهندسين.","وبذلك تفوتهم الصورة الأكبر.","إنه تغيير في طريقة إدارتنا للعمل.","لنبدأ بالقيادة.","مهمتكم تحديد الهدف.","أولًا، استخدموا الذكاء الاصطناعي بأنفسكم.","لا تتركوه لفريقكم وحده.","ثانيًا، اختاروا ثلاث مشكلات مهمة فعلًا للأعمال.","ثالثًا، وفّروا للفرق المال والأفراد.","أزيلوا ما يعرقلها.","وكافئوا النتائج الفعلية.","في 2025 كتب توبي لوتكه، الرئيس التنفيذي لشوبيفاي، إلى جميع موظفيه.","قال إن اللجوء التلقائي إلى الذكاء الاصطناعي أصبح من التوقعات الأساسية.","أي إن استخدامه يوميًا أصبح قاعدة أساسية.","ننتقل إلى الإدارة الوسطى.","مهمتكم إعادة تصميم العمل.","لا تكتفوا بإضافة الذكاء الاصطناعي إلى إجراء قديم.","أعيدوا تصميم العملية كاملة، من البداية إلى النهاية.","وجدت ماكنزي أن هذا بالضبط ما تفعله الشركات المتفوقة في الذكاء الاصطناعي.","ثم حوّلوا التجارب الصغيرة إلى عمليات يومية لها مؤشرات أداء.","مؤشر الأداء رقم واضح يقيس النتائج.","وشكّلوا فرقًا صغيرة تجمع أهل الأعمال والبيانات والتقنية.","وأخيرًا نصل إلى العاملين في الميدان والمهندسين.","مهمتكم البناء والتعلّم في موقع العمل.","اجلسوا مع المستخدمين.","اكتشفوا المشكلة الحقيقية.","ابنوا بسرعة.","وقيسوا النتائج أسبوعيًا.","وواصلوا التحسين.","وشاركوا ما ينجح ليستفيد منه الآخرون.","ينزل التوجيه من القيادة إلى الميدان.","وتصعد الملاحظات من الميدان إلى القيادة.","وفي النهاية يصبح كل شخص مهندس النشر الميداني في موقعه."],["قد تتساءلون، هل هو مجرد مصطلح رائج؟","لننظر إلى رواد العالم.","جميعهم يراهنون على النشر الميداني.","ابتكرت بالانتير هذا النموذج.","في الربع الثالث من 2026 زادت إيراداتها من عملاء الأعمال في الولايات المتحدة 148٪ مقارنة بالعام السابق.","أطلقت أوبن إيه آي شركة للنشر باستثمار يتجاوز أربعة مليارات دولار لإيفاد مهندسين إلى المؤسسات.","وتسير مايكروسوفت وأمازون ويب سيرفيسز وأنثروبيك وغوغل على النهج نفسه، بإرسال آلاف الخبراء إلى فرق العملاء.","حتى ميتا توظف الآن مهندسي نشر ميداني للذكاء الاصطناعي المؤسسي.","وما يهمنا أن شركات الاتصالات بدأت ذلك بالفعل.","تعمل كي تي في كوريا مع مهندسي النشر في مايكروسوفت.","وهي تكتشف مشكلات الشبكة الآن خلال دقيقتين إلى ثلاث.","وكان الأمر يستغرق أكثر من عشر دقائق.","زوّدت فيرايزون 28 ألف موظف خدمة عملاء بمساعد ذكي.","فزادت المبيعات بنحو 40٪.","بدأت تلسترا بتجربة صغيرة.","ثم استخدمت الذكاء الاصطناعي في جميع متاجرها ومراكز الاتصال.","ونحو 20٪ من العملاء لا يحتاجون إلى متابعة لاحقة.","إذًا ترسل الشركات الكبرى المهندسين إلى مواقع العمل.","وشركات الاتصالات تلمس بالفعل نتائج مشجعة."],["دعوني أروِ لكم قصة حقيقية عن شخص عادي.","يعمل في الخطوط الأمامية بقطاع الاتصالات.","لا يملك فريقًا مخصصًا.","وليس خبيرًا في الذكاء الاصطناعي.","نسميه اليوم مهندس نشر ميداني بدوام جزئي.","هكذا كان يقضي أيامه.","كان يسجّل الدخول يدويًا إلى عدة أنظمة.","ويفحص البنود واحدًا تلو الآخر.","وينزّل عددًا كبيرًا من الجداول.","ثم يحلّل المخاطر ويراجع الجودة خارج الأنظمة.","وماذا كانت النتيجة؟","كان العمل بطيئًا.","وكانت بعض الأمور تفوته.","ولم يرَ الصورة كاملة.","لكنه لم ينتظر أن يطلق أحد مشروعًا من أجله.","بدأ بمشكلته الخاصة.","واستخدم الذكاء الاصطناعي لبناء أدوات صغيرة تباعًا.","ثم أدخل الأدوات في عمله اليومي.","أولًا، جمع البيانات تلقائيًا من أنظمة متعددة.","انتهت الحاجة إلى تسجيل الدخول يدويًا.","ثانيًا، اكتشاف المشكلات.","تستورد الأداة البيانات وترصد المخاطر بنفسها.","ثالثًا، إرسال التنبيهات والمتابعة.","عندما تكتشف الأداة مشكلة، تُبلغ الشخص المسؤول فورًا.","رابعًا، إغلاق حلقة المتابعة.","تتابع الأداة كل مشكلة حتى يصلحها أحد بالفعل.","خامسًا، يُعدّ التقرير الشهري تلقائيًا.","سادسًا، تعرض لوحة متابعة كبيرة الصورة كاملة.","والخطوة الأخيرة هي الأهم.","جمع كل ذلك في وكيل ذكي مزوّد بمهارات وأدوات ثابتة تربط العملية من أولها إلى آخرها.","المهارة طريقة محفوظة لإنجاز مهمة محددة بإتقان.","والآن تكفي جملة واحدة.","ويُنجز الوكيل العملية كاملة.","شخص واحد مع الذكاء الاصطناعي ينجز سلسلة عمل فريق كامل.","وهذا هو مغزى حديثي.","لا يتطلب النشر الميداني مسمى وظيفيًا مستقلًا.","من يفهم العمل يستطيع أن يقطع الميل الأخير بمساعدة الذكاء الاصطناعي."],["أختم بثلاث أفكار.","أيها القادة، جرّبوا الذكاء الاصطناعي بأنفسكم.","هكذا تعرفون ما يستطيع فعله.","أيها المديرون، تغيير طريقة العمل أهم من إضافة أدوات جديدة.","ويستطيع كل منكم أن يكون مهندس النشر الميداني في موقعه.","والقصة التي سمعتموها للتو تبيّن ذلك.","أترك لكم سؤالًا.","وهو سؤال أطرحه على نفسي أيضًا.","في عملك، أيّ ميل أخير يمكنك أن تقطعه بمساعدة الذكاء الاصطناعي؟","لا يقطع الذكاء الاصطناعي الميل الأخير وحده.","يقطعه من يفهمون العمل.","أشكركم.","شكرًا!"]];
+function currentCaptionLine(){
+  if(replyActive){
+    const t=narrationAudio.currentTime;
+    if(t<1)return {en:'Hey, Dragon!',zh:'嘿，Dragon！',ar:'مرحبًا يا دراغون!'};
+    if(t<2.7)return {en:"I'm ready.",zh:'我准备好了。',ar:'أنا جاهز.'};
+    if(t<4.75)return {en:"Okay, I've got the mic.",zh:'好，麦克风交给我了。',ar:'حسنًا، الميكروفون معي.'};
+    if(t<6.7)return {en:'Everybody, eyes on the big screen!',zh:'各位，请看大屏幕！',ar:'الجميع، انظروا إلى الشاشة الكبيرة!'};
+    return t<7.74?{}:{en:"Sounds good. Let's begin.",zh:'听起来不错。我们开始吧。',ar:'الصوت جيد. لنبدأ.'};
+  }
+  const row=flat[cur];
+  if(row?.it.t!=='s')return {};
+  const {it,si,sentence}=row,source=it.r.map(run=>run[0]).join('');
+  if(S.mode==='en'){
+    const ar=hideBrands&&si===0&&({6:neutralOpening.ar[4][0],7:neutralOpening.ar[5][0]})[sentence];
+    return {en:source,zh:it.g,ar:ar||englishArabicCaptions[si][sentence]};
+  }
+  const neutral=hideBrands&&si===0&&neutralOpening.ar[sentence];
+  if(isZh())return {zh:source,en:it.g,ar:neutral?neutral[0]:arabicSentences[si][sentence]};
+  const original=DATA.slides[si].zh.filter(item=>item.t==='s')[sentence];
+  return {ar:source,zh:it.g,en:neutral?neutralOpening.zh[sentence][1]:original.g};
+}
+captionControls=window.createSummitCaptions({
+  dialog:$('captionDialog'),button:$('ccBtn'),store,label:crossLocalized,notify:toast,
+  speechLanguage:()=>S.mode,currentLine:currentCaptionLine,enableSync:()=>{if(!syncEnabled)toggleSync()},
+  publish(lines){
+    if(JSON.stringify(lines)===JSON.stringify(captionLines))return;
+    captionLines=lines;broadcastSlide(pageOf(cur),true);
+  }
+});
+narrationAudio.addEventListener('timeupdate',()=>{if(replyActive)captionControls.refresh()});
 // init
 const header=$('bar');
 new ResizeObserver(()=>{
