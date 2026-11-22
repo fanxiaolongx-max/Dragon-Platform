@@ -182,3 +182,26 @@ test('update_plan blocks setting completed if immediately preceding tool call fa
     const lastPlan = events.filter(e => e.type === 'plan').at(-1);
     assert.equal(lastPlan.items[1].status, 'pending');
 });
+
+test('tool arguments cut off by the output limit are not run; the model is told to write a file and use a path, with a larger output budget', async () => {
+    const budgets = [];
+    let call = 0;
+    const executed = [];
+    const result = await agentLoop.runToolLoop({
+        client: { generateText: async options => {
+            budgets.push(options.maxOutputTokens);
+            call += 1;
+            if (call === 1) return { text: '', finishReason: 'length', toolCalls: [{ id: 't1', name: 'save_skill', args: '{"markdown":"---\\nid: demo\\n很长的正文' }] };
+            const last = options.messages.at(-1);
+            assert.match(last.toolResults[0].content, /AGENT_TOOL_ARGS_TRUNCATED/);
+            assert.match(last.toolResults[0].content, /"path"/);
+            return { text: '改用文件提交', finishReason: 'stop' };
+        } },
+        systemPrompt: 'sys', messages: [{ role: 'user', content: 'save' }], maxOutputTokens: 2048,
+        executeCall: async c => { executed.push(c.name); return { content: 'ok' }; }
+    });
+    assert.equal(result.text, '改用文件提交');
+    assert.deepEqual(executed, []);
+    assert.equal(budgets[0], 2048);
+    assert.ok(budgets[1] >= 8192);
+});

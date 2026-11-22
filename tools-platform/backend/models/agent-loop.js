@@ -16,9 +16,9 @@ const MAX_STEPS = 60;
 const MAX_CONTINUATIONS = 3;
 const MAX_EMPTY_NUDGES = 2;
 const TRUNCATED_RE = /^(length|max_tokens|max_output_tokens)$/i;
-// 自动压缩：上下文到触发线（agent-context-stats.compactThreshold）时把较早内容整理成摘要；最近约 25% 窗口的步骤保留原文
+// 自动压缩：上下文到触发线（agent-context-stats.compactThreshold）时把较早内容整理成摘要；最近约 18% 窗口的步骤保留原文
 const MAX_COMPACTIONS = 6;
-const COMPACT_KEEP_RATIO = 0.25;
+const COMPACT_KEEP_RATIO = 0.18;
 const RETRY_OUTPUT_TOKENS = 8192;
 const UNFINISHED_TEXT_RE = /(?:未(?:能)?完成|未执行|未能|无法(?:继续|执行|处理|找到)|下一步|还(?:需|需要|未)|剩余(?:步骤|任务)?|暂未|部分完成|请确认|由于.{0,20}(?:受限|失败|错误))/i;
 
@@ -124,12 +124,15 @@ function compactionCut(messages, keepTokens, ephemeral) {
  * 最近一步本身就很大（一步里并行调用多个工具）时照样压缩较早部分，不能因此直接落到裁剪报错。
  */
 function planCompaction(messages, { windowTokens, threshold, baseTokens, usedTokens, ephemeral }) {
-    const keepTokens = Math.max(0, Math.min(windowTokens * COMPACT_KEEP_RATIO, (threshold - baseTokens) * 0.4));
+    // Aim for half the window after summarization, including fixed tools, prompt and summary.
+    // With a large fixed prompt, retaining 25% of the window on top leaves too little runway.
+    const SUMMARY_TOKENS = 3000;
+    const keepTokens = Math.max(0, Math.min(windowTokens * COMPACT_KEEP_RATIO,
+        (threshold - baseTokens) * 0.4, windowTokens * 0.5 - baseTokens - SUMMARY_TOKENS));
     const cut = compactionCut(messages, keepTokens, ephemeral);
     const older = messages.slice(0, cut).filter(message => !ephemeral.has(message));
     if (!older.length || contextStats.estimateRequest('', [], older) < windowTokens * 0.1) return null;
     const recent = messages.slice(cut);
-    const SUMMARY_TOKENS = 3000; // 真实模型的摘要常接近 4000 字上限
     if (usedTokens - (baseTokens + SUMMARY_TOKENS + contextStats.estimateRequest('', [], recent)) < windowTokens * 0.05) return null;
     return { older, recent };
 }
@@ -424,6 +427,13 @@ async function runToolLoop({
             }
             break;
         }
+        // 工具参数写到一半碰到单次输出上限（长文件、长技能全文）：参数是半截 JSON，不执行；告诉模型是被截断了、
+        // 改用分段写文件或文件路径参数，并调高下一步的输出上限
+        const truncatedArgs = TRUNCATED_RE.test(String(result.finishReason || '')) && toolCalls.some(call => call.args && Object.hasOwn(call.args, '__raw'));
+        if (truncatedArgs) {
+            stepMaxOutput = Math.max(Number(stepMaxOutput) || 2048, RETRY_OUTPUT_TOKENS);
+            write({ type: 'status', status: '工具参数超出单次输出上限被截断，正在提示模型改用文件分段提交…' });
+        }
         if (result.text) write({ type: 'delta', delta: '\n\n' });
         const modelMessage = { role: 'model', content: result.text || '', toolCalls };
         messages.push(modelMessage);
@@ -444,7 +454,11 @@ async function runToolLoop({
             };
             let outcome;
             try { requireToolArgs(call.args); }
-            catch (error) { outcome = { content: `错误（${error.code}）：${error.message}`, summary: error.message, isError: true }; }
+            catch (error) {
+                outcome = truncatedArgs
+                    ? { content: `错误（AGENT_TOOL_ARGS_TRUNCATED）：工具参数太长，超出了模型单次输出上限，在中途被截断，未执行本次操作。不要原样重试（换个写法也一样会被截断）：长内容先分几次写入工作目录的文件（write_file 写第一段，之后用 edit_file / 追加写入后续段落），再用文件路径提交${call.name === 'save_skill' ? '——save_skill 直接传 {"path":"草稿文件相对路径","reason":"…"}，不用传 markdown' : ''}。`, summary: '工具参数超出单次输出上限被截断', isError: true }
+                    : { content: `错误（${error.code}）：${error.message}`, summary: error.message, isError: true };
+            }
             if (!outcome && !allowed(call.name)) outcome = { content: '当前账号未获授权使用该工具。', summary: '工具未开放', isError: true };
             if (!outcome) outcome = builtinNames.has(call.name) ? await runBuiltin(call)
                 : extras?.handles(call.name) ? await extras.execute(call, { callId, start })

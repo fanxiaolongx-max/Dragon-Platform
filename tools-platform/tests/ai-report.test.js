@@ -429,3 +429,15 @@ test('default report persists across updates, prioritizes list order, and expose
         await reports.remove(second.id);
     }
 });
+
+test('query reads the report outline as chapter and cell rows for a chapter navigation', () => {
+    const Query = require('../frontend/js/ai-report/query');
+    const input = { nav1: { month: '2026-10', title: '月报', chapters: [
+        { id: 'c1', no: '01', title: '基座', anchor: '#air-chapter-c1', cells: [{ id: 'a', anchor: '#air-cell-a', title: 'SR 达成' }] },
+        { id: 'c2', no: '02', title: '主线', anchor: '#air-chapter-c2', cells: [] }] } };
+    const nav = Query.run({ shape: 'rows', from: 'nav1', where: [{ field: 'type', op: '=', value: 'chapter' }], columns: { label: 'label', anchor: 'anchor', no: 'no' } }, input);
+    assert.deepEqual(nav, [{ label: '基座', anchor: '#air-chapter-c1', no: '01' }, { label: '主线', anchor: '#air-chapter-c2', no: '02' }]);
+    const cells = Query.run({ shape: 'rows', from: 'nav1', where: [{ field: 'type', op: '=', value: 'cell' }], columns: { label: 'label', anchor: 'anchor', chapter: 'chapter' } }, input);
+    assert.deepEqual(cells, [{ label: 'SR 达成', anchor: '#air-cell-a', chapter: '基座' }]);
+    assert.throws(() => Query.run({ shape: 'rows', from: 'nav1', columns: { label: 'label' } }, { nav1: null }), /本月没有取到数据/);
+});

@@ -124,3 +124,23 @@ test('read-only accounts get no skill_evolution group; drafting skills point the
     const using = builtinSkills.buildPrompt(['### @demo-report\n步骤']);
     assert.match(using, /技能自我进化/);
 });
+
+test('save_skill takes the SKILL.md from a draft file in the workspace, so a long skill need not fit in one output', async () => {
+    const markdown = skillMd('1. 打开页面\n2. 读表格\n3. 写报告');
+    fs.writeFileSync(path.join(root, 'draft-skill.md'), '﻿' + markdown);
+    assert.equal(skillTools._internal.skillText({ path: 'draft-skill.md' }, root), markdown);
+    assert.equal(skillTools._internal.skillText({ markdown: 'inline', path: 'draft-skill.md' }, root), 'inline');
+    assert.throws(() => skillTools._internal.skillText({ path: 'draft-skill.md' }, ''), /没有工作目录/);
+    assert.throws(() => skillTools._internal.skillText({ path: '../outside.md' }, root));
+    assert.throws(() => skillTools._internal.skillText({ path: 'missing.md' }, root), /找不到草稿文件/);
+    assert.throws(() => skillTools._internal.skillText({}, root), /缺少 markdown 或 path/);
+    const session = manager.ensureSession({ agentSessionId: `skill-path-${process.pid}`, user, tenantId: 'default', root, permissionMode: 'full' });
+    const script = [{ toolCalls: [{ id: 'p1', name: 'save_skill', args: { path: 'draft-skill.md', reason: '从草稿文件提交' } }] }, { text: 'ok' }];
+    const client = { model: 'mock', async generateText() { const next = script.shift(); return { text: next.text || '', toolCalls: next.toolCalls || [], usage }; } };
+    const events = [];
+    await manager.runAgentTurn({ session, client, systemInstruction: 'S', historyMessages: [{ role: 'user', content: '完善技能' }], write: event => events.push(event), signal: new AbortController().signal });
+    const done = events.find(event => event.type === 'tool_result' && event.tool === 'save_skill');
+    assert.ok(done && !done.isError, JSON.stringify(done));
+    assert.match((await store.getSkill('demo-report')).markdown, /3\. 写报告/);
+    assert.deepEqual(skillTools.DEFINITIONS.find(item => item.name === 'save_skill').parameters.required, ['reason']);
+});

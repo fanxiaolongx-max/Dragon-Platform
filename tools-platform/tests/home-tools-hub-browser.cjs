@@ -382,6 +382,24 @@ app.whenReady().then(async () => {
                 assert.equal(await evaluate(`document.querySelector('.tools-dialog-overlay').getBoundingClientRect().right`), await evaluate('innerWidth'), 'startup dialog overlay reaches right edge');
                 await capture('edge-'+(process.env.DRAG_PLATFORM||'win32')+'-'+theme+'-'+width);
                 await evaluate(`document.querySelector('.tools-dialog-close').click();document.querySelector('#fixtureLongPage').remove();void 0`);
+                if (await evaluate("document.documentElement.classList.contains('desktop-win')")) {
+                    await evaluate(`DragonClawWorkspace.open();void 0`);
+                    await until('!dcWorkspacePanel.hidden');
+                    await evaluate(`dcWorkspacePanel.insertAdjacentHTML('beforeend','<div style="height:1200px"></div>')`);
+                    for (const fullscreen of [false, true]) {
+                        const bounds = await evaluate(`(() => {
+                            document.documentElement.classList.toggle('desktop-fullscreen', ${fullscreen});
+                            dcWorkspacePanel.scrollTop = 120;
+                            const title = dcWorkspacePanel.querySelector('.wsp-head-title').getBoundingClientRect();
+                            const close = dcWorkspaceClose.getBoundingClientRect();
+                            const controls = document.querySelector('.desktop-controls').getBoundingClientRect();
+                            return { scrolled: dcWorkspacePanel.scrollTop, top: Math.min(title.top, close.top),
+                                controlsBottom: controls.bottom, clickable: dcWorkspaceClose.contains(document.elementFromPoint(close.x + close.width/2, close.y + close.height/2)) };
+                        })()`);
+                        assert.ok(bounds.scrolled > 0 && bounds.top >= bounds.controlsBottom && bounds.clickable, JSON.stringify(bounds));
+                    }
+                    await evaluate("document.documentElement.classList.remove('desktop-fullscreen');DragonClawWorkspace.close()");
+                }
             }
         }
         console.log('PASS: desktop '+process.env.DRAG_PLATFORM+' has no right scrollbar gutter, startup overlay reaches the edge, long pages still scroll; light/dark at 1440/1000px. Screenshots: '+temp);

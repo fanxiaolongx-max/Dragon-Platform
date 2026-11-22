@@ -63,7 +63,7 @@ const platformToolset = user => ({
  * channel：频道对话（{ channel, conversation, actor, canSaveSkills }），只带只读的平台工具向导和受信任的 MCP 服务；
  * canSaveSkills（微信机器人主人、WeLink 管理员）再带技能自我进化，保存要用户在频道里回复确认码。
  */
-async function toolsets({ owner, user, readOnly, channel = null }) {
+async function toolsets({ owner, user, readOnly, channel = null, root = '' }) {
     if (!owner) return [];
     // 平台共享的 MCP 服务与服务器本机浏览器运行在团队沙箱之外：非超级管理员默认不开放，由 agent-tool-access 统一过滤
     const sets = [platformToolset(user ?? await require('./tool-distribution').actorForOwner(owner))];
@@ -74,7 +74,7 @@ async function toolsets({ owner, user, readOnly, channel = null }) {
     }
     sets.push(...await require('./agent-mcp').toolsets().catch(error => { console.warn('[agent] MCP 工具不可用：', error.message || error); return []; }));
     if (readOnly) return sets;
-    sets.push(require('./agent-skill-tools').toolset({ owner, user })); // 技能自我进化：保存前用户审批
+    sets.push(require('./agent-skill-tools').toolset({ owner, user, root })); // 技能自我进化：保存前用户审批
     sets.push(require('./agent-publish-tools').toolset({ owner, user })); // 发布 HTML 工具、推送通知：都要过审批卡
     // 数据导入指标规则的条件值维护：管理员才有（页面里改规则同样要管理员）；改动每次审批，可回退
     const actor = user ?? await require('./tool-distribution').actorForOwner(owner);

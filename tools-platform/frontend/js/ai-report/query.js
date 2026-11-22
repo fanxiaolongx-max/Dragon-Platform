@@ -13,9 +13,23 @@
     const round=(value,digits)=>value===null||digits===undefined||digits===null?value:Number(value.toFixed(Math.max(0,Math.min(6,digits))));
     const list=value=>Array.isArray(value)?value:value===undefined||value===null?[]:[value];
     // Rows of a source: imported tables and datasets have rows, metric sources a metrics list.
+    // The report itself (kind "report") is an outline, not a table: one row per chapter and one per cell, all with the
+    // same fields, so a navigation or overview can be a plain query (where type = "chapter").
+    function outlineRows(source){
+        const rows=[];
+        for(const chapter of source.chapters){
+            if(!chapter||typeof chapter!=='object')continue;
+            const title=String(chapter.title??''),no=String(chapter.no??'');
+            rows.push({type:'chapter',id:String(chapter.id??''),no,label:title,anchor:String(chapter.anchor??''),chapter:title,chapterNo:no,summary:''});
+            for(const cell of Array.isArray(chapter.cells)?chapter.cells:[])if(cell&&typeof cell==='object')rows.push({type:'cell',id:String(cell.id??''),no:'',label:String(cell.title??''),anchor:String(cell.anchor??''),chapter:title,chapterNo:no,summary:String(cell.summary??'')});
+        }
+        return rows;
+    }
     function rowsOf(input,from){
         const source=input?.[from];
+        if(source===null&&input&&Object.prototype.hasOwnProperty.call(input,from))fail(`数据源「${from}」本月没有取到数据（来源缺失，或月报内容还没加载好），请检查该来源后重试`);
         if(!source||typeof source!=='object')fail(`数据源「${from}」不存在，recipe.sources 里要有 id 为 ${from} 的来源；现有：${Object.keys(input||{}).filter(key=>!key.startsWith('$')).join('、')||'（无）'}`);
+        if(Array.isArray(source.chapters))return outlineRows(source);
         if(Array.isArray(source.rows))return source.rows;
         if(Array.isArray(source.metrics))return source.metrics;
         if(Array.isArray(source))return source;
@@ -168,6 +182,7 @@
     function queryFromCompute(code){if(!isQueryCompute(code))return null;const match=String(code).match(/AiReportQuery\.run\((\{[\s\S]*\}),\s*input\)/);try{return match?JSON.parse(match[1]):null;}catch(_){return null;}}
     const GUIDE=`【取数优先写 query，不写 compute】平台按 query 取数，并核对每个字段名和筛选值是否真实存在；只有 query 表达不了的复杂计算才写 compute。recipe 里写 "query":{...}（仍要写 sources）。
 query 写法（严格 JSON）：
+- 月报内容来源（kind "report"）每行是一个章节或格子：type（chapter|cell）、id、no（章节序号）、label（标题）、anchor（跳转锚点）、chapter（所属章节标题）、chapterNo、summary；章节导航写 {"shape":"rows","from":"r1","where":[{"field":"type","op":"=","value":"chapter"}],"columns":{"label":"label","anchor":"anchor","no":"no"}} 配 nav-links 模板。
 - 公共：from = sources 里的 id；where = [{"field":"列名","op":"= != > >= < <= in notIn contains notEmpty","value":值}]；sort = {"by":"value","dir":"desc|asc"}；limit = 数量；exclude = [要去掉的分类]。
 - 分类对比 shape "items"（配 bar / bar-target / pie 等 items 模板）：{"shape":"items","from":"d1","where":[...],"label":"分类列","value":"数值列" 或 {"field":"列","agg":"sum|avg|count|min|max|first","scale":100,"divideBy":"分母列","digits":1},"target":{"const":95}}；同一分类多行时按 label 汇总（groupBy 可另指定分组列）。
 - 指标卡 shape "kpis"：{"shape":"kpis","from":"d1","where":[...],"cards":[{"label":"SR 总量","value":"sr_total"},{"label":"FRT 达成率","value":{"field":"num_val","digits":1},"unit":"%"}]}（多行时 value 写 agg 汇总；仅当字段确认为 0–1 小数时才写 scale:100）。

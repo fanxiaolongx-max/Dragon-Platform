@@ -4,6 +4,10 @@
 // - 无人值守的频道对话没人审批，不会保存。
 const { unifiedDiff } = require('./agent-change-log');
 const { containsSensitiveText, redactText } = require('./ai-sensitive-data');
+const fs = require('fs');
+const guard = require('./agent-path-guard');
+
+const MAX_SKILL_FILE_BYTES = 512 * 1024;
 
 const DEFINITIONS = [
     {
@@ -18,10 +22,11 @@ const DEFINITIONS = [
         parameters: {
             type: 'object',
             properties: {
-                markdown: { type: 'string', description: '完整的 SKILL.md 文本' },
+                markdown: { type: 'string', description: '完整的 SKILL.md 文本（与 path 二选一）' },
+                path: { type: 'string', description: '工作目录里已写好的 SKILL.md 草稿路径（相对工作目录）。技能较长（超过几千字）时先写进文件再用 path 提交，不要把全文塞进 markdown，否则可能超出单次输出上限被截断' },
                 reason: { type: 'string', description: '一两句话：这次改了什么、为什么' }
             },
-            required: ['markdown', 'reason']
+            required: ['reason']
         }
     }
 ];
@@ -39,21 +44,39 @@ function credentialProblem(markdown, secrets = []) {
     return hit ? `技能里不能存放或读取账号密码、Token（命中：「${redactText(String(markdown.match(hit)[0]).slice(0, 40), { secrets })}」）。遇到登录页时应停下来提示用户手动登录` : '';
 }
 
+// 技能正文：直接给的 markdown，或工作目录里的草稿文件（长技能一次输出放不下时用）
+function skillText(args = {}, root = '') {
+    if (typeof args.markdown === 'string' && args.markdown.trim()) return args.markdown;
+    const file = String(args.path || '').trim();
+    if (!file) throw Object.assign(new Error('缺少 markdown 或 path：直接给完整 SKILL.md 文本，或给工作目录里草稿文件的路径'), { code: 'AGENT_ARGS' });
+    if (!root) throw Object.assign(new Error('当前对话没有工作目录，不能用 path 提交；请直接传入 markdown'), { code: 'AGENT_ARGS' });
+    const abs = guard.resolveInsideRoot(root, file);
+    guard.assertNotSecretFile(abs);
+    let stat;
+    try { stat = fs.statSync(abs); } catch (_error) { throw Object.assign(new Error(`找不到草稿文件 ${file}`), { code: 'AGENT_NOT_FOUND' }); }
+    if (!stat.isFile()) throw Object.assign(new Error(`${file} 不是文件`), { code: 'AGENT_ARGS' });
+    if (stat.size > MAX_SKILL_FILE_BYTES) throw Object.assign(new Error(`${file} 超过 ${MAX_SKILL_FILE_BYTES / 1024}KB，技能太长`), { code: 'AGENT_ARGS' });
+    const text = fs.readFileSync(abs, 'utf8').replace(/^\uFEFF/, '');
+    if (!text.trim()) throw Object.assign(new Error(`${file} 是空文件`), { code: 'AGENT_ARGS' });
+    return text;
+}
+
 function parse(markdown) {
     const store = require('./agent-skills-store');
     return store.normalizeSkillMarkdown(String(markdown || ''));
 }
 
-async function preview(name, args = {}, { secrets = [], user } = {}) {
+async function preview(name, args = {}, { secrets = [], user, root = '' } = {}) {
     if (name !== 'save_skill') return {};
     const store = require('./agent-skills-store');
+    const markdown = skillText(args, root);
     // 含账号密码的直接拒绝，不弹审批卡
-    const problem = credentialProblem(String(args.markdown || ''), secrets);
+    const problem = credentialProblem(markdown, secrets);
     if (problem) throw Object.assign(new Error(`没有提交：${problem}。请删掉相关内容后重新提交`), { code: 'SKILL_HAS_CREDENTIALS' });
-    const skill = parse(args.markdown);
+    const skill = parse(markdown);
     const current = await store.withSkillForUser(skill.id, user, item => store.getSkill(item.id)).catch(() => null);
     const before = current?.markdown || '';
-    const after = String(args.markdown || '');
+    const after = markdown;
     const diff = unifiedDiff(`@${skill.id}`, before, after);
     return {
         path: `@${skill.id}${current ? '' : '（新技能）'}${args.reason ? ` · ${String(args.reason).slice(0, 120)}` : ''}`,
@@ -64,7 +87,7 @@ async function preview(name, args = {}, { secrets = [], user } = {}) {
     };
 }
 
-async function execute(call, { username = '', secrets = [], user } = {}) {
+async function execute(call, { username = '', secrets = [], user, root = '' } = {}) {
     const args = call.args && typeof call.args === 'object' ? call.args : {};
     const store = require('./agent-skills-store');
     try {
@@ -73,7 +96,7 @@ async function execute(call, { username = '', secrets = [], user } = {}) {
             if (!skill) return { content: `没有技能 @${args.id}；新建技能直接用 save_skill 提交。`, summary: '没有这个技能', isError: true };
             return { content: redactText(skill.markdown, { secrets }), summary: `读取 @${skill.id}` };
         }
-        const markdown = String(args.markdown || '');
+        const markdown = skillText(args, root);
         const problem = credentialProblem(markdown, secrets);
         if (problem) return { content: `没有保存：${problem}。请删掉相关内容后重新提交。`, summary: '技能含账号密码，未保存', isError: true };
         const skill = parse(markdown);
@@ -89,7 +112,7 @@ async function execute(call, { username = '', secrets = [], user } = {}) {
 }
 
 /** 附加工具组：read_skill 只读；save_skill 每次确认（kind 'confirm'） */
-function toolset({ owner = '', user, secrets = [] } = {}) {
+function toolset({ owner = '', user, secrets = [], root = '' } = {}) {
     const username = String(owner).split('::').pop();
     const actor = () => user ?? require('./tool-distribution').actorForOwner(owner);
     return {
@@ -97,10 +120,10 @@ function toolset({ owner = '', user, secrets = [] } = {}) {
         label: '技能自我进化：读取技能当前版本、提交创建或完善后的技能（用户审批后保存，自动备份）',
         definitions: DEFINITIONS,
         kindOf: name => (name === 'save_skill' ? 'confirm' : 'read'),
-        preview: async (name, args) => preview(name, args, { secrets, user: await actor() }),
+        preview: async (name, args) => preview(name, args, { secrets, user: await actor(), root }),
         alwaysKey: name => name,
-        execute: async call => execute(call, { username, secrets, user: await actor() })
+        execute: async call => execute(call, { username, secrets, user: await actor(), root })
     };
 }
 
-module.exports = { DEFINITIONS, toolset, credentialProblem, _internal: { preview, execute } };
+module.exports = { DEFINITIONS, toolset, credentialProblem, _internal: { preview, execute, skillText } };

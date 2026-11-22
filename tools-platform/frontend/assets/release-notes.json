@@ -1,14 +1,14 @@
 {
   "zh": [
-    "峰会提词器支持后台推进、逐句高亮和中英文自然旁白。演示屏可独立选择中文、英文或阿拉伯语，并跟随主讲人翻页。",
-    "主讲人可分享限时免登录展示链接。隐藏公司标识时，三语封面和中英文讲解同步切换到《AI 落地的最后一公里》，并从当前句继续。英文开场使用 Dragon 署名。",
-    "峰会旁白和背景音乐由独立媒体仓库分发，播放器按需加载并校验音频。",
-    "改进智能体会话并发与移动端审批处理，并更新工具来源展示和内置工具目录。"
+    "智能体流式生成时待审批卡片常驻停靠在输入框上方，避免被长回答冲刷出视野；完成审批后平滑归位至对话记录。",
+    "优化智能体雷达弹窗定位与视口自适应，修复侧栏拖拽与滚动时的遮挡问题；增强桌面端工作区面板标题吸顶。",
+    "技能自我进化（save_skill）支持工作区长文本草稿读取，优化上下文压缩预算与单步输出超限保护。",
+    "工具中心新增「非内置」来源分类筛选与专属高亮标识，完善键盘导航与搜索框轮廓无障碍体验。"
   ],
   "en": [
-    "The summit teleprompter can advance in the background with synchronized highlights and natural Mandarin or English narration. Each screen can follow in Chinese, English or Arabic.",
-    "Presenters can share time-limited guest links. Hiding company branding switches the cover and narration to The Last Mile of AI and continues from the current sentence. The English introduction uses Dragon.",
-    "Summit narration and background music are distributed through the separate media repository with on-demand loading and integrity checks.",
-    "Improved agent session concurrency and mobile approval handling, and updated tool source indicators and the built-in catalog."
+    "Pending approval cards remain docked above the composer while responses stream, preventing them from scrolling offscreen, and smoothly return to history once settled.",
+    "Refined Agent Radar popover positioning with viewport boundary clamping during sidebar resize and scroll, and added sticky workspace panel headers on desktop.",
+    "Skill evolution (save_skill) supports workspace drafts for large skills, and improves context compaction headroom and output truncation recovery.",
+    "Added Non-builtin source filtering and distinct badge styling in Skill Hub, with refined keyboard focus-visible outlines for search input."
   ]
 }
