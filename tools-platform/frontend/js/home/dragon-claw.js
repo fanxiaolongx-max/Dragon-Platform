@@ -569,7 +569,8 @@
         const isBrowserOpen = document.body.classList.contains('dc-browser-open');
         const isTermOpen = document.body.classList.contains('dc-terminal-open');
         const termBtn = document.getElementById('dcTerminalToggle');
-        const hasTerm = Boolean(termBtn && !termBtn.hidden && window.getComputedStyle(termBtn).display !== 'none');
+        // 只看按钮自身的 hidden（非管理员不显示终端）；「···」模式下按钮被 CSS 隐藏，不能用计算样式判断
+        const hasTerm = Boolean(termBtn && !termBtn.hidden);
         const radarPill = document.querySelector('.dc-radar-pill');
         const hasRadar = Boolean(radarPill && window.getComputedStyle(radarPill).display !== 'none');
         const radarWorking = radarPill?.classList.contains('is-working');
@@ -4542,38 +4543,36 @@
         if (!el.root) return;
         el.chatHead = el.root.querySelector('.dc-chat-head');
         el.chatActions = el.root.querySelector('.dc-chat-actions');
+        const HEADER_ULTRA_MAX = 460, HEADER_TITLE_MIN = 140, HEADER_ULTRA_HYSTERESIS = 24;
+        const headerFit = { othersNeed: 0 };
         function checkHeaderSqueeze() {
             if (!el.chatHead) return;
             const isSidebarOpen = document.body.matches('.dc-workspace-open, .dc-browser-open, .dc-terminal-open, .ai-preview-open');
             const width = el.chatHead.clientWidth;
             const actions = el.chatActions;
-            const title = el.chatHead.querySelector('.dc-chat-title');
             const actionsOverflow = Boolean(actions && actions.scrollWidth > actions.clientWidth + 2);
             const squeezed = width > 0 && (width <= 840 || (isSidebarOpen && width <= 980) || actionsOverflow);
             el.chatHead.classList.toggle('is-squeezed', squeezed);
             actions?.classList.toggle('is-squeezed', squeezed);
 
-            // 极窄与重叠碰撞检测：当容器极窄（<= 460px）或标题与操作区重叠/碰撞时，切换至下拉菜单模式
+            // 极窄 / 放不下时收成「···」下拉菜单：按「标题保底宽度 + 顶栏其余部分（仅图标按钮等）实际占用的宽度」判断。
+            // 标题是 flex:1 会撑满剩余空间，不能拿标题当前宽度判断（否则收起后永远恢复不了）。
+            // 其余部分只在未收起时测量（收起后按钮都被隐藏）；恢复时多留一点余量，避免在临界宽度来回跳。
             const isCurrentlyUltra = el.chatHead.classList.contains('is-ultra-squeezed');
-            let ultraSqueezed = false;
-            if (width > 0) {
-                if (width <= 460) {
-                    ultraSqueezed = true;
-                } else if (title && actions) {
-                    const titleRect = title.getBoundingClientRect();
-                    const actionsRect = actions.getBoundingClientRect();
-                    if (isCurrentlyUltra) {
-                        ultraSqueezed = width < (titleRect.width + 250);
-                    } else {
-                        ultraSqueezed = (actionsRect.left - titleRect.right < 12) || (width < titleRect.width + 220);
-                    }
-                }
+            const title = el.chatHead.querySelector('.dc-chat-title');
+            if (!isCurrentlyUltra && title && width > 0) {
+                headerFit.othersNeed = Math.max(0, el.chatHead.scrollWidth - title.getBoundingClientRect().width);
             }
+            const need = HEADER_TITLE_MIN + (headerFit.othersNeed || 320);
+            const ultraSqueezed = width > 0 && (width <= HEADER_ULTRA_MAX
+                || (isCurrentlyUltra ? width < need + HEADER_ULTRA_HYSTERESIS : width < need));
             el.chatHead.classList.toggle('is-ultra-squeezed', ultraSqueezed);
             actions?.classList.toggle('is-ultra-squeezed', ultraSqueezed);
             const moreWrap = document.getElementById('dcActionsMore');
             if (moreWrap) moreWrap.hidden = !ultraSqueezed;
-            if (ultraSqueezed) renderActionsMenu();
+            if (!ultraSqueezed && actionsMore.menu && !actionsMore.menu.hidden) toggleActionsMenu(false);
+            // 菜单打开时不重建（尺寸变化很频繁，重建会丢掉键盘焦点）
+            if (ultraSqueezed && actionsMore.menu?.hidden !== false) renderActionsMenu();
         }
         if (typeof ResizeObserver === 'function' && el.chatHead) {
             new ResizeObserver(checkHeaderSqueeze).observe(el.chatHead);

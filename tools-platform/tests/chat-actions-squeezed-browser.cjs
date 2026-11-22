@@ -187,6 +187,35 @@ app.whenReady().then(async () => {
     assert.ok(ultraInfo.menuClosedAfterOutsideClick, 'Clicking outside closes dropdown menu');
 
     console.log('PASS: Ultra-squeezed dropdown menu smoothly replaces cramped icons with zero text overlap!');
+
+    // 自动检测（不手动加 class）：缩窄收成「···」，再拉宽必须恢复；终端按钮可用时菜单里有终端
+    const headState = () => evaluate(`(() => {
+        const head = document.querySelector('.dc-chat-head');
+        const title = head.querySelector('.dc-chat-title');
+        return { ultra: head.classList.contains('is-ultra-squeezed'), titleWidth: title.getBoundingClientRect().width };
+    })()`);
+    await evaluate(`document.body.classList.remove('dc-workspace-open'); (() => { const t = document.getElementById('dcTerminalToggle'); if (t) t.hidden = false; })()`);
+    for (const width of [1400, 900, 560]) {
+        win.setSize(width, 800);
+        await new Promise(r => setTimeout(r, 400));
+        const state = await headState();
+        assert.equal(state.ultra, false, `not collapsed at ${width}px`);
+    }
+    win.setSize(420, 800);
+    await new Promise(r => setTimeout(r, 400));
+    assert.equal((await headState()).ultra, true, 'collapses into the more menu at 420px');
+    if (await evaluate(`Boolean(document.getElementById('dcTerminalToggle'))`)) {
+        const items = await evaluate(`(() => { document.getElementById('dcActionsMoreBtn').click(); const list = [...document.querySelectorAll('#dcActionsMenu .dc-actions-item')].map(b => b.dataset.action); document.body.click(); return list; })()`);
+        assert.ok(items.includes('terminal'), `terminal is offered in the more menu (${items.join(',')})`);
+    }
+    for (const width of [560, 900, 1400]) {
+        win.setSize(width, 800);
+        await new Promise(r => setTimeout(r, 400));
+        const state = await headState();
+        assert.equal(state.ultra, false, `restores buttons when widened back to ${width}px`);
+        assert.ok(state.titleWidth >= 100, `title keeps a readable width at ${width}px (${state.titleWidth}px)`);
+    }
+    console.log('PASS: collapse/restore follows the real header width in both directions');
     win.destroy();
     server.close();
     app.exit(0);
