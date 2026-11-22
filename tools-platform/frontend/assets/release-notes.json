@@ -1,12 +1,8 @@
 {
   "zh": [
-    "峰会提词器与演示联动新增实时双语展示字幕（支持跟随讲稿与配音或现场麦克风翻译，覆盖中文、英文与阿拉伯语）及图标化控制栏。",
-    "同步更新峰会提词器中/英/阿多语种与慢速朗读音频清单并对接独立媒体仓库（we-ai-narration-20261122-1），保障材料正常按需拉取与播放音频。",
-    "修复对话顶栏「···」更多操作菜单：窗口或侧栏收窄后再拉宽时，按钮现在会自动恢复显示；收起时机改为按标题保底宽度判断，管理员的「终端」入口也会出现在「···」菜单中。"
+    "Dragon Claw 新增「我的历史对话」：直接问“我之前问过……”“上次那个结论是什么”，AI 会搜索并翻看你自己的历史对话（含你参与的共享对话）再回答；只能查本人的对话，频道群聊里不提供，内容中的密钥会自动隐藏。"
   ],
   "en": [
-    "Summit teleprompter and presentation sync now support live bilingual on-screen captions (following script/narration or live microphone translation across Chinese, English, and Arabic) with an iconified control bar.",
-    "Updated the Chinese, English, and Arabic teleprompter narration and slow-pace audio manifest backed by the standalone media repository (we-ai-narration-20261122-1) for reliable audio playback.",
-    "Fixed the chat header \"···\" more-actions menu: buttons now come back automatically when the window or sidebar is widened again, collapsing uses a minimum title width, and the Terminal entry for admins appears in the menu."
+    "Dragon Claw can now search your past chats: ask \"what did I ask before about…\" or \"what was the conclusion last time\" and the AI searches and reads your own earlier conversations (including shared ones you joined). Only your own chats are searchable, it is not offered in channel group chats, and secrets are hidden automatically."
   ]
 }

@@ -63,7 +63,7 @@ const platformToolset = user => ({
  * channel：频道对话（{ channel, conversation, actor, canSaveSkills }），只带只读的平台工具向导和受信任的 MCP 服务；
  * canSaveSkills（微信机器人主人、WeLink 管理员）再带技能自我进化，保存要用户在频道里回复确认码。
  */
-async function toolsets({ owner, user, readOnly, channel = null, root = '' }) {
+async function toolsets({ owner, user, readOnly, channel = null, root = '', chatSessionId = '', sensitiveValues = [] }) {
     if (!owner) return [];
     // 平台共享的 MCP 服务与服务器本机浏览器运行在团队沙箱之外：非超级管理员默认不开放，由 agent-tool-access 统一过滤
     const sets = [platformToolset(user ?? await require('./tool-distribution').actorForOwner(owner))];
@@ -72,6 +72,8 @@ async function toolsets({ owner, user, readOnly, channel = null, root = '' }) {
         sets.push(...await require('./agent-mcp').toolsets({ readOnly, trustedOnly: true }).catch(error => { console.warn('[agent] MCP 工具不可用：', error.message || error); return []; }));
         return sets;
     }
+    // 查自己的历史对话：只读、所有账号可用；频道群聊里不加载（群里其他人能看到回复）
+    sets.push(require('./agent-history-tools').toolset({ owner, currentSessionId: chatSessionId, sensitiveValues }));
     sets.push(...await require('./agent-mcp').toolsets().catch(error => { console.warn('[agent] MCP 工具不可用：', error.message || error); return []; }));
     if (readOnly) return sets;
     sets.push(require('./agent-skill-tools').toolset({ owner, user, root })); // 技能自我进化：保存前用户审批
@@ -100,7 +102,7 @@ async function toolsets({ owner, user, readOnly, channel = null, root = '' }) {
  * 审批：读取类直接执行，其余弹审批卡（「总是允许」在本对话内有效）。
  */
 async function forChat({ owner, user, chatSessionId, readOnly, write, signal, sensitiveValues = [], channel = null, onWorkspaceSkillRequired = null }) {
-    const sets = await toolsets({ owner, user, readOnly, channel });
+    const sets = await toolsets({ owner, user, readOnly, channel, chatSessionId, sensitiveValues });
     if (!sets.length) return null;
     const manager = require('./agent-run-manager');
     const session = manager.chatSession(owner, chatSessionId);

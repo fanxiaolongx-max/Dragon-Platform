@@ -51,7 +51,7 @@ test('MCP tools join chats as an approval-gated group, pass only their own env, 
     assert.equal(set.kindOf('mcp__echo_server__echo'), 'external');
     const guest = { username: 'guest', role: 'viewer' };
     const shared = await runWithTenant('acme', () => extraTools.toolsets({ owner: 'acme::guest', user: guest, readOnly: true }));
-    assert.deepEqual(shared.map(set => set.id), ['platform_tools', 'mcp_echo_server']);
+    assert.deepEqual(shared.map(set => set.id), ['platform_tools', 'my_conversations', 'mcp_echo_server']);
 
     const events = [];
     const write = event => {
@@ -101,7 +101,7 @@ test('channel chats (WeChat users are not admins) get trusted MCP servers and sk
     const ids = sets => sets.map(set => set.id);
     assert.deepEqual(ids(await inDefault(() => extraTools.toolsets({ owner: 'default::weixin:bob', readOnly: true, channel: true }))), ['platform_tools', 'mcp_echo_server'],
         'no untrusted MCP, browser or save_skill in channels');
-    assert.deepEqual(ids(await inDefault(() => extraTools.toolsets({ owner: 'default::weixin:bob', readOnly: true }))), ['platform_tools', 'mcp_echo_server', 'mcp_untrusted'], 'web chats can approve untrusted MCP calls');
+    assert.deepEqual(ids(await inDefault(() => extraTools.toolsets({ owner: 'default::weixin:bob', readOnly: true }))), ['platform_tools', 'my_conversations', 'mcp_echo_server', 'mcp_untrusted'], 'web chats can approve untrusted MCP calls');
 
     const events = [];
     const deltas = [];

@@ -117,7 +117,7 @@ test('a skill with credentials is refused before any approval card, and channels
 });
 
 test('read-only accounts get no skill_evolution group; drafting skills point the model at save_skill', async () => {
-    assert.deepEqual((await extraTools.toolsets({ owner: 'default::guest', readOnly: true })).map(set => set.id), ['platform_tools']);
+    assert.deepEqual((await extraTools.toolsets({ owner: 'default::guest', readOnly: true })).map(set => set.id), ['platform_tools', 'my_conversations']);
     assert.ok((await extraTools.toolsets({ owner: 'default::alice', readOnly: false })).some(set => set.id === 'skill_evolution'));
     const drafting = builtinSkills.buildPrompt(['### @improve-skill\n完善技能']);
     assert.match(drafting, /有 save_skill 工具时[\s\S]*read_skill[\s\S]*save_skill/);

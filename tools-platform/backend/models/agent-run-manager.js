@@ -1073,7 +1073,7 @@ async function runAgentTurn({ session, user, client, systemInstruction, historyM
     if (currentUser?.images?.length && messages.at(-1)?.role === 'user' && !messages.at(-1).images) messages[messages.length - 1] = { ...messages.at(-1), images: currentUser.images };
     // 工具登记表：常驻工具 + tool_search / load_skill；用户选择的技能（@netcare-data / @ops-group / @welink-office 等）带上各自的专用工具
     const registry = await toolRegistry.create({ session, user, messages, sensitiveValues, skillCatalog: Array.isArray(skillCatalog) && skillCatalog.length > 0,
-        extraToolsets: [...await require('./agent-extra-tools').toolsets({ owner: session.owner, user, readOnly: session.readOnly, root: session.root }), ...extraToolsets],
+        extraToolsets: [...await require('./agent-extra-tools').toolsets({ owner: session.owner, user, readOnly: session.readOnly, root: session.root, sensitiveValues }), ...extraToolsets],
         skillIds: resolvedSkillIds,
         sharedCapabilities,
         onSkillGrantRequired: skill => write({ type: 'skill_grant_prompt', skill }) });

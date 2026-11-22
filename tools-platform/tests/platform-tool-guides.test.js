@@ -90,7 +90,7 @@ test('guides are generated only where missing, parsed into summary and body, and
 
 test('Dragon Claw gets a read-only platform tool guide group, also for read-only accounts', async () => {
     const sets = await extraTools.toolsets({ owner: 'default::viewer', readOnly: true });
-    assert.deepEqual(sets.map(set => set.id), ['platform_tools']);
+    assert.deepEqual(sets.map(set => set.id), ['platform_tools', 'my_conversations']);
     const set = sets[0];
     assert.equal(set.kindOf('find_platform_tools'), 'read');
     const found = await set.execute({ name: 'find_platform_tools', args: { query: '站点指标报表' } });
