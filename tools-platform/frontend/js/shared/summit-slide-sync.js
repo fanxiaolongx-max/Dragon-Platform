@@ -8,6 +8,11 @@
         const headers = {};
         if (room) headers['X-Summit-Sync-Room'] = room;
         if (body) headers['Content-Type'] = 'application/json';
+        // Transport delays relative to each device's clock, including a retried write.
+        if (body?.screenCue) {
+            const now = Date.now(), { start, end } = body.screenCue;
+            body = { ...body, screenCue: end > now ? { start: start - now, end: end - now } : null };
+        }
         const response = await fetch(publicView ? '/api/public/summit-view' : endpoint, {
             credentials: publicView ? 'omit' : 'same-origin',
             method, headers, body: body && JSON.stringify(body),
@@ -18,7 +23,13 @@
             error.status = response.status;
             throw error;
         }
-        return response.status === 204 ? null : response.json();
+        if (response.status === 204) return null;
+        const state = await response.json();
+        if (state.screenCue) {
+            const now = Date.now();
+            state.screenCue = { start: now + state.screenCue.start, end: now + state.screenCue.end };
+        }
+        return state;
     }
 
     function createClient(from, onSlide, onStatus, onEmpty, publicView = false) {
@@ -112,17 +123,17 @@
             join,
             joinDefault() { join('', -1); },
             leave,
-            send(slideIndex, language, focus, hideBrands) {
+            send(slideIndex, language, focus, hideBrands, theme, screenCue) {
                 if (publicView || !session || session.status === 'expired') return;
-                session.pending = { from, slideIndex, language, focus, hideBrands };
+                session.pending = { from, slideIndex, language, focus, hideBrands, theme, screenCue };
                 if (!session.sending && session.status !== 'login') sendPending(session);
             },
             refresh() {
                 if (session) join(session.room);
             },
-            async start(slideIndex, language, hours = 8, focus, hideBrands) {
+            async start(slideIndex, language, hours = 8, focus, hideBrands, theme, screenCue) {
                 try {
-                    const state = await request('POST', null, { from, slideIndex, language, hours, focus, hideBrands });
+                    const state = await request('POST', null, { from, slideIndex, language, hours, focus, hideBrands, theme, screenCue });
                     join(state.room, state.revision);
                     session.viewer = state.viewer;
                     session.expiresAt = state.expiresAt;

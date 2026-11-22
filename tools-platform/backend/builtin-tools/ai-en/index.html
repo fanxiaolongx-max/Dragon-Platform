@@ -499,10 +499,57 @@ t-a{display:none}
 :root.ar.brands-hidden .cover h1{direction:rtl;letter-spacing:normal}
 .brands-hidden .cv{grid-template-columns:1fr}
 .brands-hidden header{justify-content:flex-end}
+/* The prompter controls the projected palette independently of the platform shell. */
+:root[data-deck-theme="dark"]{
+  --bg:#11131b;--paper:#1e222f;--ink:#f5f3fa;--ink2:#d7d8e4;--muted:#b9bbcd;--faint:#969bac;
+  --line:#383d50;--line2:#505869;--acc:#c4a4ff;--acc-soft:#34294b;--we:#533978;--blue:#acbaff;
+  --red:#ff889b;--red-soft:#462932;--ok:#83dfbd;--warn:#f6c87f;--bad:#ff99a5;--card-bg:var(--paper);--hl:#303548;
+  color-scheme:dark!important;
+}
+[data-deck-theme="dark"] :is(body,select,button){color-scheme:dark!important}
+[data-deck-theme="dark"] #orbA{background:radial-gradient(circle,#312545,transparent 70%)}
+[data-deck-theme="dark"] #orbB{background:radial-gradient(circle,#382330,transparent 70%)}
+[data-deck-theme="dark"] :is(.lockup,.case9 .before,.zones2 .ext,.team .tm.we){background:var(--paper)}
+[data-deck-theme="dark"] .cover h1 em,[data-deck-theme="dark"] .hero .hn .b{background-image:linear-gradient(115deg,#dfc9ff,#eea8ca)}
+[data-deck-theme="dark"] :is(.lk-cap .p,.loop .lc b,.hero .hm span:last-child){color:var(--acc)}
+[data-deck-theme="dark"] :is(.lg img,.lk-hw){background:#ebeaf0;border-radius:8px;padding:5px 9px;box-sizing:content-box}
+[data-deck-theme="dark"] :is(.brand,.mini) img[data-img="HW"]{background:#ebeaf0;padding:2px 4px;border-radius:4px}
+[data-deck-theme="dark"] .venn .c{mix-blend-mode:normal;border:1px solid var(--line2)}
+[data-deck-theme="dark"] .venn .c1{background:rgba(124,93,184,.43)}
+[data-deck-theme="dark"] .venn .c2{background:rgba(160,75,100,.38)}
+[data-deck-theme="dark"] .venn .c3{background:rgba(80,104,158,.38)}
+[data-deck-theme="dark"] .venn .core{box-shadow:0 0 0 4px #aa8ace}
+[data-deck-theme="dark"] .ladder .ok .bd{background:#193b35}
+[data-deck-theme="dark"] .ladder .lv.no{background:var(--red-soft);border-color:#aa6374}
+[data-deck-theme="dark"] :is(.case9 .bl,.tag){background:var(--hl);color:var(--ink2)}
+[data-deck-theme="dark"] :is(.case9 .nl,.case9 .chips .evo span.hot,.zones2 .cross,.team .tj,.btn.pri,#toast){color:var(--bg)}
+[data-deck-theme="dark"] .ft button:hover{background:var(--hl)}
+[data-deck-theme="dark"] :is(#bSync.active,#lockLangBtn[aria-pressed="true"]){color:#bfdaff;background:#263954;border-color:#5b799f}
+[data-deck-theme="dark"] #modal{background:rgba(7,9,17,.78)}
+[data-deck-theme="dark"] #langBtn option{background:var(--paper);color:var(--ink)}
+[data-deck-theme="dark"] .fn .row:nth-child(1){--dot:#adb4c4;--bed:#333846}
+[data-deck-theme="dark"] .fn .row:nth-child(2){--dot:#bd9cef;--bed:#3d3054}
+[data-deck-theme="dark"] .fn .row:nth-child(3){--dot:#ff91a0;--bed:#4d2939}
+[data-deck-theme="dark"] .fn .row:nth-child(4){--dot:#b8aef9;--bed:#36304c}
+[data-deck-theme="dark"] .fn .row :is(i,.lab){--c:var(--dot)!important;--cs:var(--bed)!important}
+[data-deck-theme="dark"] [stroke="#5b2fb5"]{stroke:var(--acc)}
+[data-deck-theme="dark"] [stroke="#e0182d"]{stroke:var(--red)}
+[data-deck-theme="dark"] [stroke="#e3d6fb"]{stroke:#393047}
+[data-deck-theme="dark"] #ah path{fill:var(--acc)}
+#screen-glow{position:absolute;inset:0;z-index:32;pointer-events:none;opacity:0;
+  --voice-violet:#9046d6;--voice-cyan:#2389ba;
+  background:linear-gradient(115deg,rgba(131,70,213,.18),transparent 42%,rgba(32,166,206,.13));
+  border:4px solid var(--voice-violet);box-shadow:inset 0 0 24px 6px var(--voice-violet),inset 0 0 100px 12px var(--voice-cyan)}
+#screen-glow::before{content:"";position:absolute;inset:12px;
+  background:linear-gradient(var(--voice-cyan),var(--voice-cyan)) left top/94px 3px,
+    linear-gradient(var(--voice-cyan),var(--voice-cyan)) left top/3px 55px,
+    linear-gradient(var(--voice-cyan),var(--voice-cyan)) right bottom/94px 3px,
+    linear-gradient(var(--voice-cyan),var(--voice-cyan)) right bottom/3px 55px;background-repeat:no-repeat}
+[data-deck-theme="dark"] #screen-glow{--voice-violet:#b787ff;--voice-cyan:#5ccfeb}
 </style>
 </head>
 <body>
-<div id="viewport"><div id="stage">
+<div id="viewport"><div id="stage"><div id="screen-glow" aria-hidden="true"></div>
 <div class="orb" id="orbA"></div><div class="orb" id="orbB"></div><div class="grain"></div>
 <div id="bar"></div>
 <canvas id="readingEffects" width="1920" height="1080" aria-hidden="true"></canvas>
@@ -767,7 +814,8 @@ try{
   const value=sessionStorage.getItem(languageLockKey);
   if(isLanguage(value))lockedLanguage=value;
 }catch(e){}
-let lang=lockedLanguage||((Q.get('lang')||store.get('lang','zh'))==='en'?'en':'zh');
+const initialLanguage=Q.get('lang')||store.get('lang','zh');
+let lang=lockedLanguage||(isLanguage(initialLanguage)?initialLanguage:'zh');
 if(Q.has('static'))document.documentElement.classList.add('static');
 const L=(zh,en,ar=en)=>lang==='ar'?ar:lang==='en'?en:zh;
 let idx=-1,scale=1,lastFocus=null;
@@ -895,7 +943,7 @@ function toggleSync(){
     return;
   }
   syncActive = !syncActive;
-  if(!syncActive)showReadingFocus(idx);
+  if(!syncActive){showScreenCue(null);showReadingFocus(idx)}
   if(syncActive){
     crossSync?.refresh();
     if(defaultSync)defaultSync.joinDefault();
@@ -1080,12 +1128,12 @@ function drawReadingFlight(now){
     p.x=x;p.y=y;p.group=group;p.t=t;
     p.depth=clampUnit(.5+z/150);
   });
+  ink.strokeStyle=document.documentElement.dataset.deckTheme==='dark'?'#d5b8ff':'rgba(107,66,158,.82)';
   // Draw each surviving piece of the old edge until its grains depart.
   // Reconnect neighboring grains only after they have landed on the same contour.
   particles.forEach((p,i)=>{
     const prev=particles[(i+particleCount-1)%particleCount];
     const together=p.t===1&&prev.t===1&&p.group===prev.group || p.t===0&&prev.t===0;
-    ink.strokeStyle='rgba(107,66,158,.82)';
     if(together&&Math.hypot(p.x-prev.x,p.y-prev.y)<22){
       ink.beginPath();ink.moveTo(prev.x,prev.y);ink.lineTo(p.x,p.y);ink.stroke();
     }
@@ -1148,12 +1196,38 @@ function showReadingFocus(slideIndex,focus){
   settleReadingFrames(next.length?1900:0);
 }
 addEventListener('resize',()=>settleReadingFrames());
+function applyDeckTheme(theme){
+  if(theme!=='dark'&&theme!=='light')return;
+  const root=document.documentElement;
+  if(root.dataset.deckTheme===theme)return;
+  root.dataset.deckTheme=theme;
+  settleReadingFrames();
+}
+// RMS envelope sampled from the reply and both microphone taps at ~40 ms intervals.
+const replyEnvelope=[0,14,61,87,94,90,89,88,84,93,96,97,97,97,88,94,92,89,87,71,44,28,19,13,9,7,6,63,87,92,93,92,96,97,97,87,81,70,53,34,22,15,10,8,6,5,5,4,4,4,4,4,4,44,74,91,94,94,94,90,83,73,47,30,20,13,10,7,6,32,77,91,85,73,90,91,85,69,46,29,19,13,9,7,6,58,74,70,80,92,92,58,64,81,86,93,93,89,78,60,50,40,26,17,12,9,7,6,5,5,4,4,4,4,4,4,4,4,4,61,87,85,88,93,89,83,93,96,94,89,86,85,84,79,59,37,24,16,58,78,90,91,90,84,89,94,91,89,91,83,72,86,93,89,81,80,75,60,68,85,91,89,87,88,83,81,74,46,29,19,54,69,65,54,39,25,17,12,59,67,59,45,30,20,13,10,7,6,5,5,4,4,4,0];
+let glowAnimation=null,glowStart=0,glowEnd=0;
+function showScreenCue(cue){
+  const now=Date.now();
+  if(!cue||!Number.isFinite(cue.start)||!Number.isFinite(cue.end)||cue.end<=now||
+     cue.end-now>10000||cue.end<=cue.start||cue.end-cue.start>10000){
+    glowAnimation?.cancel();glowAnimation=null;return;
+  }
+  if(glowAnimation&&Math.abs(glowStart-cue.start)<80&&Math.abs(glowEnd-cue.end)<80)return;
+  glowAnimation?.cancel();
+  glowStart=cue.start;glowEnd=cue.end;
+  const opacity=motionPreference.matches?[0,.45,.45,0]:replyEnvelope.map(level=>level/100);
+  glowAnimation=$('screen-glow').animate(opacity.map(value=>({opacity:value})),{
+    delay:cue.start-now,duration:cue.end-cue.start,easing:'linear'
+  });
+}
 function handleSync(data, remote=false){
   if(!syncActive || (!remote && crossSync)) return;
   if(!data || typeof data !== 'object') return;
   if(!remote && data.from === 'ai-en') return;
   const target = typeof data.slideIndex === 'number' ? data.slideIndex : (typeof data.slideNum === 'number' ? data.slideNum - 1 : null);
   if(Number.isInteger(target) && target >= 0 && target < S.length){
+    showScreenCue(data.screenCue);
+    applyDeckTheme(data.theme);
     syncBrandVisibility(data.hideBrands);
     applySyncedLanguage(data.language);
     if(target !== idx){
@@ -1193,7 +1267,7 @@ function broadcastSlideFromPPT(n){
   try{ syncChan?.postMessage(msg); }catch(e){}
   try{
     const previous=JSON.parse(localStorage.getItem('we_ai_synced_slide'));
-    localStorage.setItem('we_ai_synced_slide',JSON.stringify({...msg,language:previous?.language}));
+    localStorage.setItem('we_ai_synced_slide',JSON.stringify({...msg,theme:previous?.theme,language:previous?.language}));
   }catch(e){}
   try{ if(window.parent && window.parent !== window) window.parent.postMessage(msg, '*'); }catch(e){}
 }
@@ -1250,6 +1324,8 @@ try{
     const d = JSON.parse(cached);
     if(Date.now() - (d.timestamp || 0) < 900000 && typeof d.slideIndex === 'number' && d.slideIndex >= 0 && d.slideIndex < S.length){
       initialSlide = d.slideIndex;
+      showScreenCue(d.screenCue);
+      applyDeckTheme(d.theme);
       syncBrandVisibility(d.hideBrands);
       applySyncedLanguage(d.language);
       initialFocus=d.focus;

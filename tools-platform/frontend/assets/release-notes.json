@@ -1,12 +1,10 @@
 {
   "zh": [
-    "共享对话支持实时围观：其他成员在同一共享对话里提问时，你的页面会同步显示对方的问题，AI 回答逐字流式出现，思考与工具调用状态一并展示；中途打开也会先补上已生成的部分。",
-    "有成员正在提问时，输入框自动锁定并提示“某某正在提问”，回答结束后自动解锁，并以正式保存的消息替换实时内容，不会重复显示。",
-    "实时连接断开会自动重连；被移出共享或共享停止时立即断开。实时内容不包含对方的工具参数与文件路径。"
+    "修复对话顶栏「···」更多操作菜单：窗口或侧栏收窄后再拉宽时，按钮现在会自动恢复显示（之前会一直收在「···」里直到刷新）；收起时机改为按标题保底宽度判断，标题不再被挤得过窄；管理员的「终端」入口也会出现在「···」菜单中。",
+    "峰会演示翻页同步支持同步深浅色主题与英文旁白的屏幕提示时间点，提词器新增阿拉伯语。"
   ],
   "en": [
-    "Shared conversations now stream live: when another member asks a question, you see their question and the AI answer appear in real time, with thinking and tool activity; opening mid-answer catches up on what has been generated so far.",
-    "While a member is asking, your composer is locked with a notice showing who is asking; it unlocks when the answer finishes and the live bubbles are replaced by the saved messages without duplicates.",
-    "The live connection reconnects automatically after drops and closes as soon as you are removed or sharing stops. Live updates never include the asker's tool arguments or file paths."
+    "Fixed the chat header \"···\" more-actions menu: buttons now come back automatically when the window or sidebar is widened again (previously they stayed collapsed until reload); collapsing is based on a minimum title width so the title is no longer squeezed too far; the Terminal entry for admins now appears in the menu.",
+    "Summit slide sync now carries the light/dark theme and timed on-screen cues for the English narration; the prompter adds Arabic."
   ]
 }

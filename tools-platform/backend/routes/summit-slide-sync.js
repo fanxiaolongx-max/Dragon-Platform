@@ -19,7 +19,7 @@ function createSummitSlideSyncRouter({ canShare, sendDeck, nowMs = Date.now } = 
         const room = ROOM_ID.test(key || '') && [...rooms.values()].find(item => item.viewer === key);
         if (!room || room.expiresAt <= nowMs()) return res.status(404).json({ code: 'ROOM_NOT_FOUND' });
         if (req.path === '/deck') return sendDeck(req, res, next);
-        return res.json(room.state);
+        return res.json(viewerState(room.state));
     });
     router.publicViewer = publicViewer;
 
@@ -31,16 +31,31 @@ function createSummitSlideSyncRouter({ canShare, sendDeck, nowMs = Date.now } = 
         next();
     });
 
+    function viewerState(state) {
+        if (!state.screenCue) return state;
+        const now = nowMs(), { start, end } = state.screenCue;
+        return { ...state, screenCue: end > now ? { start: start - now, end: end - now } : null };
+    }
+
     function parseSlide(body) {
-        const { slideIndex, from, language, focus, hideBrands } = body || {};
+        const { slideIndex, from, language, focus, hideBrands, theme, screenCue } = body || {};
         if (!Number.isInteger(slideIndex) || slideIndex < 0 || slideIndex >= 10 || !PARTICIPANTS.has(from)) {
             return null;
         }
         if (focus !== undefined && (from !== 'we-ai' || !Number.isInteger(focus) || focus < -1 || focus > 31)) return null;
         if (hideBrands !== undefined && (from !== 'we-ai' || typeof hideBrands !== 'boolean')) return null;
-        if (language === undefined) return { slideIndex, from };
-        if (from !== 'we-ai' || (language !== 'zh' && language !== 'en')) return null;
-        return { slideIndex, from, language, ...(hideBrands === undefined ? {} : { hideBrands }), ...(focus === undefined ? {} : { focus }) };
+        if (theme !== undefined && (from !== 'we-ai' || !['light', 'dark'].includes(theme))) return null;
+        const appearance = theme === undefined ? {} : { theme };
+        if (screenCue != null) {
+            const { start, end } = screenCue;
+            if (from !== 'we-ai' || language !== 'en' || !Number.isInteger(start) || !Number.isInteger(end)
+                || start < -10000 || end <= 0 || end > 10000 || end <= start || end - start > 10000) return null;
+            const now = nowMs();
+            appearance.screenCue = { start: now + start, end: now + end };
+        }
+        if (language === undefined) return { slideIndex, from, ...appearance };
+        if (from !== 'we-ai' || !['zh', 'en', 'ar'].includes(language)) return null;
+        return { slideIndex, from, language, ...appearance, ...(hideBrands === undefined ? {} : { hideBrands }), ...(focus === undefined ? {} : { focus }) };
     }
 
     router.post('/', async (req, res, next) => {
@@ -66,7 +81,7 @@ function createSummitSlideSyncRouter({ canShare, sendDeck, nowMs = Date.now } = 
         const expiresAt = now + hours * 3600000;
         const viewer = randomBytes(16).toString('hex');
         rooms.set(id, { tenantId, username, expiresAt, viewer, state });
-        res.status(201).json({ room: id, viewer, expiresAt, ...state });
+        res.status(201).json({ room: id, viewer, expiresAt, ...viewerState(state) });
     });
 
     function findRoom(req, res, next) {
@@ -90,14 +105,14 @@ function createSummitSlideSyncRouter({ canShare, sendDeck, nowMs = Date.now } = 
     function useSlideRoom(req, res, next) {
         if (req.get('X-Summit-Sync-Room') !== undefined) return findRoom(req, res, next);
         const room = getDefaultRoom(req.user.tenantId, nowMs());
-        if (req.method === 'GET' || req.method === 'HEAD') return res.json(room?.state || { revision: 0 });
+        if (req.method === 'GET' || req.method === 'HEAD') return res.json(viewerState(room?.state || { revision: 0 }));
         req.summitRoom = room;
         next();
     }
 
     router.get('/', useSlideRoom, (req, res) => {
         const { state, username, viewer, expiresAt } = req.summitRoom;
-        res.json(username === req.user.username ? { ...state, viewer, expiresAt } : state);
+        res.json(viewerState(username === req.user.username ? { ...state, viewer, expiresAt } : state));
     });
 
     router.put('/', useSlideRoom, (req, res) => {
@@ -113,10 +128,10 @@ function createSummitSlideSyncRouter({ canShare, sendDeck, nowMs = Date.now } = 
             room = { state: { revision: now } };
             defaultRooms.set(req.user.tenantId, room);
         }
-        const { language, revision, hideBrands } = room.state;
-        room.state = { ...(hideBrands === undefined ? {} : { hideBrands }), ...(language ? { language } : {}), ...slide, revision: revision + 1 };
+        const { language, revision, hideBrands, theme } = room.state;
+        room.state = { ...(theme ? { theme } : {}), ...(hideBrands === undefined ? {} : { hideBrands }), ...(language ? { language } : {}), ...slide, revision: revision + 1 };
         if (!req.summitRoomId) room.expiresAt = now + ROOM_TTL;
-        res.json(room.state);
+        res.json(viewerState(room.state));
     });
 
     router.delete('/', findRoom, (req, res) => {
