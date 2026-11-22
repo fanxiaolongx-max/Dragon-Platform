@@ -42,8 +42,20 @@
             <div class="dc-todo-dock-body"><div class="dc-todo-dock-scroll"><ol class="dc-todo-list"></ol></div></div>
         </div></div>`;
         dock.querySelector('.dc-todo-dock-head').addEventListener('click', () => setCollapsed(!dock.classList.contains('is-collapsed'), true));
-        composer.parentNode.insertBefore(dock, composer);
+        const approvals = document.getElementById('dcApprovalDock');
+        composer.parentNode.insertBefore(dock, approvals || composer);
         setCollapsed(readCollapsed(), false);
+        if (approvals) {
+            let pending = false;
+            const syncApprovals = () => {
+                const next = approvals.childElementCount > 0;
+                if (next === pending) return;
+                pending = next;
+                setCollapsed(pending || readCollapsed(), false);
+            };
+            new MutationObserver(syncApprovals).observe(approvals, { childList: true });
+            syncApprovals();
+        }
         // 切换对话、新对话会清空对话区：所属消息不在了就收起停靠区。
         const thread = document.getElementById('dcThread');
         if (thread) {

@@ -7,7 +7,7 @@
     const L = (zh, en) => /^en/i.test(window.ToolsI18n?.getLanguage?.() || localStorage.getItem('tools_lang') || '') ? en : zh;
     const esc = val => String(val ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 
-    let wrap, pill, popover, open = false;
+    let wrap, pill, popover, dcRoot, open = false;
 
     function collect() {
         const blocked = [];
@@ -95,16 +95,43 @@
         if (!wrap) return;
         const chatting = document.body.classList.contains('dc-chatting');
         const actions = document.querySelector('.dc-chat-actions');
-        const dcRoot = document.getElementById('dragonClaw');
         if (chatting && actions) {
             wrap.classList.remove('is-floating');
             wrap.hidden = false;
-            if (wrap.parentElement !== actions) actions.prepend(wrap);
+            if (wrap.parentElement !== actions) {
+                setOpen(false);
+                actions.prepend(wrap);
+            }
         } else if (!chatting && dcRoot) {
             wrap.classList.add('is-floating');
             wrap.hidden = !hasActivity;
+            if (wrap.hidden || wrap.parentElement !== dcRoot) setOpen(false);
             if (wrap.parentElement !== dcRoot) dcRoot.append(wrap);
         }
+    }
+
+    function placePopover() {
+        if (!open) return;
+        const { clientWidth, clientHeight } = document.documentElement;
+        const anchor = pill.getBoundingClientRect();
+        if (!anchor.width || anchor.bottom <= 0 || anchor.top >= clientHeight) {
+            setOpen(false);
+            return;
+        }
+        const gap = 8;
+        const chat = dcRoot.getBoundingClientRect();
+        // Keep clear of the right sidebar, which can contain a native Electron view.
+        const right = Math.min(clientWidth, chat.right) - gap;
+        const width = Math.min(320, right - gap, Math.max(240, right - chat.left - gap));
+        const left = Math.min(Math.max(anchor.right - width, chat.left + gap), right - width);
+        const below = Math.max(0, clientHeight - anchor.bottom - 2 * gap);
+        const above = Math.max(0, anchor.top - 2 * gap);
+        popover.style.width = `${width}px`;
+        const placeAbove = below < popover.scrollHeight + 2 && above > below;
+        popover.style.left = `${Math.max(gap, left)}px`;
+        popover.style.maxHeight = `${placeAbove ? above : below}px`;
+        popover.style.top = placeAbove ? 'auto' : `${anchor.bottom + gap}px`;
+        popover.style.bottom = placeAbove ? `${clientHeight - anchor.top + gap}px` : 'auto';
     }
 
     function render() {
@@ -150,7 +177,7 @@
         const empty = !blockedCount && !workingCount && !termCount;
         popover.innerHTML = `
             <div class="dc-radar-head">
-                <strong>${esc(L('智能体状态雷达', 'Agent Status Radar'))}</strong>
+                <strong id="dcRadarTitle">${esc(L('智能体状态雷达', 'Agent Status Radar'))}</strong>
                 <small>${esc(L('实时汇总阻塞、运行与终端', 'Live blocked, running & shell states'))}</small>
             </div>
             ${empty
@@ -158,14 +185,20 @@
                 : section(L('等你处理 / 阻塞', 'Needs your attention'), blocked, 'is-blocked')
                   + section(L('正在运行', 'Working'), working, 'is-working')
                   + section(L('终端进程', 'Terminals'), terminals, 'is-terminal')}`;
+        placePopover();
     }
 
     function setOpen(next) {
-        open = typeof next === 'boolean' ? next : !open;
-        if (!popover || !pill) return;
-        popover.hidden = !open;
+        open = (typeof next === 'boolean' ? next : !open) && !wrap.hidden;
         pill.setAttribute('aria-expanded', String(open));
-        if (open) render();
+        if (open) {
+            popover.hidden = false;
+            popover.showPopover?.();
+            render();
+        } else {
+            popover.hidePopover?.();
+            popover.hidden = true;
+        }
     }
 
     function handleJump(btn) {
@@ -195,7 +228,8 @@
 
     function init() {
         const actions = document.querySelector('.dc-chat-actions');
-        if (!actions) return;
+        dcRoot = document.getElementById('dragonClaw');
+        if (!actions || !dcRoot) return;
         wrap = document.createElement('div');
         wrap.className = 'dc-radar-wrap';
         pill = document.createElement('button');
@@ -203,11 +237,17 @@
         pill.className = 'dc-ghost-btn dc-radar-pill';
         pill.setAttribute('aria-haspopup', 'dialog');
         pill.setAttribute('aria-expanded', 'false');
+        pill.setAttribute('aria-controls', 'dcRadarPopover');
         popover = document.createElement('div');
+        popover.id = 'dcRadarPopover';
         popover.className = 'dc-radar-popover';
+        popover.setAttribute('popover', 'manual');
         popover.setAttribute('role', 'dialog');
+        popover.setAttribute('aria-labelledby', 'dcRadarTitle');
         popover.hidden = true;
-        wrap.append(pill, popover);
+        wrap.append(pill);
+        if (popover.showPopover) wrap.append(popover);
+        else document.body.append(popover);
         actions.prepend(wrap);
 
         pill.addEventListener('click', e => { e.stopPropagation(); setOpen(); });
@@ -215,8 +255,15 @@
             const btn = e.target.closest('[data-radar-kind]');
             if (btn) handleJump(btn);
         });
-        document.addEventListener('pointerdown', e => { if (open && wrap && !wrap.contains(e.target)) setOpen(false); });
+        document.addEventListener('pointerdown', e => {
+            if (open && !wrap.contains(e.target) && !popover.contains(e.target)) setOpen(false);
+        });
         document.addEventListener('keydown', e => { if (open && e.key === 'Escape') { setOpen(false); pill.focus(); } });
+        window.addEventListener('resize', placePopover);
+        window.addEventListener('scroll', placePopover, true);
+        actions.parentElement.addEventListener('animationend', placePopover);
+        const resizeObserver = new ResizeObserver(placePopover);
+        for (const element of [dcRoot, actions, pill]) resizeObserver.observe(element);
 
         for (const evt of ['dragon-claw:radar-refresh', 'dragon-claw:status-change', 'tools:approval-inbox', 'home:desktop-agents-updated', 'home:desktop-agents-busy', 'tools:languagechange']) {
             window.addEventListener(evt, render);

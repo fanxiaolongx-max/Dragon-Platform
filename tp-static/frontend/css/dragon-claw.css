@@ -650,7 +650,7 @@ body.dc-chatting .dc-chat-head {
 .dc-ghost-btn:hover { border-color: rgba(100, 255, 218, 0.4); color: #e6fffa; }
 /* 导出日志下拉：网页快照 / 研发日志（js/home/dragon-claw.js），复用模型菜单的面板与选项样式 */
 /* 头部的入场动画会建立层叠上下文，下拉需要整个头部压在对话区之上 */
-body.dc-chatting .dc-chat-head:has(.dc-export.is-open, .dc-radar-pill[aria-expanded="true"]) { position: relative; z-index: 20; }
+body.dc-chatting .dc-chat-head:has(.dc-export.is-open) { position: relative; z-index: 20; }
 .dc-export { position: relative; flex: none; }
 .dc-export .dc-ghost-btn { display: inline-flex; align-items: center; gap: 4px; }
 .dc-export .dc-ghost-btn:disabled { opacity: 0.6; cursor: progress; }
@@ -1275,3 +1275,15 @@ body.dc-chatting .dc-composer {
 .dc-tac-wt-meta { flex: 1; min-width: 140px; opacity: 0.85; font-family: ui-monospace, Menlo, monospace; font-size: 11.5px; word-break: break-word; }
 .dc-tac-wt-open { flex: none; white-space: nowrap; border: 1px solid rgba(16, 163, 127, 0.45); border-radius: 6px; padding: 3px 9px; background: transparent; color: inherit; font-size: 11.5px; cursor: pointer; }
 .dc-tac-wt-open:hover { background: rgba(16, 163, 127, 0.14); }
+
+/* Keep pending approvals reachable while the conversation continues streaming. */
+#dcApprovalDock { display: none; }
+body.dc-chatting #dcApprovalDock:not(:empty) {
+    display: block;
+    flex: 0 1 auto;
+    width: min(var(--dc-col, 760px), calc(100% - 24px));
+    max-height: 36dvh;
+    overflow: auto;
+    overscroll-behavior: contain;
+    margin: 4px auto;
+}

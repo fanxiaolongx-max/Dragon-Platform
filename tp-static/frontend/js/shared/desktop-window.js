@@ -66,6 +66,16 @@
            面板自己的关闭等按钮下移到三键下方，不再和窗口关闭键挨在一起；留出的标题行可拖动窗口。
            展开的文件卡片与浮动文件预览同样从三键下方开始。全屏时没有三键，不必让位。 */
         html.desktop-win:not(.desktop-fullscreen) .home-workspace-panel { padding-top: 38px; }
+        html.desktop-win .home-workspace-panel > .wsp-head {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            background: var(--v2-bg);
+        }
+        html.desktop-win:not(.desktop-fullscreen) .home-workspace-panel > .wsp-head {
+            top: 38px;
+            box-shadow: 0 -38px var(--v2-bg);
+        }
         html.desktop-win:not(.desktop-fullscreen) .home-workspace-panel::before { content: ""; position: absolute; top: 0; left: 0; right: 140px; height: 32px; -webkit-app-region: drag; }
         html.desktop-win:not(.desktop-fullscreen) .ai-file-preview--floating,
         html.desktop-win:not(.desktop-fullscreen) .dc-file-card.is-expanded { top: max(calc(var(--navbar-h, 0px) + 16px), 44px); }
