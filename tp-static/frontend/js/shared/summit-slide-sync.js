@@ -112,17 +112,17 @@
             join,
             joinDefault() { join('', -1); },
             leave,
-            send(slideIndex, language) {
+            send(slideIndex, language, focus, hideBrands) {
                 if (publicView || !session || session.status === 'expired') return;
-                session.pending = { from, slideIndex, language };
+                session.pending = { from, slideIndex, language, focus, hideBrands };
                 if (!session.sending && session.status !== 'login') sendPending(session);
             },
             refresh() {
                 if (session) join(session.room);
             },
-            async start(slideIndex, language, hours = 8) {
+            async start(slideIndex, language, hours = 8, focus, hideBrands) {
                 try {
-                    const state = await request('POST', null, { from, slideIndex, language, hours });
+                    const state = await request('POST', null, { from, slideIndex, language, hours, focus, hideBrands });
                     join(state.room, state.revision);
                     session.viewer = state.viewer;
                     session.expiresAt = state.expiresAt;
