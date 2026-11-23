@@ -62,8 +62,8 @@
       "description": "数通协议知识库：OSPF、Juniper 跨厂商策略等知识的分类整理，配合二维拓扑、报文时序、按位图解与分步实验，理解复杂协议机制。",
       "href": "./datacom-protocol-expert/index.html",
       "encrypted": false,
-      "fingerprint": "de8b098b60b403e77ebc2efccf69669b93d26347c8717865f4607b31971b2606",
-      "updatedAt": "2026-11-23T00:29:38.043Z"
+      "fingerprint": "52746f343bf079c1df22e1b9da64fb52652f119938e945f59ce8343246455dd7",
+      "updatedAt": "2026-11-23T10:29:40.273Z"
     },
     {
       "slug": "department-reward-penalty",
@@ -71,8 +71,8 @@
       "description": "用于维护部门负向事件与违规记录、扣罚规则、人员名册与操作审计日志，支持草稿发布、规则分类筛选和人员 CSV 导入导出。",
       "href": "./department-reward-penalty/index.html",
       "encrypted": false,
-      "fingerprint": "b55ce06ba04d0220c0a82b4334afbf8c81e62ff8955faed1c37272ceb8f3b673",
-      "updatedAt": "2026-11-23T00:29:37.494Z"
+      "fingerprint": "ed71960393d17edd3e4e6fac6178b2ec71025351cc27f11cde9fc804a6cef908",
+      "updatedAt": "2026-11-23T10:29:39.558Z"
     },
     {
       "slug": "reward-program",
@@ -107,8 +107,8 @@
       "description": "查询产品是否属于强控业务比对范围，支持产品数据导入导出、服务器保存、模糊检索和静态快照同步。",
       "href": "./tool-mumxi3px/index.html",
       "encrypted": false,
-      "fingerprint": "06e005c6d16d9279e1de104fe9234455929fb31f87911381e0e6a202ddad0d58",
-      "updatedAt": "2026-11-23T00:29:37.908Z"
+      "fingerprint": "f58c4a9cbd200ad6c60e91858ed8ff97371e94fcb5594f4f3ef5faf0c141dcdd",
+      "updatedAt": "2026-11-23T10:29:40.115Z"
     },
     {
       "slug": "tool-mqp55fna",
@@ -426,8 +426,8 @@
       "description": "平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data",
       "href": "./uivf12/index.html",
       "encrypted": false,
-      "fingerprint": "bcdf7f018b96a6968cc679e4378ba2abcf82dc472b0317247ebfa4cb9f280919",
-      "updatedAt": "2026-11-23T00:29:30.144Z"
+      "fingerprint": "1123388aca2a5b09ef7ae85b4386161e4f3795665a1c70d53ac9a4cfab806746",
+      "updatedAt": "2026-11-23T10:29:30.825Z"
     },
     {
       "slug": "sla",
@@ -436,8 +436,8 @@
       "description": "平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data",
       "href": "./sla/index.html",
       "encrypted": false,
-      "fingerprint": "8f9441c65931eaed00440df22e5316272a4b064cdc1e378d3fa6c3d386a2fd21",
-      "updatedAt": "2026-11-23T00:29:30.578Z"
+      "fingerprint": "bb42c95c6884dad839a9b24095869aa48c885b84556035329aff8823a026310d",
+      "updatedAt": "2026-11-23T10:29:31.669Z"
     },
     {
       "slug": "report",
@@ -446,8 +446,8 @@
       "description": "平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data",
       "href": "./report/index.html",
       "encrypted": false,
-      "fingerprint": "c8b5b919d41a07378bde3901ac4434539c26d01c01eb16aefc7d35b85f444134",
-      "updatedAt": "2026-11-23T00:29:30.813Z"
+      "fingerprint": "706720873a3b3d63fb4789cb6c31343212b0e4ca710637575349dca35b9ef618",
+      "updatedAt": "2026-11-23T10:29:31.925Z"
     },
     {
       "slug": "expedite",
@@ -456,8 +456,8 @@
       "description": "平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data",
       "href": "./expedite/index.html",
       "encrypted": false,
-      "fingerprint": "5b1190236b2d0cd161f0343824558fe358bedf8db5cb13016ec049da63e13100",
-      "updatedAt": "2026-11-23T00:29:30.941Z"
+      "fingerprint": "1290c1cad2a73fc400301a89419f9c5e824e11e4c32d7babcc3491aba668a103",
+      "updatedAt": "2026-11-23T10:29:32.086Z"
     },
     {
       "slug": "monthly",
