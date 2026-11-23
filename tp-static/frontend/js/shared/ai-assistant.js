@@ -628,6 +628,7 @@
         .ai-markdown-table tbody tr:last-child td { border-bottom: 0; }
         .ai-markdown-table tbody tr:nth-child(even) td { background: #fafbfe; }
         .ai-markdown-table tbody tr:hover td { background: #f2f5ff; }
+        .ai-markdown-table .align-left { text-align: left; }
         .ai-markdown-table .align-center { text-align: center; }
         .ai-markdown-table .align-right { text-align: right; }
         .ai-markdown-table td.numeric { font-variant-numeric: tabular-nums; white-space: nowrap; }

@@ -219,7 +219,7 @@
         root.addEventListener('click', event => {
             const act = event.target.closest('[data-frame-act]')?.dataset.frameAct;
             if (act === 'browser') {
-                if (document.body.classList.contains('dc-browser-open')) window.DragonBrowserSidebar?.close();
+                if (document.body.classList.contains('dc-browser-open')) window.DragonBrowserSidebar?.close(true);
                 else window.DragonBrowserSidebar?.open();
             }
             else if (act === 'close') close();

@@ -8,6 +8,8 @@
 }
 
 .dc {
+    container-type: inline-size;
+    container-name: dc-chat;
     --dc-border: rgba(148, 163, 184, 0.14);
     --dc-text: #e2e8f0;
     --dc-muted: #8b9ab3;
@@ -620,9 +622,9 @@ body.dc-chatting .dc-chat-head {
     from { opacity: .5; transform: translateY(14px); }
     to { opacity: 1; transform: translateY(0); }
 }
-.dc-chat-title { display: flex; align-items: center; gap: 9px; min-width: 0; }
-.dc-chat-avatar { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; }
-.dc-chat-name { font-size: 14px; font-weight: 750; }
+.dc-chat-title { display: flex; align-items: center; gap: 9px; min-width: 0; flex: 1 1 auto; overflow: hidden; }
+.dc-chat-avatar { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; flex: none; }
+.dc-chat-name { font-size: 14px; font-weight: 750; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .dc-chat-badge {
     padding: 2px 8px;
     border: 1px solid rgba(100, 255, 218, 0.25);
@@ -632,13 +634,22 @@ body.dc-chatting .dc-chat-head {
     font-size: 10.5px;
     font-weight: 700;
 }
-.dc-chat-actions { display: flex; flex: none; gap: 6px; }
+.dc-chat-actions {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: nowrap;
+}
 .dc-chat-name, .dc-chat-badge { white-space: nowrap; }
 .dc-ghost-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
     flex: none;
     white-space: nowrap;
     height: 30px;
-    padding: 0 12px;
+    padding: 0 10px;
     border: 1px solid rgba(148, 163, 184, 0.2);
     border-radius: 9px;
     background: rgba(255, 255, 255, 0.03);
@@ -646,8 +657,283 @@ body.dc-chatting .dc-chat-head {
     font-size: 12px;
     font-weight: 650;
     cursor: pointer;
+    transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1), width 0.22s cubic-bezier(0.16, 1, 0.3, 1), padding 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .dc-ghost-btn:hover { border-color: rgba(100, 255, 218, 0.4); color: #e6fffa; }
+.dc-btn-ico {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 14px;
+    height: 14px;
+    opacity: 0.88;
+    pointer-events: none;
+}
+.dc-btn-label {
+    display: inline-block;
+    vertical-align: middle;
+    max-width: 120px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: max-width 0.22s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.18s ease, margin 0.22s ease;
+}
+
+/* 雷达胶囊按钮 */
+.dc-radar-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 10px;
+    border-radius: 999px;
+    transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1), width 0.22s cubic-bezier(0.16, 1, 0.3, 1), padding 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.dc-radar-label {
+    display: inline-block;
+    max-width: 160px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: max-width 0.22s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.18s ease;
+}
+.dc-radar-short {
+    display: none;
+    font-size: 11px;
+    font-weight: 750;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+}
+
+/* 挤压态：侧边栏展开、容器较窄或内容溢出时，按钮优雅收缩为纯图标模式，丝滑过渡且不换行 */
+:is(.dc-chat-head.is-squeezed, body:is(.dc-workspace-open, .dc-browser-open, .dc-terminal-open, .ai-preview-open)) .dc-chat-badge,
+.dc-chat-actions.is-squeezed ~ .dc-chat-badge {
+    display: none !important;
+}
+
+:is(.dc-chat-head.is-squeezed, body:is(.dc-workspace-open, .dc-browser-open, .dc-terminal-open, .ai-preview-open)) .dc-chat-actions,
+.dc-chat-actions.is-squeezed {
+    flex-wrap: nowrap !important;
+    gap: 4px;
+}
+
+:is(.dc-chat-head.is-squeezed, body:is(.dc-workspace-open, .dc-browser-open, .dc-terminal-open, .ai-preview-open)) .dc-chat-actions .dc-ghost-btn,
+.dc-chat-actions.is-squeezed .dc-ghost-btn {
+    width: 30px;
+    min-width: 30px;
+    height: 30px;
+    padding: 0 !important;
+    justify-content: center;
+    border-radius: 8px;
+}
+
+:is(.dc-chat-head.is-squeezed, body:is(.dc-workspace-open, .dc-browser-open, .dc-terminal-open, .ai-preview-open)) .dc-chat-actions .dc-btn-label,
+.dc-chat-actions.is-squeezed .dc-btn-label {
+    max-width: 0 !important;
+    opacity: 0 !important;
+    margin: 0 !important;
+    pointer-events: none;
+}
+
+:is(.dc-chat-head.is-squeezed, body:is(.dc-workspace-open, .dc-browser-open, .dc-terminal-open, .ai-preview-open)) .dc-chat-actions .dc-model-caret,
+.dc-chat-actions.is-squeezed .dc-model-caret {
+    display: none !important;
+}
+
+:is(.dc-chat-head.is-squeezed, body:is(.dc-workspace-open, .dc-browser-open, .dc-terminal-open, .ai-preview-open)) .dc-chat-actions .dc-workspace-toggle,
+.dc-chat-actions.is-squeezed .dc-workspace-toggle {
+    position: relative;
+}
+
+:is(.dc-chat-head.is-squeezed, body:is(.dc-workspace-open, .dc-browser-open, .dc-terminal-open, .ai-preview-open)) .dc-chat-actions .dc-workspace-toggle .dc-workspace-toggle-dot,
+.dc-chat-actions.is-squeezed .dc-workspace-toggle .dc-workspace-toggle-dot {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 5px;
+    height: 5px;
+}
+
+:is(.dc-chat-head.is-squeezed, body:is(.dc-workspace-open, .dc-browser-open, .dc-terminal-open, .ai-preview-open)) .dc-radar-pill,
+.dc-chat-actions.is-squeezed .dc-radar-pill {
+    min-width: 30px;
+    height: 30px;
+    padding: 0 8px !important;
+    justify-content: center;
+    gap: 3px;
+}
+
+:is(.dc-chat-head.is-squeezed, body:is(.dc-workspace-open, .dc-browser-open, .dc-terminal-open, .ai-preview-open)) .dc-radar-label,
+.dc-chat-actions.is-squeezed .dc-radar-label {
+    max-width: 0 !important;
+    opacity: 0 !important;
+    display: none !important;
+}
+
+:is(.dc-chat-head.is-squeezed, body:is(.dc-workspace-open, .dc-browser-open, .dc-terminal-open, .ai-preview-open)) .dc-radar-short,
+.dc-chat-actions.is-squeezed .dc-radar-short {
+    display: inline-flex !important;
+}
+
+@container dc-chat (max-width: 860px) {
+    .dc-chat-badge { display: none !important; }
+    .dc-chat-actions { flex-wrap: nowrap !important; gap: 4px; }
+    .dc-chat-actions .dc-ghost-btn { width: 30px; min-width: 30px; height: 30px; padding: 0 !important; justify-content: center; border-radius: 8px; }
+    .dc-chat-actions .dc-btn-label { max-width: 0 !important; opacity: 0 !important; margin: 0 !important; pointer-events: none; }
+    .dc-chat-actions .dc-model-caret { display: none !important; }
+    .dc-chat-actions .dc-workspace-toggle { position: relative; }
+    .dc-chat-actions .dc-workspace-toggle .dc-workspace-toggle-dot { position: absolute; top: 4px; right: 4px; width: 5px; height: 5px; }
+    .dc-radar-pill { min-width: 30px; height: 30px; padding: 0 8px !important; justify-content: center; gap: 3px; }
+    .dc-radar-label { max-width: 0 !important; opacity: 0 !important; display: none !important; }
+    .dc-radar-short { display: inline-flex !important; }
+}
+
+@media (max-width: 860px) {
+    .dc-chat-badge { display: none !important; }
+    .dc-chat-actions { flex-wrap: nowrap !important; gap: 4px; }
+    .dc-chat-actions .dc-ghost-btn { width: 30px; min-width: 30px; height: 30px; padding: 0 !important; justify-content: center; border-radius: 8px; }
+    .dc-chat-actions .dc-btn-label { max-width: 0 !important; opacity: 0 !important; margin: 0 !important; pointer-events: none; }
+    .dc-chat-actions .dc-model-caret { display: none !important; }
+    .dc-chat-actions .dc-workspace-toggle { position: relative; }
+    .dc-chat-actions .dc-workspace-toggle .dc-workspace-toggle-dot { position: absolute; top: 4px; right: 4px; width: 5px; height: 5px; }
+    .dc-radar-pill { min-width: 30px; height: 30px; padding: 0 8px !important; justify-content: center; gap: 3px; }
+    .dc-radar-label { max-width: 0 !important; opacity: 0 !important; display: none !important; }
+    .dc-radar-short { display: inline-flex !important; }
+}
+
+/* 极窄与重叠碰撞降级态：宽度过窄或标题与功能按钮发生重叠碰撞时，自动收拢为下拉菜单更多操作（···），丝滑优雅 */
+:is(.dc-chat-head.is-ultra-squeezed, .dc-chat-actions.is-ultra-squeezed) .dc-chat-actions > :not(.dc-actions-more),
+.dc-chat-actions.is-ultra-squeezed > :not(.dc-actions-more) {
+    display: none !important;
+}
+
+:is(.dc-chat-head.is-ultra-squeezed, .dc-chat-actions.is-ultra-squeezed) .dc-actions-more,
+.dc-chat-actions.is-ultra-squeezed .dc-actions-more {
+    display: inline-flex !important;
+}
+
+@container dc-chat (max-width: 460px) {
+    .dc-chat-actions > :not(.dc-actions-more) { display: none !important; }
+    .dc-actions-more { display: inline-flex !important; }
+}
+
+@media (max-width: 460px) {
+    .dc-chat-actions > :not(.dc-actions-more) { display: none !important; }
+    .dc-actions-more { display: inline-flex !important; }
+}
+
+/* 更多操作下拉菜单组件 */
+.dc-actions-more {
+    display: none;
+    position: relative;
+    flex: none;
+}
+.dc-actions-more-btn {
+    width: 30px !important;
+    min-width: 30px !important;
+    height: 30px !important;
+    padding: 0 !important;
+    justify-content: center !important;
+    border-radius: 8px;
+    position: relative;
+}
+.dc-actions-more-dot {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #10b981;
+    box-shadow: 0 0 6px #10b981;
+    pointer-events: none;
+}
+.dc-actions-more-dot.is-working {
+    background: #10b981;
+    box-shadow: 0 0 8px rgba(16, 185, 129, 0.8);
+    animation: dc-dot-pulse 1.6s ease-in-out infinite;
+}
+.dc-actions-more-dot.is-blocked {
+    background: #f59e0b;
+    box-shadow: 0 0 8px rgba(245, 158, 11, 0.8);
+}
+body.dc-chatting .dc-chat-head:has(.dc-actions-more.is-open) { position: relative; z-index: 25; }
+.dc-actions-more.is-open .dc-actions-more-btn {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--dc-accent, #64ffda);
+}
+.dc-actions-menu {
+    top: calc(100% + 8px);
+    right: 0;
+    bottom: auto;
+    left: auto;
+    z-index: 50;
+    min-width: 190px;
+    padding: 6px;
+    background: rgba(15, 23, 42, 0.94);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 12px;
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.45);
+    animation: dc-menu-pop .18s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes dc-menu-pop {
+    from { opacity: 0; transform: translateY(-6px) scale(0.97); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.dc-actions-item {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    padding: 8px 12px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: #cbd5e1;
+    font-size: 13px;
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+    box-sizing: border-box;
+}
+.dc-actions-item:hover, .dc-actions-item:focus-visible {
+    background: rgba(100, 255, 218, 0.12);
+    color: #f8fafc;
+    outline: none;
+}
+.dc-actions-item-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    color: #94a3b8;
+    flex: none;
+}
+.dc-actions-item:hover .dc-actions-item-icon {
+    color: var(--dc-accent, #64ffda);
+}
+.dc-actions-item-label {
+    flex: 1;
+    white-space: nowrap;
+}
+.dc-actions-item-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #10b981;
+    box-shadow: 0 0 6px #10b981;
+    flex: none;
+}
+.dc-actions-divider {
+    height: 1px;
+    margin: 5px 6px;
+    background: rgba(148, 163, 184, 0.14);
+}
 /* 导出日志下拉：网页快照 / 研发日志（js/home/dragon-claw.js），复用模型菜单的面板与选项样式 */
 /* 头部的入场动画会建立层叠上下文，下拉需要整个头部压在对话区之上 */
 body.dc-chatting .dc-chat-head:has(.dc-export.is-open) { position: relative; z-index: 20; }
@@ -809,7 +1095,7 @@ body.dc-chatting .dc-composer {
 .dc-msg-body .ai-markdown-table tbody tr:nth-child(even) td { background: #fafbfc; }
 .dc-msg-body .ai-markdown-table tbody tr:hover td { background: #f0fdf9; }
 .dc-msg-body .ai-markdown-table th { background: #f8fafc; color: #0f172a; font-weight: 650; border-bottom: 2px solid #cbd5e1; }
-.dc-msg-body .ai-markdown-table td.numeric, .dc-msg-body .ai-markdown-table .align-right { text-align: right; font-variant-numeric: tabular-nums; }
+.dc-msg-body .ai-markdown-table .align-right { text-align: right; }
 .dc-msg-body .ai-markdown-table .align-center { text-align: center; }
 .dc-msg-body a.ai-md-link { color: #7dd3fc; text-decoration: underline; text-underline-offset: 3px; }
 .dc-msg-body a.ai-md-link:hover { color: #bae6fd; }
@@ -1242,8 +1528,8 @@ body.dc-chatting .dc-composer {
     .dc-chat-title { flex: 1; gap: 7px; }
     .dc-chat-avatar { flex: none; }
     .dc-chat-name { overflow: hidden; text-overflow: ellipsis; font-size: 13.5px; }
-    .dc-chat-actions { gap: 5px; }
-    .dc-ghost-btn { height: 28px; padding: 0 9px; font-size: 11.5px; border-radius: 8px; }
+    .dc-chat-actions { gap: 5px; flex-wrap: nowrap !important; }
+    .dc-chat-actions .dc-ghost-btn { width: 30px; min-width: 30px; height: 30px; padding: 0 !important; justify-content: center; border-radius: 8px; }
 }
 
 

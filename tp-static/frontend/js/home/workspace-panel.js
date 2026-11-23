@@ -1377,7 +1377,7 @@
         if (tool === 'database_schema' || tool === 'read_database_table' || tool === 'insert_database_row' || tool === 'update_database_rows' || tool === 'delete_database_rows') {
             const dbNames = {
                 'tools.db': '平台业务主库',
-                'report.db': '历史兼容报表库',
+                'report.db': '报表指标与催办业务库',
                 'ai-knowledge.db': 'AI 知识库',
                 'datacom-knowledge.db': '数通知识库',
                 'requirements.db': '需求广场库',
@@ -1403,7 +1403,7 @@
     }
 
     function toolIcon(tool) {
-        return { save_skill: '🧬', read_skill: '📜', find_platform_tools: '🧭', read_tool_guide: '📘', list_directory: '📂', read_file: '📄', search: '🔍', list_databases: '🗄', database_schema: '🗄', read_database_table: '🗄', write_file: '✏️', edit_file: '✏️', delete_path: '🗑', rename_path: '↪', run_command: '⌘', welink_list_targets: '👥', welink_send_message: '📨', welink_query: '💼', welink_action: '📤', tool_search: '🧰', calculate: '🧮', read_document: '📑', query_data: '📊', diff_files: '⇄', multi_edit: '✏️', zip_files: '🗜', unzip_file: '🗜', memory: '🧠', view_image: '🖼', browser_navigate: '🌐', browser_snapshot: '🌐', browser_click: '🖱', browser_type: '⌨️', browser_login: '🔐', browser_scroll: '🌐', browser_wait: '⏳', browser_network: '📡', browser_network_body: '📡', browser_console: '🧾', browser_screenshot: '📸', browser_tabs: '🗂', browser_evaluate: '⚡', load_skill: '✨', ops_send_draft: '📣', ops_test_send: '📣', netcare_tables: '🧭', netcare_describe: '🧭', netcare_query: '🧭', netcare_sql: '🧭' }[tool] || '⚙';
+        return { save_skill: '🧬', read_skill: '📜', find_platform_tools: '🧭', read_tool_guide: '📘', search_my_conversations: '🕘', read_my_conversation: '🕘', list_directory: '📂', read_file: '📄', search: '🔍', list_databases: '🗄', database_schema: '🗄', read_database_table: '🗄', write_file: '✏️', edit_file: '✏️', delete_path: '🗑', rename_path: '↪', run_command: '⌘', welink_list_targets: '👥', welink_send_message: '📨', welink_query: '💼', welink_action: '📤', tool_search: '🧰', calculate: '🧮', read_document: '📑', query_data: '📊', diff_files: '⇄', multi_edit: '✏️', zip_files: '🗜', unzip_file: '🗜', memory: '🧠', view_image: '🖼', browser_navigate: '🌐', browser_snapshot: '🌐', browser_click: '🖱', browser_type: '⌨️', browser_login: '🔐', browser_scroll: '🌐', browser_wait: '⏳', browser_network: '📡', browser_network_body: '📡', browser_console: '🧾', browser_screenshot: '📸', browser_tabs: '🗂', browser_evaluate: '⚡', load_skill: '✨', ops_send_draft: '📣', ops_test_send: '📣', netcare_tables: '🧭', netcare_describe: '🧭', netcare_query: '🧭', netcare_sql: '🧭' }[tool] || '⚙';
     }
 
     // ── 对话内：写入 / 编辑后的文件卡片（预览 / 代码） ─────

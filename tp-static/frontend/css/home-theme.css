@@ -46,7 +46,7 @@ html.platform-home .dc-chat-title { min-width: 0; }
 
 html.platform-home .dc-chat-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-html.platform-home .dc-chat-actions { flex: 0 1 auto; min-width: 0; flex-wrap: wrap; justify-content: flex-end; }
+html.platform-home .dc-chat-actions { flex: 0 1 auto; min-width: 0; flex-wrap: nowrap !important; justify-content: flex-end; }
 /* White text and translucent navy surfaces left over from the original theme. */
 html.platform-home:not([data-theme="dark"]) :is(.dc-resume, .home-caps, .home-cap-card, .wsp-card, .dc-think, .dc-tool-output, .dc-tool-log, .dc-file-code, .dc-attachment, .dc-approval, .dc-btw) {
     background: var(--v2-side); border-color: var(--v2-line); color: var(--v2-ink); box-shadow: none;
@@ -140,9 +140,9 @@ html.platform-home :is(button, a, input, textarea):focus-visible { outline: 2px 
 ::highlight(dc-find-current) { background: #087f62; color: #fff; }
 @media (max-width: 640px) {
 
-.dc-chat-head { flex-wrap: wrap; }
+.dc-chat-head { flex-wrap: nowrap !important; }
 
-.dc-chat-actions { width: 100%; gap: 4px; }
+.dc-chat-actions { width: auto; flex: 0 0 auto; gap: 4px; }
 
 .dc-find:has(.dc-find-bar:not([hidden])) { width: 100%; }
 

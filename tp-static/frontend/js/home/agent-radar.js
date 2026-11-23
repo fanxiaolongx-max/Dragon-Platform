@@ -146,18 +146,26 @@
         pill.classList.toggle('is-working', blockedCount === 0 && workingCount > 0);
 
         const dot = '<span class="dc-radar-dot" aria-hidden="true"></span>';
+        let fullText = '', shortText = '';
         if (blockedCount > 0 && workingCount > 0) {
-            pill.innerHTML = `${dot}<span>${esc(L(`${workingCount} 运行 · ${blockedCount} 待确认`, `${workingCount} active · ${blockedCount} blocked`))}</span>`;
+            fullText = L(`${workingCount} 运行 · ${blockedCount} 待确认`, `${workingCount} active · ${blockedCount} blocked`);
+            shortText = `${workingCount}`;
         } else if (blockedCount > 0) {
-            pill.innerHTML = `${dot}<span>${esc(L(`${blockedCount} 待你确认`, `${blockedCount} needs input`))}</span>`;
+            fullText = L(`${blockedCount} 待你确认`, `${blockedCount} needs input`);
+            shortText = `!${blockedCount}`;
         } else if (workingCount > 0) {
-            pill.innerHTML = `${dot}<span>${esc(L(`${workingCount} 个智能体运行中`, `${workingCount} running`))}</span>`;
+            fullText = L(`${workingCount} 个智能体运行中`, `${workingCount} running`);
+            shortText = `${workingCount}`;
         } else if (termCount > 0) {
-            pill.innerHTML = `${dot}<span>${esc(L('终端在线', 'Terminal active'))}</span>`;
+            fullText = L('终端在线', 'Terminal active');
+            shortText = `${termCount}`;
         } else {
-            pill.innerHTML = `${dot}<span>${esc(L('雷达就绪', 'Radar idle'))}</span>`;
+            fullText = L('雷达就绪', 'Radar idle');
+            shortText = '';
         }
-        pill.title = L('查看全局智能体与终端状态雷达', 'View global agent & terminal status radar');
+        pill.innerHTML = `${dot}${shortText ? `<span class="dc-radar-short">${esc(shortText)}</span>` : ''}<span class="dc-radar-label">${esc(fullText)}</span>`;
+        pill.title = `${fullText} · ${L('查看全局智能体与终端状态雷达', 'View global agent & terminal status radar')}`;
+        pill.setAttribute('aria-label', pill.title);
 
         if (!open) return;
         const section = (label, list, cls) => {

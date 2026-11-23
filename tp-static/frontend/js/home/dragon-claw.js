@@ -16,7 +16,7 @@
             btwTitle: '顺便问', btwBadge: '不计入当前对话', btwNeedQuestion: '请在 /btw 后写上问题', btwClose: '关闭', btwFailed: '回答失败', btwPending: '（主对话里我刚问了：{text}，回复还在生成）',
             scheduleNew: '新建定时任务', pushTo: '推送到', pushAdd: '+ 选择 WeLink/微信 的人或群（可选）', pushAddMore: '+ 添加', pushRemove: '移除', pushTitle: '推送到', pushSearch: '搜索名称或账号，支持拼音…', pushGroup: '群', pushUser: '联系人', pushSelected: '已选 {count} 个', pushHint: '执行完成后把结果推送给所选对象', pushDone: '完成', pushEmpty: '还没有可推送的对象（联系人需先与助理单聊过，群需在群里用过助理）', pushNoMatch: '没有匹配的对象', pushNoChannel: '还没有对接 WeLink 或微信', pushLimit: '最多选择 10 个对象', scheduleCreatedPush: '，完成后推送给 {names}', schedulePushTo: '推送给 {names}', schedulePushResult: '上次推送：成功 {sent}，失败 {failed}',
             datacomTitle: '数通协议专家', datacomDescription: '协议图解 · 交互实验 · 视频讲解',
-            badge: '全能智能体', newChat: '新对话', history: '历史', attach: '添加附件（Excel、CSV、Word、PPT、文本等，单个不超过 20MB）', attachLabel: '附件', attachUploading: '上传中…', attachFailed: '上传失败', attachRemove: '移除', attachTooMany: '一次最多 5 个附件', attachPending: '附件还在上传，请稍候', attachDrop: '松开即可添加附件', exportLog: '导出日志', exportLogEmpty: '当前对话还没有保存的记录，发送一条消息后再导出', exportLogDone: '对话日志已导出', exportLogFailed: '导出失败', exportLogBusy: '回复完成后再导出，日志才完整', exportMenu: '导出方式', exportHtml: '网页快照（HTML）', exportHtmlDesc: '最近 {days} 天、最多 {count} 条消息；与聊天界面一致，含表格、图片和文件，可直接转发', exportJson: '研发日志（JSON）', exportJsonDesc: '完整的工具过程与模型配置，便于研发定位问题', exportAgentJsonDesc: '当前 Agent 的可读取消息、附件信息与会话状态，最多 200 条', exportAgentHtmlDesc: '当前已加载的 Agent 对话快照，含图片、附件和静态预览，最多 200 条消息', exportHtmlWorking: '正在打包网页快照…', exportHtmlDone: '网页快照已导出', exportHtmlSkipped: '网页快照已导出，{count} 个大文件未打包',
+            badge: '全能智能体', newChat: '新对话', history: '历史', browser: '浏览器', terminal: '终端', moreActions: '更多操作', agentRadar: '智能体雷达', attach: '添加附件（Excel、CSV、Word、PPT、文本等，单个不超过 20MB）', attachLabel: '附件', attachUploading: '上传中…', attachFailed: '上传失败', attachRemove: '移除', attachTooMany: '一次最多 5 个附件', attachPending: '附件还在上传，请稍候', attachDrop: '松开即可添加附件', exportLog: '导出日志', exportLogEmpty: '当前对话还没有保存的记录，发送一条消息后再导出', exportLogDone: '对话日志已导出', exportLogFailed: '导出失败', exportLogBusy: '回复完成后再导出，日志才完整', exportMenu: '导出方式', exportHtml: '网页快照（HTML）', exportHtmlDesc: '最近 {days} 天、最多 {count} 条消息；与聊天界面一致，含表格、图片和文件，可直接转发', exportJson: '研发日志（JSON）', exportJsonDesc: '完整的工具过程与模型配置，便于研发定位问题', exportAgentJsonDesc: '当前 Agent 的可读取消息、附件信息与会话状态，最多 200 条', exportAgentHtmlDesc: '当前已加载的 Agent 对话快照，含图片、附件和静态预览，最多 200 条消息', exportHtmlWorking: '正在打包网页快照…', exportHtmlDone: '网页快照已导出', exportHtmlSkipped: '网页快照已导出，{count} 个大文件未打包',
             chatToday: '今天', chatYesterday: '昨天', chatWeek: '7 天内', chatMonth: '30 天内', chatOlder: '更早', chatEmpty: '还没有对话，发一条消息开始吧', chatNoMatch: '没有匹配的对话', chatLoadFailed: '历史对话加载失败', chatRetry: '重试', chatBusy: '正在回复中，请先停止当前回复再切换对话', chatBgDone: '「{title}」已回复完成', chatCount: '{count} 条', chatFolderTitle: '本地目录：{root}', chatRunning: '正在回答', chatDelete: '删除对话', chatDeleteConfirm: '删除「{title}」及其聊天记录？此操作无法撤销。', chatDeleteFailed: '删除失败，请稍后重试', chatDeleted: '对话已删除', chatLeaveShared: '退出并移除', chatLeaveSharedConfirm: '删除「{title}」将退出该共享对话并从你的列表移除，但不会影响发起者和其他成员的记录。确定退出并移除？', chatLeftShared: '已退出共享对话', chatDeleteSharedOwnerConfirm: '你是「{title}」的共享发起者。删除原对话后将同时停止共享，并从所有成员的共享列表中收回。确定删除？', chatDeletedSharedOwner: '已删除对话并停止共享',
             activityThinking: '正在思考…', activityCompacting: '上下文快满了，正在把较早内容整理成摘要…', autoCompactDone: '已自动压缩上下文：较早的 {count} 条记录整理成摘要（约 {before} → {after} tokens），完整过程仍保留在会话档案中', autoCompactFailed: '自动压缩没有成功（{error}），改为移出较早的轮次', thinkLabel: '思考过程', thinkDone: '已思考', thinkPhase_ponder: '构思', thinkPhase_plan: '规划', thinkPhase_search: '检索', thinkPhase_analyze: '分析', thinkPhase_calc: '计算', thinkPhase_verify: '核对', thinkPhase_code: '推敲代码', thinkPhase_conclude: '归纳', activityTool: '正在{tool}…', activityOrganizing: '正在整理结果…', activityResponding: '正在生成回复…', activityApproval: '等待你的批准…',
             resumeDismiss: '关闭此提示', resumeTitle: '继续上次对话', resumeMeta: '{time} · {count} 条消息', resumeAction: '继续对话', resumeBanner: '已恢复上次对话 · {time}', resumeDivider: '以上是历史记录，继续输入即可接着聊', resumeFailed: '上次对话加载失败，请稍后再试', toolOutput: '查看输出', toolArtifact: '完整结果（{lines} 行）', toolInterrupted: '未完成', sessionTitle: '历史会话', sessionSearch: '搜索会话内容…', sessionEmpty: '还没有历史会话', sessionNoMatch: '没有匹配的会话', sessionLoading: '正在加载…', sessionMeta: '{time} · {count} 条消息', sessionArchived: '已归档', sessionCurrent: '当前', sessionHint: '↑↓ 选择 · Enter 打开 · Esc 关闭', sessionLoadFailed: '历史会话加载失败，请稍后再试', slashSession: '查看并恢复历史会话', slashNew: '开始新对话', slashHint: '↑↓ 选择 · Enter 执行 · Tab 补全', recallTitle: '最近的问题', recallHint: '↑↓ 选择 · Enter 填入 · Esc 关闭', resumeDirMissing: '上次的目录「{name}」无法打开，对话已恢复，请重新选择目录', externalTag: '外部', commandTag: '命令', commandChangeHint: '由智能体执行的命令产生的改动，可撤销', riskTitle: '此命令可能访问工作目录之外或敏感文件，当前审批模式需要你确认', revertConflictTitle: '文件已被再次修改', revertConflictMessage: '{path} 在这次改动之后又被修改过（手动或其他程序）。撤销会把文件恢复到改动前，后续修改将一起丢失。', revertConflictConfirm: '仍然撤销', binaryChange: '二进制', binaryChangeHint: '二进制文件（如数据库、图片）内容有变化，没有可比较的文本行', externalChange: '工作区里的其他改动（手动或其他程序修改），可查看差异，不能在这里撤销', backToTools: '浏览工具', browseTools: '浏览全部工具',
@@ -54,7 +54,7 @@
             modeAsk: '请求批准', modeAskDesc: '写入、删除、重命名和命令都先征求你的同意', modeAuto: '自动批准', modeAutoDesc: '读写文件自动执行；删除、重命名和命令仍需确认', modeFull: '完全访问', modeFullDesc: '全部自动执行，不再询问；命令以本机账号权限运行，不限于工作目录', readOnlyMode: '只读', readOnlyDesc: '当前账号不是管理员：可以查看和搜索文件，不能修改、删除、重命名或执行命令',
             modeChanged: '权限模式已切换为「{mode}」', approvalTitle: 'Dragon Claw 请求：{tool}', allow: '允许', deny: '拒绝', alwaysAllow: '本次会话总是允许',
             approved: '已允许', approvedAlways: '已允许（本次会话不再询问）', dangerTitle: '危险操作：{labels}（完全访问下也会询问）', dangerNever: '不再询问此类', dangerScope: '不再询问的范围', scope_session: '本对话', scope_workspace: '这个工作目录', scope_global: '永久（含频道）', approvedDanger: '已允许，{scope}不再询问此类', subRunning: '调研中', subDone: '已完成', subFailed: '失败', subStopped: '已中断', subWaiting: '正在出发…', subTools: '{count} 次工具', subTokens: '{count} tokens', subMore: '…还有 {count} 次更早的调用', subTask: '任务说明', subToolsTitle: '工具调用', subResult: '结论', subGroup: '派出 {count} 个子智能体', subGroupRunning: '{count} 个正在调研', subGroupDone: '全部回来了', subDefaultName: '子智能体', tool_task: '子智能体', continueTitle: '上一轮没有做完', continueHint: '服务重启或异常退出时中断了，已完成的步骤都保存着', continueAction: '继续执行', rewindAction: '回退到这一轮之前', rewindFiles: '{count} 个文件', rewindTitle: '把这一轮及之后改过的 {count} 个以上文件恢复成这一轮开始前的样子', rewindConfirmTitle: '回退到这一轮之前？', rewindConfirm: '这一轮改过的文件会恢复成这一轮开始前的样子：', rewindConfirmLater: '这一轮以及之后 {count} 轮改过的文件，都会恢复成这一轮开始前的样子，之后的改动会一起丢掉：', rewindMoreFiles: '…等另外 {count} 个文件', rewindDone: '已回退 {count} 个文件', rewindSkipped: '{count} 个文件没有快照，未能恢复', continuePrompt: '继续完成上一轮被中断的任务：先核实那些没有结果的操作的实际状态，已经完成的写入不要重复，再接着做剩下的步骤。', denied: '已拒绝', approvalTimeout: '审批超时，未执行', approvalAborted: '任务已中止', inDir: '目录：', recursive: '递归删除',
-            tool_list_directory: '列出目录', tool_save_skill: '保存技能', tool_read_skill: '读取技能', tool_publish_html_tool: '发布自定义工具', tool_send_notification: '发送通知', tool_find_platform_tools: '查找平台工具', tool_read_tool_guide: '工具说明', tool_read_file: '读取文件', tool_search: '搜索', tool_list_databases: '列出数据库', tool_database_schema: '查看数据库结构', tool_read_database_table: '读取业务表', tool_insert_database_row: '新增业务数据', tool_update_database_rows: '更新业务数据', tool_delete_database_rows: '删除业务数据', tool_write_file: '写入文件', tool_edit_file: '编辑文件', tool_delete_path: '删除', tool_rename_path: '移动/重命名', tool_run_command: '执行命令', tool_welink_list_targets: '查看 WeLink 联系人', tool_welink_send_message: '发送 WeLink 消息', tool_welink_query: 'WeLink 查询', tool_welink_action: 'WeLink 操作', tool_netcare_tables: 'NetCare 找表', tool_netcare_describe: 'NetCare 表结构', tool_netcare_query: 'NetCare 查询', tool_netcare_sql: 'NetCare SQL', tool_tool_search: '加载工具', tool_ops_overview: '查看运营概况', tool_ops_list_targets: '查看可推送对象', tool_ops_save_group: '保存运营群组', tool_ops_list_presets: '查看运营模板', tool_ops_remove_group: '取消运营群组', tool_ops_save_plan: '保存运营计划', tool_ops_delete_plan: '删除运营计划', tool_ops_preview: '生成运营草稿', tool_ops_test_send: '运营测试推送', tool_ops_update_draft: '修改运营草稿', tool_ops_send_draft: '推送运营草稿', tool_ops_discard_draft: '作废运营草稿', tool_ops_list_runs: '查看推送记录', tool_ops_materials: '查看运营素材', tool_ops_save_settings: '保存运营规范', tool_load_skill: '加载技能', tool_calculate: '计算', tool_read_document: '读取文档', tool_query_data: '表格查询', tool_diff_files: '比较差异', tool_multi_edit: '批量修改', tool_zip_files: '打包', tool_unzip_file: '解压', tool_memory: '长期记忆', tool_view_image: '看图', tool_browser_navigate: '打开网页', tool_browser_snapshot: '读取网页', tool_browser_click: '点击网页', tool_browser_type: '网页输入', tool_browser_login: '保险箱登录', tool_browser_scroll: '滚动网页', tool_browser_wait: '等待网页', tool_browser_network: '网络请求', tool_browser_network_body: '请求内容', tool_browser_console: '网页控制台', tool_browser_screenshot: '网页截图', tool_browser_tabs: '浏览器标签页', tool_browser_evaluate: '网页脚本', todoTitle: '任务清单', questionHint: '点选一个回答，或直接在输入框里回复', approvalCommand: '查看完整命令',
+            tool_list_directory: '列出目录', tool_save_skill: '保存技能', tool_read_skill: '读取技能', tool_publish_html_tool: '发布自定义工具', tool_send_notification: '发送通知', tool_find_platform_tools: '查找平台工具', tool_read_tool_guide: '工具说明', tool_search_my_conversations: '搜索历史对话', tool_read_my_conversation: '读取历史对话', tool_read_file: '读取文件', tool_search: '搜索', tool_list_databases: '列出数据库', tool_database_schema: '查看数据库结构', tool_read_database_table: '读取业务表', tool_insert_database_row: '新增业务数据', tool_update_database_rows: '更新业务数据', tool_delete_database_rows: '删除业务数据', tool_write_file: '写入文件', tool_edit_file: '编辑文件', tool_delete_path: '删除', tool_rename_path: '移动/重命名', tool_run_command: '执行命令', tool_welink_list_targets: '查看 WeLink 联系人', tool_welink_send_message: '发送 WeLink 消息', tool_welink_query: 'WeLink 查询', tool_welink_action: 'WeLink 操作', tool_netcare_tables: 'NetCare 找表', tool_netcare_describe: 'NetCare 表结构', tool_netcare_query: 'NetCare 查询', tool_netcare_sql: 'NetCare SQL', tool_tool_search: '加载工具', tool_ops_overview: '查看运营概况', tool_ops_list_targets: '查看可推送对象', tool_ops_save_group: '保存运营群组', tool_ops_list_presets: '查看运营模板', tool_ops_remove_group: '取消运营群组', tool_ops_save_plan: '保存运营计划', tool_ops_delete_plan: '删除运营计划', tool_ops_preview: '生成运营草稿', tool_ops_test_send: '运营测试推送', tool_ops_update_draft: '修改运营草稿', tool_ops_send_draft: '推送运营草稿', tool_ops_discard_draft: '作废运营草稿', tool_ops_list_runs: '查看推送记录', tool_ops_materials: '查看运营素材', tool_ops_save_settings: '保存运营规范', tool_load_skill: '加载技能', tool_calculate: '计算', tool_read_document: '读取文档', tool_query_data: '表格查询', tool_diff_files: '比较差异', tool_multi_edit: '批量修改', tool_zip_files: '打包', tool_unzip_file: '解压', tool_memory: '长期记忆', tool_view_image: '看图', tool_browser_navigate: '打开网页', tool_browser_snapshot: '读取网页', tool_browser_click: '点击网页', tool_browser_type: '网页输入', tool_browser_login: '保险箱登录', tool_browser_scroll: '滚动网页', tool_browser_wait: '等待网页', tool_browser_network: '网络请求', tool_browser_network_body: '请求内容', tool_browser_console: '网页控制台', tool_browser_screenshot: '网页截图', tool_browser_tabs: '浏览器标签页', tool_browser_evaluate: '网页脚本', todoTitle: '任务清单', questionHint: '点选一个回答，或直接在输入框里回复', approvalCommand: '查看完整命令',
             ctxUsed: '已使用 {percent}%', ctxMessages: '对话消息', ctxToolResults: '工具结果', ctxDirectory: '目录上下文', ctxSystem: '系统提示', ctxSkills: 'Skill', ctxTools: '工具定义', ctxReserve: '压缩预留', ctxFree: '剩余空间', ctxCache: '缓存命中 {percent}% · {tokens}', ctxCacheNone: '本次未命中缓存', ctxDeferredTools: '已加载 {loaded} 个工具，另有 {count} 个按需加载（约 {tokens}，未计入）', ctxWindowConfigured: '窗口来自模型配置', ctxWindowModel: '窗口按模型名自动识别，可在 AI 模型配置中填写准确值',
             ctxEmpty: '发送第一条消息后显示上下文占用', ctxNoWorkspace: '选择目录后，这里显示上下文占用明细', ctxSourceProvider: '以模型返回的实际用量为准，分项按估算比例折算', ctxSourceEstimate: '按字符数估算（约 3.5 字符 / Token）',
             filePreview: '预览', fileCode: '代码', fileExpand: '放大', fileCollapse: '还原', fileDownload: '下载', fileLoading: '正在读取文件…', fileLines: '{count} 行', fileSandboxHint: '预览在隔离沙箱中运行，无法访问平台登录信息；同目录的相对资源不会加载', fileShowHint: '查看 {path}', noChanges: '本次会话尚未修改文件', changesShowMore: '展开其余 {count} 个更改', changesShowLess: '收起多余更改', viewDiff: '查看差异', revert: '撤销', reverted: '已撤销 {path}', diffEmpty: '（无文本差异）', createPr: '创建 PR',
@@ -89,7 +89,7 @@
             btwTitle: 'By the way', btwBadge: 'Not added to this chat', btwNeedQuestion: 'Add a question after /btw', btwClose: 'Close', btwFailed: 'Could not answer', btwPending: '(In the main chat I just asked: {text}; the reply is still coming)',
             scheduleNew: 'New task', pushTo: 'Push to', pushAdd: '+ Pick WeLink/WeChat people or groups (optional)', pushAddMore: '+ Add', pushRemove: 'Remove', pushTitle: 'Push to', pushSearch: 'Search name or account (pinyin works)…', pushGroup: ' group', pushUser: ' contact', pushSelected: '{count} selected', pushHint: 'The result is pushed to them after it runs', pushDone: 'Done', pushEmpty: 'Nobody can be pushed to yet (contacts must chat with the assistant first; groups must have used it)', pushNoMatch: 'No matches', pushNoChannel: 'WeLink or WeChat is not connected yet', pushLimit: 'Pick up to 10', scheduleCreatedPush: ', then push to {names}', schedulePushTo: 'Push to {names}', schedulePushResult: 'Last push: {sent} sent, {failed} failed',
             datacomTitle: 'Datacom Protocol Expert', datacomDescription: 'Visual guides · Interactive labs · Videos',
-            badge: 'All-round agent', newChat: 'New chat', history: 'History', attach: 'Attach files (Excel, CSV, Word, PowerPoint, text…, up to 20 MB each)', attachLabel: 'Attachments', attachUploading: 'Uploading…', attachFailed: 'Upload failed', attachRemove: 'Remove', attachTooMany: 'Up to 5 attachments at a time', attachPending: 'Attachments are still uploading', attachDrop: 'Drop to attach', exportLog: 'Export log', exportLogEmpty: 'Nothing saved in this chat yet. Send a message first.', exportLogDone: 'Chat log exported', exportLogFailed: 'Export failed', exportLogBusy: 'Export after the reply finishes so the log is complete', exportMenu: 'Export as', exportHtml: 'Web page (HTML)', exportHtmlDesc: 'Last {days} days, up to {count} messages. Looks like this chat, with tables, images and files', exportJson: 'Debug log (JSON)', exportJsonDesc: 'Full tool steps and model settings for troubleshooting', exportAgentJsonDesc: 'Available agent messages, attachment metadata and session status, up to 200 messages', exportAgentHtmlDesc: 'Snapshot of the loaded agent conversation, with images, files and static previews, up to 200 messages', exportHtmlWorking: 'Packing the web page…', exportHtmlDone: 'Web page exported', exportHtmlSkipped: 'Web page exported; {count} large file(s) left out',
+            badge: 'All-round agent', newChat: 'New chat', history: 'History', browser: 'Browser', terminal: 'Terminal', moreActions: 'More actions', agentRadar: 'Agent radar', attach: 'Attach files (Excel, CSV, Word, PowerPoint, text…, up to 20 MB each)', attachLabel: 'Attachments', attachUploading: 'Uploading…', attachFailed: 'Upload failed', attachRemove: 'Remove', attachTooMany: 'Up to 5 attachments at a time', attachPending: 'Attachments are still uploading', attachDrop: 'Drop to attach', exportLog: 'Export log', exportLogEmpty: 'Nothing saved in this chat yet. Send a message first.', exportLogDone: 'Chat log exported', exportLogFailed: 'Export failed', exportLogBusy: 'Export after the reply finishes so the log is complete', exportMenu: 'Export as', exportHtml: 'Web page (HTML)', exportHtmlDesc: 'Last {days} days, up to {count} messages. Looks like this chat, with tables, images and files', exportJson: 'Debug log (JSON)', exportJsonDesc: 'Full tool steps and model settings for troubleshooting', exportAgentJsonDesc: 'Available agent messages, attachment metadata and session status, up to 200 messages', exportAgentHtmlDesc: 'Snapshot of the loaded agent conversation, with images, files and static previews, up to 200 messages', exportHtmlWorking: 'Packing the web page…', exportHtmlDone: 'Web page exported', exportHtmlSkipped: 'Web page exported; {count} large file(s) left out',
             chatToday: 'Today', chatYesterday: 'Yesterday', chatWeek: 'Previous 7 days', chatMonth: 'Previous 30 days', chatOlder: 'Older', chatEmpty: 'No chats yet. Send a message to start.', chatNoMatch: 'No matching chats', chatLoadFailed: 'Could not load chats', chatRetry: 'Retry', chatBusy: 'A reply is still being generated. Stop it before switching chats.', chatBgDone: '“{title}” has finished replying', chatCount: '{count}', chatFolderTitle: 'Local folder: {root}', chatRunning: 'Working', chatDelete: 'Delete chat', chatDeleteConfirm: 'Delete “{title}” and its messages? This cannot be undone.', chatDeleteFailed: 'Could not delete this chat. Try again later.', chatDeleted: 'Chat deleted', chatLeaveShared: 'Leave & remove', chatLeaveSharedConfirm: 'Deleting “{title}” will leave this shared conversation and remove it from your list without affecting the owner or other members. Continue?', chatLeftShared: 'Left the shared conversation', chatDeleteSharedOwnerConfirm: 'You own the shared conversation “{title}”. Deleting it will also stop sharing and revoke it from all members’ lists. Delete anyway?', chatDeletedSharedOwner: 'Chat deleted and sharing stopped',
             activityThinking: 'Thinking…', activityCompacting: 'Context is nearly full; summarizing earlier steps…', autoCompactDone: 'Context compacted automatically: {count} earlier entries were summarized (about {before} → {after} tokens). The full record stays in the session archive.', autoCompactFailed: 'Automatic compaction failed ({error}); dropping the earliest turns instead', thinkLabel: 'Thinking', thinkDone: 'Thought for', thinkPhase_ponder: 'Pondering', thinkPhase_plan: 'Planning', thinkPhase_search: 'Searching', thinkPhase_analyze: 'Analyzing', thinkPhase_calc: 'Calculating', thinkPhase_verify: 'Verifying', thinkPhase_code: 'Coding', thinkPhase_conclude: 'Concluding', activityTool: 'Working: {tool}…', activityOrganizing: 'Putting results together…', activityResponding: 'Composing a reply…', activityApproval: 'Waiting for your approval…',
             resumeDismiss: 'Dismiss this reminder', resumeTitle: 'Continue last chat', resumeMeta: '{time} · {count} messages', resumeAction: 'Continue', resumeBanner: 'Resumed your last chat · {time}', resumeDivider: 'Earlier messages above. Keep typing to continue.', resumeFailed: 'Could not load the last chat. Try again later.', toolOutput: 'Show output', toolArtifact: 'Full result ({lines} lines)', toolInterrupted: 'Not finished', sessionTitle: 'Chat history', sessionSearch: 'Search conversations…', sessionEmpty: 'No previous chats yet', sessionNoMatch: 'No matching chats', sessionLoading: 'Loading…', sessionMeta: '{time} · {count} messages', sessionArchived: 'Archived', sessionCurrent: 'Current', sessionHint: '↑↓ to move · Enter to open · Esc to close', sessionLoadFailed: 'Could not load chat history. Try again later.', slashSession: 'Browse and resume previous chats', slashNew: 'Start a new chat', slashHint: '↑↓ to choose · Enter to run · Tab to complete', recallTitle: 'Recent questions', recallHint: '↑↓ to choose · Enter to fill in · Esc to close', resumeDirMissing: 'The previous folder "{name}" could not be opened. The chat is restored; choose a folder again.', externalTag: 'External', commandTag: 'Command', commandChangeHint: 'Changed by a command the agent ran; can be undone', riskTitle: 'This command may reach outside the folder or touch sensitive files; your current approval mode requires confirmation', revertConflictTitle: 'File changed again', revertConflictMessage: '{path} was modified again after this change (by hand or another program). Undoing restores the earlier version and discards those later edits.', revertConflictConfirm: 'Undo anyway', binaryChange: 'Binary', binaryChangeHint: 'A binary file (such as a database or image) changed; there are no text lines to compare', externalChange: 'Other changes in the working tree (manual or by other programs). You can view the diff but not undo it here.', backToTools: 'Browse tools', browseTools: 'Browse all tools',
@@ -126,7 +126,7 @@
             modeAsk: 'Ask to approve', modeAskDesc: 'Writes, deletes, renames and commands always ask first', modeAuto: 'Auto approve', modeAutoDesc: 'Reads and writes run automatically; deletes, renames and commands still ask', modeFull: 'Full access', modeFullDesc: 'Everything runs without asking; commands run with this computer account\'s permissions, not limited to the folder', readOnlyMode: 'Read-only', readOnlyDesc: 'This account is not an administrator: you can view and search files, but not edit, delete, rename or run commands',
             modeChanged: 'Permission mode set to "{mode}"', approvalTitle: 'Dragon Claw wants to {tool}', allow: 'Allow', deny: 'Deny', alwaysAllow: 'Always allow this session',
             approved: 'Allowed', approvedAlways: 'Allowed (no more prompts this session)', dangerTitle: 'Dangerous action: {labels} (asked even with full access)', dangerNever: "Don't ask again", dangerScope: 'Where to stop asking', scope_session: 'This chat', scope_workspace: 'This folder', scope_global: 'Always (incl. channels)', approvedDanger: 'Allowed; no more prompts for this kind ({scope})', subRunning: 'Researching', subDone: 'Done', subFailed: 'Failed', subStopped: 'Stopped', subWaiting: 'Heading out…', subTools: '{count} tool calls', subTokens: '{count} tokens', subMore: '…{count} earlier calls', subTask: 'Brief', subToolsTitle: 'Tool calls', subResult: 'Findings', subGroup: 'Sent {count} subagents', subGroupRunning: '{count} still researching', subGroupDone: 'All back', subDefaultName: 'Subagent', tool_task: 'Subagent', continueTitle: 'The last turn did not finish', continueHint: 'It stopped when the server restarted or crashed; the finished steps are saved', continueAction: 'Continue', rewindAction: 'Rewind to before this turn', rewindFiles: '{count} files', rewindTitle: 'Restore the {count}+ files changed in this and later turns to how they were before this turn', rewindConfirmTitle: 'Rewind to before this turn?', rewindConfirm: 'Files changed in this turn go back to how they were before it:', rewindConfirmLater: 'Files changed in this turn and the {count} turns after it go back to how they were before this turn; later edits are discarded:', rewindMoreFiles: '…and {count} more files', rewindDone: 'Rewound {count} files', rewindSkipped: '{count} files had no snapshot and were not restored', continuePrompt: 'Continue the interrupted task from the last turn: first check the actual state of any step without a result, do not repeat writes that already happened, then carry on with the remaining steps.', denied: 'Denied', approvalTimeout: 'Approval timed out, not executed', approvalAborted: 'Task stopped', inDir: 'in', recursive: 'recursive',
-            tool_list_directory: 'list directory', tool_save_skill: 'save skill', tool_read_skill: 'read skill', tool_publish_html_tool: 'publish custom tool', tool_send_notification: 'send notification', tool_find_platform_tools: 'find platform tools', tool_read_tool_guide: 'tool guide', tool_read_file: 'read file', tool_search: 'search', tool_list_databases: 'list databases', tool_database_schema: 'inspect database schema', tool_read_database_table: 'read business table', tool_insert_database_row: 'insert business data', tool_update_database_rows: 'update business data', tool_delete_database_rows: 'delete business data', tool_write_file: 'write file', tool_edit_file: 'edit file', tool_delete_path: 'delete', tool_rename_path: 'move/rename', tool_run_command: 'run command', tool_welink_list_targets: 'list WeLink contacts', tool_welink_send_message: 'send a WeLink message', tool_welink_query: 'WeLink query', tool_welink_action: 'WeLink action', tool_netcare_tables: 'NetCare tables', tool_netcare_describe: 'NetCare schema', tool_netcare_query: 'NetCare query', tool_netcare_sql: 'NetCare SQL', tool_tool_search: 'load tools', tool_ops_overview: 'ops overview', tool_ops_list_targets: 'list push targets', tool_ops_save_group: 'save ops group', tool_ops_list_presets: 'list ops templates', tool_ops_remove_group: 'remove ops group', tool_ops_save_plan: 'save ops plan', tool_ops_delete_plan: 'delete ops plan', tool_ops_preview: 'draft ops message', tool_ops_test_send: 'ops test push', tool_ops_update_draft: 'edit ops draft', tool_ops_send_draft: 'push ops draft', tool_ops_discard_draft: 'discard ops draft', tool_ops_list_runs: 'list push records', tool_ops_materials: 'list ops materials', tool_ops_save_settings: 'save ops style guide', tool_load_skill: 'load skill', tool_calculate: 'calculate', tool_read_document: 'read document', tool_query_data: 'query table', tool_diff_files: 'compare', tool_multi_edit: 'multi edit', tool_zip_files: 'zip', tool_unzip_file: 'unzip', tool_memory: 'memory', tool_view_image: 'view image', tool_browser_navigate: 'open page', tool_browser_snapshot: 'read page', tool_browser_click: 'click', tool_browser_type: 'type', tool_browser_login: 'vault sign-in', tool_browser_scroll: 'scroll', tool_browser_wait: 'wait', tool_browser_network: 'network requests', tool_browser_network_body: 'response body', tool_browser_console: 'page console', tool_browser_screenshot: 'screenshot', tool_browser_tabs: 'browser tabs', tool_browser_evaluate: 'page script', todoTitle: 'Tasks', questionHint: 'Pick an answer, or reply in the input box', approvalCommand: 'Show full command',
+            tool_list_directory: 'list directory', tool_save_skill: 'save skill', tool_read_skill: 'read skill', tool_publish_html_tool: 'publish custom tool', tool_send_notification: 'send notification', tool_find_platform_tools: 'find platform tools', tool_read_tool_guide: 'tool guide', tool_search_my_conversations: 'search past chats', tool_read_my_conversation: 'read past chat', tool_read_file: 'read file', tool_search: 'search', tool_list_databases: 'list databases', tool_database_schema: 'inspect database schema', tool_read_database_table: 'read business table', tool_insert_database_row: 'insert business data', tool_update_database_rows: 'update business data', tool_delete_database_rows: 'delete business data', tool_write_file: 'write file', tool_edit_file: 'edit file', tool_delete_path: 'delete', tool_rename_path: 'move/rename', tool_run_command: 'run command', tool_welink_list_targets: 'list WeLink contacts', tool_welink_send_message: 'send a WeLink message', tool_welink_query: 'WeLink query', tool_welink_action: 'WeLink action', tool_netcare_tables: 'NetCare tables', tool_netcare_describe: 'NetCare schema', tool_netcare_query: 'NetCare query', tool_netcare_sql: 'NetCare SQL', tool_tool_search: 'load tools', tool_ops_overview: 'ops overview', tool_ops_list_targets: 'list push targets', tool_ops_save_group: 'save ops group', tool_ops_list_presets: 'list ops templates', tool_ops_remove_group: 'remove ops group', tool_ops_save_plan: 'save ops plan', tool_ops_delete_plan: 'delete ops plan', tool_ops_preview: 'draft ops message', tool_ops_test_send: 'ops test push', tool_ops_update_draft: 'edit ops draft', tool_ops_send_draft: 'push ops draft', tool_ops_discard_draft: 'discard ops draft', tool_ops_list_runs: 'list push records', tool_ops_materials: 'list ops materials', tool_ops_save_settings: 'save ops style guide', tool_load_skill: 'load skill', tool_calculate: 'calculate', tool_read_document: 'read document', tool_query_data: 'query table', tool_diff_files: 'compare', tool_multi_edit: 'multi edit', tool_zip_files: 'zip', tool_unzip_file: 'unzip', tool_memory: 'memory', tool_view_image: 'view image', tool_browser_navigate: 'open page', tool_browser_snapshot: 'read page', tool_browser_click: 'click', tool_browser_type: 'type', tool_browser_login: 'vault sign-in', tool_browser_scroll: 'scroll', tool_browser_wait: 'wait', tool_browser_network: 'network requests', tool_browser_network_body: 'response body', tool_browser_console: 'page console', tool_browser_screenshot: 'screenshot', tool_browser_tabs: 'browser tabs', tool_browser_evaluate: 'page script', todoTitle: 'Tasks', questionHint: 'Pick an answer, or reply in the input box', approvalCommand: 'Show full command',
             ctxUsed: '{percent}% used', ctxMessages: 'Messages', ctxToolResults: 'Tool results', ctxDirectory: 'Directory context', ctxSystem: 'System prompt', ctxSkills: 'Skills', ctxTools: 'Tool definitions', ctxReserve: 'Compaction reserve', ctxFree: 'Free space', ctxCache: 'Cache hit {percent}% · {tokens}', ctxCacheNone: 'No cache hit this time', ctxDeferredTools: '{loaded} tools loaded, {count} more load on demand (about {tokens}, not counted)', ctxWindowConfigured: 'Window size from the model settings', ctxWindowModel: 'Window size guessed from the model name; set the exact value in AI model settings',
             ctxEmpty: 'Context usage appears after your first message', ctxNoWorkspace: 'Pick a directory to see the context breakdown here', ctxSourceProvider: 'Based on the model’s reported usage; parts scaled from estimates', ctxSourceEstimate: 'Estimated from characters (≈3.5 chars per token)',
             filePreview: 'Preview', fileCode: 'Code', fileExpand: 'Expand', fileCollapse: 'Restore', fileDownload: 'Download', fileLoading: 'Reading file…', fileLines: '{count} lines', fileSandboxHint: 'The preview runs in an isolated sandbox without access to your sign-in; relative assets next to the file are not loaded', fileShowHint: 'View {path}', noChanges: 'No files changed in this session', changesShowMore: 'Show {count} more changes', changesShowLess: 'Show fewer changes', viewDiff: 'View diff', revert: 'Revert', reverted: 'Reverted {path}', diffEmpty: '(no text difference)', createPr: 'Create PR',
@@ -153,6 +153,8 @@
     const MODEL_STORAGE_KEY = 'dragon_claw_model';
     const LAST_CHAT_KEY = 'dragon_claw_last_chat'; // 本浏览器里当前用户最近一次对话的 sessionId（服务端会话不分用户，不能从列表里猜）
 
+    // 共享对话：正在围观的别人那一轮（见「共享对话实时流多端同步」）
+    let sharedLiveState = null;
     const state = {
         messages: [],
         attachments: [], // 输入框上方待发送的附件：{ id, name, size, status: uploading | ready | error, path }
@@ -168,6 +170,27 @@
     };
     const el = {};
     let resumeEpoch = 0;
+    const dismissedPanels = new Map();
+    function panelConversationKey() {
+        const session = external.active && window.HomeDesktopAgents?.activeSession?.();
+        if (session?.id) return JSON.stringify([session.provider, session.id]);
+        return state.sessionId || `draft:${resumeEpoch}`;
+    }
+    function dismissPanel(panel, key = panelConversationKey()) {
+        if (!dismissedPanels.has(key)) dismissedPanels.set(key, new Set());
+        dismissedPanels.get(key).add(panel);
+        if (!key.startsWith('draft:')) {
+            try { sessionStorage.setItem(`dc-dismissed:${key}:${panel}`, '1'); } catch {}
+        }
+    }
+    function panelDismissed(panel) {
+        const key = panelConversationKey();
+        if (dismissedPanels.get(key)?.has(panel)) return true;
+        if (!key.startsWith('draft:')) {
+            try { return sessionStorage.getItem(`dc-dismissed:${key}:${panel}`) === '1'; } catch {}
+        }
+        return false;
+    }
     const workspace = () => window.DragonClawWorkspace || null;
 
     function lang() {
@@ -534,6 +557,125 @@
         });
         document.addEventListener('click', event => {
             if (!exportMenu.menu.hidden && !exportMenu.root.contains(event.target)) toggleExportMenu(false);
+        });
+    }
+
+    // 极窄与重叠碰撞态下的更多操作下拉菜单（新对话、工作区、浏览器、终端、快照、日志、历史、工具等）
+    const actionsMore = { wrap: null, button: null, menu: null, dot: null };
+
+    function renderActionsMenu() {
+        if (!actionsMore.menu) return;
+        const isWsOpen = document.body.classList.contains('dc-workspace-open');
+        const isBrowserOpen = document.body.classList.contains('dc-browser-open');
+        const isTermOpen = document.body.classList.contains('dc-terminal-open');
+        const termBtn = document.getElementById('dcTerminalToggle');
+        // 只看按钮自身的 hidden（非管理员不显示终端）；「···」模式下按钮被 CSS 隐藏，不能用计算样式判断
+        const hasTerm = Boolean(termBtn && !termBtn.hidden);
+        const radarPill = document.querySelector('.dc-radar-pill');
+        const hasRadar = Boolean(radarPill && window.getComputedStyle(radarPill).display !== 'none');
+        const radarWorking = radarPill?.classList.contains('is-working');
+        const radarBlocked = radarPill?.classList.contains('is-blocked');
+
+        if (actionsMore.dot) {
+            const activeSomething = isWsOpen || isBrowserOpen || isTermOpen || radarWorking || radarBlocked;
+            actionsMore.dot.hidden = !activeSomething;
+            actionsMore.dot.className = 'dc-actions-more-dot' + (radarBlocked ? ' is-blocked' : radarWorking ? ' is-working' : '');
+        }
+
+        const item = (action, iconSvg, label, active = false) => `
+            <button type="button" class="dc-actions-item" role="menuitem" data-action="${action}">
+                <span class="dc-actions-item-icon" aria-hidden="true">${iconSvg}</span>
+                <span class="dc-actions-item-label">${escapeHtml(label)}</span>
+                ${active ? '<span class="dc-actions-item-dot" aria-hidden="true"></span>' : ''}
+            </button>
+        `;
+        const divider = '<div class="dc-actions-divider" role="separator"></div>';
+
+        let html = '';
+        html += item('new-chat', '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v3.5a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h4.5"/><path d="M9.5 2.5 13.5 6.5 7 13H3V9l6.5-6.5z"/></svg>', tx('newChat'));
+        html += item('workspace', '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3.5A1.5 1.5 0 0 1 3.5 2h3l1.5 2H12.5A1.5 1.5 0 0 1 14 5.5v7a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 12.5v-9z"/></svg>', tx('workspace'), isWsOpen);
+        html += item('browser', '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.25"/><path d="M1.75 8h12.5M8 1.75a10 10 0 0 0-2.5 6.25 10 10 0 0 0 2.5 6.25 10 10 0 0 0 2.5-6.25A10 10 0 0 0 8 1.75z"/></svg>', tx('browser'), isBrowserOpen);
+        if (hasTerm) {
+            html += item('terminal', '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m3 4.5 4 3.5-4 3.5M8.5 11.5h4.5"/></svg>', tx('terminal'), isTermOpen);
+        }
+        if (hasRadar) {
+            html += item('radar', '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.25"/><circle cx="8" cy="8" r="2.5"/><path d="M8 1.75v3.75"/></svg>', tx('agentRadar'), radarWorking || radarBlocked);
+        }
+        html += divider;
+        html += item('export-html', '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v8.5M4.5 7.5 8 11l3.5-3.5M2.5 11.5v1.75A1.25 1.25 0 0 0 3.75 14.5h8.5a1.25 1.25 0 0 0 1.25-1.25V11.5"/></svg>', tx('exportHtml'));
+        html += item('export-log', '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2.5h5.5L13 6v7.5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-10a1 1 0 0 1 1-1z"/><path d="M9.5 2.5V6H13"/></svg>', tx('exportJson'));
+        html += divider;
+        html += item('history', '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.25"/><path d="M8 4.5V8l2.5 1.5"/></svg>', tx('sessionTitle'));
+        html += item('back-to-tools', '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="4.5" height="4.5" rx="1"/><rect x="9.5" y="2" width="4.5" height="4.5" rx="1"/><rect x="2" y="9.5" width="4.5" height="4.5" rx="1"/><rect x="9.5" y="9.5" width="4.5" height="4.5" rx="1"/></svg>', tx('backToTools'));
+
+        actionsMore.menu.innerHTML = html;
+        actionsMore.menu.setAttribute('aria-label', tx('moreActions'));
+    }
+
+    function toggleActionsMenu(open = actionsMore.menu?.hidden) {
+        if (!actionsMore.menu || !actionsMore.button) return;
+        renderActionsMenu();
+        const next = typeof open === 'boolean' ? open : actionsMore.menu.hidden;
+        actionsMore.menu.hidden = !next;
+        actionsMore.button.setAttribute('aria-expanded', String(next));
+        actionsMore.wrap?.classList.toggle('is-open', next);
+        if (next) actionsMore.menu.querySelector('.dc-actions-item')?.focus();
+    }
+
+    function bindActionsMore() {
+        actionsMore.wrap = document.getElementById('dcActionsMore');
+        actionsMore.button = document.getElementById('dcActionsMoreBtn');
+        actionsMore.menu = document.getElementById('dcActionsMenu');
+        actionsMore.dot = actionsMore.button?.querySelector('.dc-actions-more-dot');
+        if (!actionsMore.wrap || !actionsMore.button || !actionsMore.menu) return;
+        renderActionsMenu();
+        actionsMore.button.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleActionsMenu();
+        });
+        actionsMore.menu.addEventListener('click', (event) => {
+            const item = event.target.closest('[data-action]');
+            const action = item?.dataset.action;
+            if (!action) return;
+            toggleActionsMenu(false);
+            if (action === 'new-chat') {
+                el.newChat?.click();
+            } else if (action === 'workspace') {
+                document.getElementById('dcWorkspaceToggle')?.click();
+            } else if (action === 'browser') {
+                document.getElementById('dcBrowserToggle')?.click();
+            } else if (action === 'terminal') {
+                document.getElementById('dcTerminalToggle')?.click();
+            } else if (action === 'radar') {
+                document.querySelector('.dc-radar-pill')?.click();
+            } else if (action === 'export-html') {
+                exportChatHtml();
+            } else if (action === 'export-log') {
+                exportChatLog();
+            } else if (action === 'history') {
+                openSessionPicker();
+            } else if (action === 'back-to-tools') {
+                el.back?.click();
+            }
+        });
+        document.addEventListener('click', (event) => {
+            if (actionsMore.menu && !actionsMore.menu.hidden && !actionsMore.wrap?.contains(event.target)) {
+                toggleActionsMenu(false);
+            }
+        });
+        actionsMore.menu.addEventListener('keydown', (event) => {
+            const items = [...actionsMore.menu.querySelectorAll('.dc-actions-item')];
+            const index = items.indexOf(document.activeElement);
+            if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                event.preventDefault();
+                items[(index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length]?.focus();
+            } else if (event.key === 'Escape') {
+                event.preventDefault();
+                toggleActionsMenu(false);
+                actionsMore.button.focus();
+            } else if (event.key === 'Tab') {
+                toggleActionsMenu(false);
+            }
         });
     }
 
@@ -1379,11 +1521,19 @@
         el.send.title = generating ? tx('stop') : tx('send');
         const readyAttachments = !external.active && state.attachments.some(item => item.status === 'ready');
         el.send.disabled = (state.restoring && !isSideCommand(el.input.value)) || (!generating && !el.input.value.trim() && !readyAttachments)
-            || (external.active && (!external.composer?.canSend || external.sending));
+            || (external.active && (!external.composer?.canSend || external.sending))
+            || (!generating && Boolean(sharedLiveState?.busy) && !isSideCommand(el.input.value));
         window.dispatchEvent(new CustomEvent('dragon-claw:status-change', { detail: { generating: Boolean(state.controller), sessionId: state.sessionId, external: external.active } }));
     }
 
     function applyPlaceholder() {
+        if (sharedLiveState?.busy && !external.active) {
+            const author = sharedLiveState.authorName || sharedLiveState.author || '';
+            const text = `${author ? `${author} ` : ''}正在提问，AI 正在回答中，请稍候...`;
+            el.input.placeholder = text;
+            el.input.setAttribute('aria-label', text);
+            return;
+        }
         const text = (external.active && external.composer?.placeholder) || tx('placeholder');
         el.input.placeholder = text;
         el.input.setAttribute('aria-label', text);
@@ -2190,6 +2340,11 @@
                     if (event.type === 'title') { scheduleChatListRefresh(100); return; }
                     if (controller.signal.aborted || !reply.isConnected) return;
                     if (event.type === 'start' && event.sessionId) {
+                        const draftKey = panelConversationKey();
+                        if (!state.sessionId && dismissedPanels.has(draftKey)) {
+                            for (const panel of dismissedPanels.get(draftKey)) dismissPanel(panel, event.sessionId);
+                            dismissedPanels.delete(draftKey);
+                        }
                         state.sessionId = event.sessionId;
                         rememberLastChat(event.sessionId, workspacePayload ? { agentSessionId: workspacePayload.agentSessionId, root: workspacePayload.root } : null);
                     }
@@ -2484,14 +2639,27 @@
     }
 
     // 共享对话里其他成员的新消息：拉取入库后直接接在当前对话末尾（正在回复或恢复中时稍后再接）
-    async function appendSharedMessages(sessionId) {
+    // 串行执行：一轮结束时 stream_finish / turn_ended / 轮询可能同时触发，并发拉取会把同一批消息插两遍
+    let sharedAppendChain = Promise.resolve(false);
+    function appendSharedMessages(sessionId) {
+        const run = sharedAppendChain.then(() => appendSharedMessagesNow(sessionId), () => appendSharedMessagesNow(sessionId));
+        sharedAppendChain = run.catch(() => false);
+        return run;
+    }
+
+    async function appendSharedMessagesNow(sessionId) {
         if (external.active || state.sessionId !== sessionId || state.controller || state.restoring) return false;
+        // 别人这一轮还在实时生成：先不插落库消息（会插到实时气泡后面、顺序错乱），等这一轮结束统一替换
+        if (sharedLiveState?.busy && sharedLiveState.sessionId === sessionId) return false;
         let page;
         try { page = await fetchHistoryPage(sessionId); } catch { return false; }
         if (external.active || state.sessionId !== sessionId || state.controller || state.restoring) return false;
+        if (sharedLiveState?.busy && sharedLiveState.sessionId === sessionId) return false;
         const rendered = new Set([...el.thread.querySelectorAll('[data-msg-id]')].map(node => node.dataset.msgId));
         const fresh = page.items.filter(item => !rendered.has(String(item.id)) && (item.events || []).some(event => event?.type === 'shared_author'));
         if (!fresh.length) return true;
+        // 围观时插入的实时提问 / 回答气泡由落库消息整体替换
+        el.thread.querySelectorAll('[data-shc-live]').forEach(node => node.remove());
         const nearBottom = el.thread.scrollHeight - el.thread.scrollTop - el.thread.clientHeight < 160;
         batchMessages(() => fresh.forEach(item => {
             addHistoryMessage(item.role, String(item.content), item.events, item);
@@ -2499,6 +2667,145 @@
         }));
         if (nearBottom) scrollThread(true);
         return true;
+    }
+
+    // ── 共享对话实时流多端同步（被共享者围观他人提问与流式回答） ──
+    // 围观时插入的提问/回答气泡都带 data-shc-live，这一轮结束后由 appendSharedMessages 用落库消息整体替换，避免重复上屏
+    // （sharedLiveState 声明在文件顶部，初始化期间 updateSendButton 就会读它）
+
+    function isSameUser(a, b) {
+        const clean = u => {
+            const s = String(u || '').trim().toLowerCase();
+            const m = /^[a-z]?(wx\d{4,}|\d{4,})$/.exec(s);
+            return m ? m[1] : s;
+        };
+        return clean(a) === clean(b);
+    }
+
+    function updateSharedTurnNotice(turnInfo) {
+        let bar = el.form.querySelector('.dc-shared-busy-bar');
+        if (turnInfo?.busy) {
+            const name = turnInfo.name || turnInfo.by || '其他成员';
+            if (!bar) {
+                bar = document.createElement('div');
+                bar.className = 'dc-shared-busy-bar';
+                el.form.prepend(bar);
+            }
+            bar.innerHTML = `<span class="shc-live" aria-hidden="true"></span><span><b>${escapeHtml(name)}</b> 正在提问，AI 正在回答，多端实时同步中...</span>`;
+            if (sharedLiveState) Object.assign(sharedLiveState, { busy: true, author: turnInfo.by, authorName: name });
+            else sharedLiveState = { sessionId: state.sessionId, busy: true, author: turnInfo.by, authorName: name, at: Date.now() };
+        } else {
+            bar?.remove();
+        }
+        applyPlaceholder();
+        updateSendButton();
+    }
+
+    function resetSharedLive() {
+        if (sharedLiveState?.renderer) sharedLiveState.renderer.finish();
+        sharedLiveState = null;
+        updateSharedTurnNotice({ busy: false });
+    }
+
+    // 提问者的问题还没上屏（不是最后一条消息）就补一条带署名的提问
+    function ensureLiveQuestion(question, author, authorName) {
+        const text = String(question || '').trim();
+        if (!text || el.thread.querySelector('[data-shc-live="user"]')) return;
+        const last = [...el.thread.querySelectorAll('.dc-msg')].filter(node => !node.matches('[data-shc-live="ai"]')).at(-1);
+        if (last?.classList.contains('dc-msg--user') && last.querySelector('.dc-msg-body')?.textContent?.trim() === text) return;
+        const liveAi = el.thread.querySelector('[data-shc-live="ai"]');
+        const msg = addMessage('user', text, liveAi ? { before: liveAi } : {});
+        msg.dataset.shcLive = 'user';
+        window.HomeSharedConversations?.decorateMessage?.(msg, [{ type: 'shared_author', author, name: authorName }]);
+    }
+
+    // 围观端只展示过程（思考、工具、状态）；审批按钮等只给提问者本人
+    const LIVE_ACTIVITY_TYPES = new Set(['thinking', 'tool_start', 'tool_result', 'compaction']);
+    function feedLiveActivity(activity, event) {
+        if (!activity || !event) return;
+        if (event.type === 'status') activity.status(event.status);
+        else if (LIVE_ACTIVITY_TYPES.has(event.type)) activity.event(event);
+    }
+
+    function startLiveAnswer({ author, authorName, text = '', events = [] }) {
+        // 追流（重连 / 中途加入）总是从头重建回答气泡，免得已生成的文字被追加两遍
+        el.thread.querySelector('[data-shc-live="ai"]')?.remove();
+        const liveMsg = addMessage('ai', '');
+        liveMsg.dataset.shcLive = 'ai';
+        window.HomeSharedConversations?.decorateMessage?.(liveMsg, [{ type: 'shared_author', author, name: authorName }]);
+        const activity = showThinking(liveMsg);
+        const renderer = createRenderer(liveMsg, activity);
+        sharedLiveState = { sessionId: state.sessionId, author, authorName, busy: true, liveMsg, activity, renderer, at: Date.now() };
+        for (const ev of events || []) feedLiveActivity(activity, ev);
+        if (text) renderer.append(text);
+    }
+
+    async function finishLiveAnswer(sessionId, { text, error } = {}) {
+        const s = sharedLiveState;
+        sharedLiveState = null;
+        updateSharedTurnNotice({ busy: false });
+        if (s?.renderer) s.renderer.finish(text ?? s.renderer.current?.());
+        else s?.activity?.finish();
+        s?.liveMsg?.classList.remove('is-streaming');
+        const replaced = await appendSharedMessages(sessionId);
+        if (error) {
+            const target = (!replaced && s?.liveMsg?.isConnected) ? s.liveMsg : [...el.thread.querySelectorAll('.dc-msg--ai')].at(-1);
+            target?.querySelector('.dc-msg-body')?.insertAdjacentHTML('beforeend', `<p class="dc-shared-live-error">⚠️ ${escapeHtml(error)}</p>`);
+        }
+    }
+
+    function handleSharedLiveEvent(event) {
+        if (!event || state.controller) return;
+        // 正在渲染这段对话的历史：先不画实时气泡（历史渲染完会强制重连拿追流内容）
+        if (state.restoring && !['turn_ended', 'turn_idle', 'idle', 'stream_finish'].includes(event.type)) return;
+        const sessionId = state.sessionId;
+        if (!sessionId || !window.HomeSharedConversations?.isShared?.(sessionId)) return;
+        if (sharedLiveState && sharedLiveState.sessionId !== sessionId) resetSharedLive();
+        if (event.by && isSameUser(event.by, currentUser())) return;
+        // 主线允许多人同时提问：实时气泡只跟一位提问者，其他人的增量 / 过程事件忽略（结束后统一拉取落库消息）
+        const otherAsker = event.by && sharedLiveState?.author && !isSameUser(event.by, sharedLiveState.author);
+        if (otherAsker && !['stream_start', 'catchup', 'turn_busy'].includes(event.type)) return;
+        if (otherAsker && sharedLiveState?.renderer) return;
+
+        switch (event.type) {
+            case 'stream_start':
+            case 'catchup': {
+                const author = event.by;
+                const authorName = event.name || author;
+                updateSharedTurnNotice({ by: author, name: authorName, busy: true });
+                const fresh = event.type === 'stream_start' || !sharedLiveState?.renderer || event.text || event.events?.length;
+                if (fresh) startLiveAnswer({ author, authorName, text: event.text, events: event.events });
+                ensureLiveQuestion(event.question, author, authorName);
+                scrollThread(true);
+                return;
+            }
+            case 'turn_busy':
+                // /sync 轮询发现有人在提问（/live 没连上时的兜底）：只锁输入框、补上提问
+                updateSharedTurnNotice({ by: event.by, name: event.name || event.by, busy: true });
+                ensureLiveQuestion(event.question, event.by, event.name || event.by);
+                return;
+            case 'delta':
+                sharedLiveState?.renderer?.append(event.delta);
+                return;
+            case 'error':
+                if (sharedLiveState) sharedLiveState.error = event.error || '回答中断';
+                return;
+            case 'stream_finish':
+                if (sharedLiveState) finishLiveAnswer(sessionId, { text: event.text, error: event.error || sharedLiveState.error });
+                return;
+            case 'turn_idle':
+                // 轮询结果早于这一轮开始（请求发出后才收到 stream_start）：过时信息，忽略
+                if (event.since && sharedLiveState && sharedLiveState.at > event.since) return;
+                if (sharedLiveState) finishLiveAnswer(sessionId, { error: sharedLiveState.error });
+                return;
+            case 'turn_ended':
+            case 'idle':
+                // 没收到 stream_finish（断线、提问者失联、服务重启）：同样收尾并用落库消息对齐
+                if (sharedLiveState) finishLiveAnswer(sessionId, { error: sharedLiveState.error });
+                return;
+            default:
+                feedLiveActivity(sharedLiveState?.activity, event);
+        }
     }
 
     // 上一轮因服务重启或崩溃中断（没有结束记录）：在最后一条回答下面提供「继续执行」，接着保存的步骤往下做
@@ -2811,6 +3118,7 @@
     async function openSession(item) {
         if (!item || !leaveReply()) return;
         const epoch = ++resumeEpoch;
+        resetSharedLive();
         window.DragonHtmlSwarm?.deactivate?.();
         if (typeof item === 'string') {
             const found = chatList.items?.find(row => row.id === item) || chatList.cached?.find(row => row.id === item);
@@ -2844,6 +3152,8 @@
             const agent = item.agent || (local?.sessionId === item.id ? local.agent : null);
             await resumeChat({ sessionId: item.id, discussionMode:item.discussionMode, items, cursor: page.cursor, hasMore: page.hasMore, total: page.total, time: formatChatTime(items.length ? items[items.length - 1].created_at : (item.updatedAt || new Date().toISOString())), agent }, epoch);
             if (page.live && epoch === resumeEpoch && state.sessionId === item.id) attachLive(item.id);;
+            // 历史渲染完再接共享对话的实时流：追流内容要接在这段对话的末尾
+            if (epoch === resumeEpoch && state.sessionId === item.id) window.HomeSharedConversations?.connectLive?.(item.id, true);
         } catch (error) {
             if (epoch !== resumeEpoch) return;
             finishHistoryLoading(false);
@@ -3749,6 +4059,7 @@
 
     function newChat({ clearWorkspace = true, root = null } = {}) {
         chatList.latestSeq++;
+        resetSharedLive();
         state.attachments = [];
         renderAttachments();
         window.HomeDesktopModels?.resetDraft?.();
@@ -4205,6 +4516,7 @@
 
         el.newChat.addEventListener('click', newChat);
         bindExportMenu();
+        bindActionsMore();
         // 对话与工具是两种互斥模式（js/home/home-mode.js）：离开对话不清空当前对话，切回来原样继续
         el.back.addEventListener('click', () => window.HomeMode?.set?.('tools', { focus: true }));
         el.history?.addEventListener('click', () => openSessionPicker());
@@ -4221,6 +4533,7 @@
             if (!state.messages.length && !state.restoring && !external.active) refreshResumeCard();
             renderModelPicker();
             renderExportMenu();
+            renderActionsMenu();
             renderChatList();
         });
     }
@@ -4228,6 +4541,45 @@
     function init() {
         el.root = document.getElementById('dragonClaw');
         if (!el.root) return;
+        el.chatHead = el.root.querySelector('.dc-chat-head');
+        el.chatActions = el.root.querySelector('.dc-chat-actions');
+        const HEADER_ULTRA_MAX = 460, HEADER_TITLE_MIN = 140, HEADER_ULTRA_HYSTERESIS = 24;
+        const headerFit = { othersNeed: 0 };
+        function checkHeaderSqueeze() {
+            if (!el.chatHead) return;
+            const isSidebarOpen = document.body.matches('.dc-workspace-open, .dc-browser-open, .dc-terminal-open, .ai-preview-open');
+            const width = el.chatHead.clientWidth;
+            const actions = el.chatActions;
+            const actionsOverflow = Boolean(actions && actions.scrollWidth > actions.clientWidth + 2);
+            const squeezed = width > 0 && (width <= 840 || (isSidebarOpen && width <= 980) || actionsOverflow);
+            el.chatHead.classList.toggle('is-squeezed', squeezed);
+            actions?.classList.toggle('is-squeezed', squeezed);
+
+            // 极窄 / 放不下时收成「···」下拉菜单：按「标题保底宽度 + 顶栏其余部分（仅图标按钮等）实际占用的宽度」判断。
+            // 标题是 flex:1 会撑满剩余空间，不能拿标题当前宽度判断（否则收起后永远恢复不了）。
+            // 其余部分只在未收起时测量（收起后按钮都被隐藏）；恢复时多留一点余量，避免在临界宽度来回跳。
+            const isCurrentlyUltra = el.chatHead.classList.contains('is-ultra-squeezed');
+            const title = el.chatHead.querySelector('.dc-chat-title');
+            if (!isCurrentlyUltra && title && width > 0) {
+                headerFit.othersNeed = Math.max(0, el.chatHead.scrollWidth - title.getBoundingClientRect().width);
+            }
+            const need = HEADER_TITLE_MIN + (headerFit.othersNeed || 320);
+            const ultraSqueezed = width > 0 && (width <= HEADER_ULTRA_MAX
+                || (isCurrentlyUltra ? width < need + HEADER_ULTRA_HYSTERESIS : width < need));
+            el.chatHead.classList.toggle('is-ultra-squeezed', ultraSqueezed);
+            actions?.classList.toggle('is-ultra-squeezed', ultraSqueezed);
+            const moreWrap = document.getElementById('dcActionsMore');
+            if (moreWrap) moreWrap.hidden = !ultraSqueezed;
+            if (!ultraSqueezed && actionsMore.menu && !actionsMore.menu.hidden) toggleActionsMenu(false);
+            // 菜单打开时不重建（尺寸变化很频繁，重建会丢掉键盘焦点）
+            if (ultraSqueezed && actionsMore.menu?.hidden !== false) renderActionsMenu();
+        }
+        if (typeof ResizeObserver === 'function' && el.chatHead) {
+            new ResizeObserver(checkHeaderSqueeze).observe(el.chatHead);
+        }
+        window.addEventListener('resize', checkHeaderSqueeze);
+        new MutationObserver(checkHeaderSqueeze).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+        checkHeaderSqueeze();
         el.thread = document.getElementById('dcThread');
         el.form = document.getElementById('dcComposer');
         el.input = document.getElementById('dcInput');
@@ -4334,7 +4686,7 @@
             }
             return composePrompt(lines, { send: false, append: true });
         }
-        window.DragonClaw = { refreshModelPicker: renderModelPicker, startWithSkill, showTourLanding, startTourDemo, enterExternal, exitExternal, newChat, openSchedules: openSchedulePanel, openChat: openChatFromList, appendSharedMessages, openLatest:openLatestChat, currentSessionId:()=>state.sessionId, lang, isExternal: () => external.active, composePrompt, attachPickedElement, getRunStatus: () => ({ generating: Boolean(state.controller), sessionId: state.sessionId, external: external.active }), markActiveChat };
+        window.DragonClaw = { dismissPanel, panelDismissed, refreshModelPicker: renderModelPicker, startWithSkill, showTourLanding, startTourDemo, enterExternal, exitExternal, newChat, openSchedules: openSchedulePanel, openChat: openChatFromList, appendSharedMessages, handleSharedLiveEvent, openLatest:openLatestChat, currentSessionId:()=>state.sessionId, lang, isExternal: () => external.active, composePrompt, attachPickedElement, getRunStatus: () => ({ generating: Boolean(state.controller), sessionId: state.sessionId, external: external.active }), markActiveChat };
         // 其他页面或新标签打开的 /?skill=<id>：直接进入该技能的新对话
         const linkedSkill = new URLSearchParams(location.search).get('skill');
         if (linkedSkill) {

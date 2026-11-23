@@ -143,11 +143,13 @@
     }
 
     /** 消息中心顶部的「需要你」区块（home-shell 打开消息中心时传入容器） */
+    let approvalLimit = 3;
     function renderInto(host) {
         if (!host) return;
         ensureStyle();
         if (state.host !== host) {
             state.host = host;
+            approvalLimit = 3;
             host.addEventListener('click', onCardClick);
             refresh();
             schedule();
@@ -161,7 +163,7 @@
         body.classList.add('ainbox-host');
         body.hidden = !state.available || !state.items.length;
         if (body.hidden) { body.innerHTML = ''; return; }
-        body.innerHTML = `<div class="ainbox-host-head">🔔 ${esc(L('需要你审批', 'Needs your approval'))}<b>${state.items.length}</b></div>` + state.items.map(item => {
+        body.innerHTML = `<div class="ainbox-host-head">🔔 ${esc(L('需要你审批', 'Needs your approval'))}<b>${state.items.length}</b></div>` + state.items.slice(0, approvalLimit).map(item => {
             const pushed = item.pushed
                 ? `<span class="ok">${esc(L(`已推送到 ${channelLabel(item.pushed.channel)}`, `Sent to ${channelLabel(item.pushed.channel)}`))}${item.pushed.error ? ` · ${esc(item.pushed.error)}` : ''}</span>`
                 : item.pushError ? `<span class="bad">${esc(L('推送失败：', 'Push failed: '))}${esc(item.pushError)}</span>` : '';
@@ -174,7 +176,7 @@
                     <button type="button" class="ainbox-btn danger" data-do="deny">${esc(L('拒绝', 'Deny'))}</button>
                     ${item.chatSessionId ? `<button type="button" class="ainbox-btn link" data-do="open">${esc(L('打开对话 →', 'Open chat →'))}</button>` : ''}
                 </div></div>`;
-        }).join('');
+        }).join('') + (state.items.length > approvalLimit ? `<button type="button" class="ainbox-btn" data-approval-more>${esc(L('查看更多审批', 'Show more approvals'))}</button>` : '');
     }
 
     function renderSettings() {
@@ -247,6 +249,11 @@
     }
 
     function onCardClick(event) {
+        if (event.target.closest('[data-approval-more]')) {
+            approvalLimit += 5;
+            renderList();
+            return;
+        }
         const card = event.target.closest('.ainbox-card');
         const action = event.target.closest('[data-do]');
         if (!card || !action) return;

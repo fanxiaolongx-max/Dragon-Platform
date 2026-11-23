@@ -10,7 +10,7 @@
     const L = (zh, en) => (window.ToolsI18n?.getLanguage?.() === 'en-US' ? en : zh);
     const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
     const CHANNEL_LABEL = { welink: 'WeLink', weixin: L('微信', 'WeChat') };
-    const SOURCE_LABEL = { highlights: L('功能亮点（随机抽取）', 'Feature highlights'), features: L('平台新功能', 'New features'), videos: L('小视频', 'Videos'), metrics: L('指标/报表', 'Metrics'), chat: L('群聊上下文', 'Group chat') };
+    const SOURCE_LABEL = { highlights: L('功能亮点', 'Feature highlights'), features: L('平台新功能', 'New features'), videos: L('小视频', 'Videos'), metrics: L('指标/报表', 'Metrics'), chat: L('群聊上下文', 'Group chat') };
     const STATUS = {
         generating: ['生成中', 'Generating', ''],
         draft: ['待确认', 'Draft', 'warn'],
@@ -117,6 +117,7 @@
     function renderEditor() {
         const p = state.editing;
         if (!p) return '';
+        const topic = state.library.topics.find(item => item.id === p.options.highlightTopic);
         const groups = state.data.groups;
         const checked = target => p.targets.some(item => item.channel === target.channel && item.kind === target.kind && item.id === target.id);
         const s = p.schedule;
@@ -137,7 +138,8 @@
                 <label class="nch-field"><span>${esc(L('视频分类（可选）', 'Video category'))}</span><input data-ops-plan="options.videoCategory" value="${esc(p.options.videoCategory)}" placeholder="${esc(L('留空为全部公开分类', 'All public categories'))}"></label>
                 <label class="nch-field"><span>${esc(L('新功能回看天数', 'Feature lookback (days)'))}</span><input type="number" min="1" max="90" data-ops-plan="options.featureDays" value="${esc(p.options.featureDays)}"></label>
                 <label class="nch-field"><span>${esc(L('亮点专题', 'Highlight topic'))}</span><select data-ops-plan="options.highlightTopic">${state.library.topics.map(topic => `<option value="${esc(topic.id)}" ${p.options.highlightTopic === topic.id ? 'selected' : ''}>${esc(topic.name)}（${topic.count}）</option>`).join('')}</select></label>
-                <label class="nch-field"><span>${esc(L('每次抽取亮点数', 'Highlights per run'))}</span><input type="number" min="1" max="5" data-ops-plan="options.highlightCount" value="${esc(p.options.highlightCount || 1)}"></label>
+                <label class="nch-field"><span>${esc(L('具体亮点', 'Feature to introduce'))}</span><select data-ops-plan="options.highlightId"><option value="">${esc(L('在专题内随机轮换', 'Rotate within topic'))}</option>${(topic?.highlights || []).map(item => `<option value="${esc(item.id)}" ${p.options.highlightId === item.id ? 'selected' : ''}>${esc(item.title)}</option>`).join('')}</select></label>
+                <label class="nch-field"><span>${esc(L('每次抽取亮点数', 'Highlights per run'))}</span><input type="number" min="1" max="5" ${p.options.highlightId ? 'disabled' : ''} data-ops-plan="options.highlightCount" value="${esc(p.options.highlightCount || 1)}"></label>
                 <label class="nch-field"><span>${esc(L('运营角度', 'Angle'))}</span><select data-ops-plan="options.angle"><option value="random" ${(p.options.angle || 'random') === 'random' ? 'selected' : ''}>${esc(L('每次随机换一种', 'Random each time'))}</option>${state.library.angles.map(angle => `<option value="${esc(angle.id)}" ${p.options.angle === angle.id ? 'selected' : ''} title="${esc(angle.guide)}">${esc(angle.name)}</option>`).join('')}</select></label>
                 <label class="nch-field"><span>${esc(L('定时方式', 'Schedule'))}</span><select data-ops-plan="schedule.type"><option value="daily" ${s.type === 'daily' ? 'selected' : ''}>${esc(L('每天', 'Daily'))}</option><option value="weekly" ${s.type === 'weekly' ? 'selected' : ''}>${esc(L('每周', 'Weekly'))}</option><option value="interval" ${s.type === 'interval' ? 'selected' : ''}>${esc(L('固定间隔', 'Interval'))}</option></select></label>
                 ${s.type === 'interval'
@@ -437,6 +439,13 @@
             return;
         }
         const key = event.target.dataset?.opsPlan;
+        if (key === 'options.highlightTopic' || key === 'options.highlightId') {
+            readEditor();
+            if (key === 'options.highlightTopic') state.editing.options.highlightId = '';
+            if (!state.editing.sources.includes('highlights')) state.editing.sources.push('highlights');
+            state.root.querySelector('[data-role="ops-editor"]').outerHTML = renderEditor();
+            return;
+        }
         if (key === 'contentMode' || key === 'schedule.type') {
             readEditor();
             render();
