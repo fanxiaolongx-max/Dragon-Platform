@@ -1,10 +1,10 @@
 {
   "zh": [
-    "Dragon Claw 现在能直接改数据导入的整条指标规则：新增、修改（条件列、取值列、类型、聚合方式、子指标等）或删除，审批卡会显示每条改了哪些字段，以及按最近一次导入算出的改前 / 改后值和命中行数；每次改动都有记录，可以一键回退，之后被别人改过的规则不会被覆盖。仅管理员可用。",
-    "数据抓取脚本的保存和移动在「自动」模式下也会先弹确认卡，可选本对话总是允许。"
+    "定时任务面板升级：支持分页浏览、关键词检索与状态筛选，新增立即手动执行一次与删除单条任务记录，并优化定时任务与桌面智能体界面细节。",
+    "桌面端模型请求接入 Electron 网络栈以自动遵循系统与企业代理/PAC 配置，同时兼容仅填域名或网关前缀的 Anthropic 接口基地址（自动补全 /v1）。"
   ],
   "en": [
-    "Dragon Claw can now edit whole metric rules on the data import page: add, change (condition column, value column, type, aggregation, sub-metrics and more) or delete them. The approval card shows which fields change and the before / after value and matched rows from the latest import; every change is logged and can be reverted, and rules edited by someone else afterwards are never overwritten. Admins only.",
-    "Saving and moving scraping scripts now asks for confirmation in Auto mode too, with an option to always allow for the current chat."
+    "Upgraded scheduled tasks with paginated browsing, keyword search and status filtering, manual run-now execution, single-record deletion, and UI refinements across schedules and desktop agents.",
+    "Desktop AI model requests now route through Electron's network stack to honor system/enterprise proxies and PAC rules, and Anthropic base URLs without a version segment automatically append /v1."
   ]
 }

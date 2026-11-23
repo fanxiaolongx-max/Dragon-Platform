@@ -9,6 +9,9 @@ const DEFAULT_BASE_URLS = {
     minimax: 'https://api.minimax.io/v1',
     'openai-compatible': 'https://api.openai.com/v1'
 };
+// 桌面版注入的上游请求实现（Electron 网络栈，跟随系统 / 企业代理和 PAC）；未注入时用 Node 自带 fetch 直连
+let desktopUpstreamFetch = null;
+function configureUpstreamFetch(fetchImpl) { desktopUpstreamFetch = typeof fetchImpl === 'function' ? fetchImpl : null; }
 const VALID_AUTH_MODES = new Set(['bearer', 'x-api-key', 'api-key', 'x-goog-api-key', 'none', 'custom']);
 const aiUsageRepo = require('./ai-usage-repository');
 const { redactText, redactValue } = require('./ai-sensitive-data');
@@ -128,8 +131,11 @@ function getBaseUrl(settings = {}) {
     let base = trimSlash(settings.apiBaseUrl || DEFAULT_BASE_URLS[provider]);
     if ((provider === 'openai' || provider === 'openai-compatible' || provider === 'minimax') && /\/chat\/completions$/i.test(base)) {
         base = trimSlash(base.replace(/\/chat\/completions$/i, ''));
-    } else if (provider === 'anthropic' && /\/messages$/i.test(base)) {
-        base = trimSlash(base.replace(/\/messages$/i, ''));
+    } else if (provider === 'anthropic') {
+        if (/\/messages$/i.test(base)) base = trimSlash(base.replace(/\/messages$/i, ''));
+        // 与 Anthropic SDK / Claude Code 的约定一致：基地址只填到域名或网关前缀（如 http://host:port、…/anthropic）时，
+        // 实际请求是 {基地址}/v1/messages；已带 /v1 等版本段的不再追加
+        if (base && !/\/v\d+[a-z0-9]*$/i.test(base)) base = `${base}/v1`;
     }
     return base;
 }
@@ -904,6 +910,9 @@ class AiProviderClient {
         const headerSecrets = Object.values(this.customHeaders || {}).filter(v => typeof v === 'string' && v.trim().length >= 4);
         const safeEndpoint = sanitizeEndpointUrl(url, [this.apiKey, ...headerSecrets]);
         try {
+            if (desktopUpstreamFetch && /^https?:/i.test(String(url))) {
+                return await desktopUpstreamFetch(url, init, { verifySsl: this.verifySsl === true });
+            }
             if (this.verifySsl === false && /^https:/i.test(String(url)) && global.fetch === NATIVE_FETCH) {
                 return await httpsInsecureFetch(url, init);
             }
@@ -1691,6 +1700,7 @@ function createClient(settings = {}) {
 
 module.exports = {
     DEFAULT_BASE_URLS,
+    configureUpstreamFetch,
     getBaseUrl,
     sanitizeEndpointUrl,
     normalizeProvider,

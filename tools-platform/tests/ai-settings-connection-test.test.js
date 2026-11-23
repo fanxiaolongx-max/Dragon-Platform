@@ -58,6 +58,35 @@ test('getBaseUrl strips accidentally pasted endpoint suffixes while keeping stan
     assert.equal(getBaseUrl({ provider: 'anthropic', apiBaseUrl: 'https://proxy.example/anthropic/v1/messages' }), 'https://proxy.example/anthropic/v1');
 });
 
+test('Anthropic 基地址只填到域名或网关前缀时按 SDK 约定补 /v1', () => {
+    assert.equal(getBaseUrl({ provider: 'anthropic', apiBaseUrl: 'http://10.0.0.8:3155' }), 'http://10.0.0.8:3155/v1');
+    assert.equal(getBaseUrl({ provider: 'anthropic', apiBaseUrl: 'http://10.0.0.8:3155/' }), 'http://10.0.0.8:3155/v1');
+    assert.equal(getBaseUrl({ provider: 'anthropic', apiBaseUrl: 'https://gw.example/anthropic' }), 'https://gw.example/anthropic/v1');
+    assert.equal(getBaseUrl({ provider: 'anthropic', apiBaseUrl: 'https://gw.example/anthropic/messages' }), 'https://gw.example/anthropic/v1');
+    assert.equal(getBaseUrl({ provider: 'anthropic', apiBaseUrl: 'https://gw.example/v2' }), 'https://gw.example/v2');
+    assert.equal(getBaseUrl({ provider: 'anthropic' }), 'https://api.anthropic.com/v1');
+    assert.equal(getBaseUrl({ provider: 'openai-compatible', apiBaseUrl: 'http://10.0.0.8:3155' }), 'http://10.0.0.8:3155', 'OpenAI 兼容不改');
+});
+
+test('桌面版注入的上游请求实现接管模型请求，并带上是否校验证书', async () => {
+    const client = require('../backend/models/ai-provider-client');
+    const calls = [];
+    client.configureUpstreamFetch(async (url, init, options) => {
+        calls.push({ url, options, body: JSON.parse(init.body) });
+        return new Response(JSON.stringify({ content: [{ type: 'text', text: '2' }], usage: {} }), { status: 200, headers: { 'content-type': 'application/json' } });
+    });
+    try {
+        const ai = client.createClient({ provider: 'anthropic', apiBaseUrl: 'http://10.0.0.8:3155', apiKey: 'k', model: 'm' });
+        const out = await ai.generateText({ prompt: '1+1' });
+        assert.match(JSON.stringify(out), /2/);
+        assert.equal(calls.length, 1);
+        assert.equal(calls[0].url, 'http://10.0.0.8:3155/v1/messages');
+        assert.deepEqual(calls[0].options, { verifySsl: false });
+    } finally {
+        client.configureUpstreamFetch(null);
+    }
+});
+
 test('generateOpenAi sends explicit stream=false, handles forced SSE responses and rejects HTTP 200 error envelopes', async () => {
     const realFetch = global.fetch;
     try {

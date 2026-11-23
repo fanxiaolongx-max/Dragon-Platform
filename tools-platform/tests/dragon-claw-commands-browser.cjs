@@ -44,6 +44,20 @@ app.whenReady().then(async()=>{
             if(url==='/api/dragon-tac/jobs')return json({items:tacJobs});
             if(!String(url).startsWith('/api/ai/schedules'))return nativeFetch(url,options);
             scheduleCalls.push({url,method:options.method||'GET',body:options.body?JSON.parse(options.body):null});
+            const params=new URL(url,location.href).searchParams;
+            if(params.has('page')){
+                const matches=schedules.filter(item=>(!params.get('status')||item.status===params.get('status'))&&item.instruction.includes(params.get('q')||''));
+                const offset=(Number(params.get('page'))-1)*8;
+                return json({items:matches.slice(offset,offset+8),hasMore:matches.length>offset+8});
+            }
+            if(url.endsWith('/record')){
+                schedules=schedules.filter(item=>!url.endsWith('/'+item.id+'/record'));
+                return json({},204);
+            }
+            if(url.endsWith('/run')){
+                schedules=schedules.map(item=>url.endsWith('/'+item.id+'/run')?{...item,status:'running'}:item);
+                return json({},202);
+            }
             if(options.method==='POST'){
                 const body=JSON.parse(options.body);
                 if(!/明天/.test(body.text))return json({error:'没认出时间'},400);
@@ -151,8 +165,50 @@ app.whenReady().then(async()=>{
     assert.match(await evaluate(()=>document.querySelector('.dc-schedule-card').textContent),/汇总告警[\s\S]*等待执行[\s\S]*推送给 运维值班群、李四/);
     assert.match(await evaluate(()=>document.querySelector('.dc-schedule-card').textContent),/12:00.*Europe\/Amsterdam/);
     await evaluate(()=>document.querySelector('[data-dc-schedule-cancel]').click());
-    await waitFor("document.querySelector('.dc-schedule-card').textContent.includes('已取消')");
+    await waitFor("document.querySelector('.dc-schedule-item.is-cancelled')");
     assert.equal(await evaluate(()=>scheduleCalls.some(call=>call.method==='DELETE'&&call.url.endsWith('/dcs_1'))),true);
+    await evaluate(()=>{
+        for(let i=0;i<9;i++) schedules.push({...schedules[0],id:'extra'+i,instruction:'历史记录 '+i,status:'done'});
+        const input=document.querySelector('[data-schedule-search]');
+        input.value='历史记录';input.dispatchEvent(new Event('input'));
+    });
+    await waitFor("document.querySelectorAll('.dc-schedule-item').length===8");
+    const themeStyle=await win.webContents.insertCSS(read('frontend/css/shared.css') + read('frontend/css/dragon-claw.css') + read('frontend/css/home-shell.css') + read('frontend/css/home-theme.css'));
+    await evaluate(()=>document.documentElement.classList.add('platform-home'));
+    win.setSize(390,720);
+    for(const theme of ['light','dark']){
+        await win.webContents.executeJavaScript(`document.documentElement.dataset.theme=${JSON.stringify(theme)}`);
+        const fits=await evaluate(()=>{
+            const card=document.querySelector('.dc-schedule-card').getBoundingClientRect();
+            const pages=document.querySelector('.dc-schedule-pages').getBoundingClientRect();
+            const list=document.querySelector('.dc-schedule-card .dc-session-list');
+            return card.left>=0 && card.right<=innerWidth+1 && card.bottom<=innerHeight+1 &&
+                pages.bottom<=card.bottom && list.clientHeight>0 && list.scrollWidth<=list.clientWidth+1;
+        });
+        assert.ok(fits,'narrow schedule panel fits in '+theme);
+    }
+    win.setSize(1000,800);
+    await win.webContents.removeInsertedCSS(themeStyle);
+    await evaluate(()=>{document.documentElement.classList.remove('platform-home');delete document.documentElement.dataset.theme;});
+    await evaluate(()=>document.querySelector('[data-step="1"]').click());
+    await waitFor("document.querySelector('.dc-schedule-item')?.textContent.includes('历史记录 8')");
+    await evaluate(()=>document.querySelector('[data-dc-schedule-delete]').click());
+    assert.equal(await evaluate(()=>scheduleCalls.some(call=>call.url.endsWith('/record'))),false);
+    await evaluate(()=>document.querySelector('[data-dc-schedule-delete]').click());
+    await waitFor("document.querySelectorAll('.dc-schedule-item').length===8 && document.querySelector('.dc-schedule-pages').hidden");
+    await evaluate(()=>{
+        const filter=document.querySelector('[data-schedule-status]');
+        filter.value='active'; filter.dispatchEvent(new Event('change'));
+    });
+    await waitFor("document.querySelector('.dc-session-empty')?.textContent.includes('没有匹配')");
+    await evaluate(()=>{
+        const filter=document.querySelector('[data-schedule-status]');
+        filter.value='done'; filter.dispatchEvent(new Event('change'));
+    });
+    await waitFor("document.querySelector('[data-dc-schedule-run]')");
+    await evaluate(()=>document.querySelector('[data-dc-schedule-run]').click());
+    await waitFor("document.querySelectorAll('.dc-schedule-item').length===7");
+    assert.deepEqual(await evaluate(()=>scheduleCalls.find(call=>call.url.endsWith('/run')).body),{status:'done',runCount:0});
     await evaluate(()=>document.querySelector('[data-dc-schedule-close]').click());
     assert.equal(await evaluate(()=>document.querySelector('.dc-schedule-card')),null);
 

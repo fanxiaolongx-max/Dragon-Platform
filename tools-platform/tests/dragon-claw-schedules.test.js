@@ -257,3 +257,35 @@ test('推送到 WeLink/微信：校验对象与权限，执行成功后推送并
     assert.equal((await schedules.getForOwner(failing.id, 'dave')).lastPush, null);
     nextResponse = 'ok';
 }));
+
+test('任务管理按指令与状态翻页，取消后单次执行不恢复周期', async () => inTenant(async () => {
+    const owner = 'schedule-manager';
+    for (let n = 0; n < 9; n++) {
+        const item = await schedules.create({ owner, text: '每天 09:30 复核 ' + n, timezone: ZONE });
+        await schedules.cancel(item.id, owner);
+    }
+    const query = { status: 'cancelled', q: '复核' };
+    const first = await schedules.listPage(owner, { ...query, page: 1 });
+    const last = await schedules.listPage(owner, { ...query, page: 2 });
+    assert.equal(first.items.length, 8);
+    assert.equal(first.hasMore, true);
+    assert.equal(last.items.length, 1);
+    assert.equal(last.hasMore, false);
+    const id = last.items[0].id;
+    assert.ok(first.items.every(item => item.id !== id));
+    await assert.rejects(schedules.runNow(id, 'someone-else', 0, 'cancelled'), /不存在/);
+    await assert.rejects(schedules.remove(id, 'someone-else'), /不存在/);
+    const runs = await Promise.allSettled([1, 2].map(() => schedules.runNow(id, owner, 0, 'cancelled')));
+    assert.equal(runs.filter(result => result.status === 'fulfilled').length, 1);
+    let result;
+    for (let n = 0; n < 100; n++) {
+        result = await schedules.getForOwner(id, owner);
+        if (result.status !== 'running') break;
+        await new Promise(resolve => setTimeout(resolve, 10));
+    }
+    assert.equal(result.runCount, 1);
+    assert.equal(result.status, 'cancelled');
+    assert.equal(result.nextRunAt, null);
+    await schedules.remove(id, owner);
+    assert.equal(await schedules.getForOwner(id, owner), null);
+}));

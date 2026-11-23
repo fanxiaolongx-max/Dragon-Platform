@@ -214,6 +214,34 @@ async function list(owner, { since = '' } = {}) {
     return rows.map(toSchedule);
 }
 
+async function listPage(owner, { page, q, status }) {
+    await ensureSchema();
+    const conditions = ['owner = ?'];
+    const params = [owner];
+    if (q) {
+        conditions.push('instr(lower(instruction), lower(?)) > 0');
+        params.push(q);
+    }
+    if (status) {
+        conditions.push('status = ?');
+        params.push(status);
+    }
+    const rows = await all(`SELECT * FROM dragon_claw_schedules WHERE ${conditions.join(' AND ')}
+        ORDER BY CASE status WHEN 'running' THEN 0 WHEN 'active' THEN 1 ELSE 2 END,
+        CASE WHEN status = 'active' THEN next_run_at END, updated_at DESC, id LIMIT 9 OFFSET ?`,
+        [...params, (page - 1) * 8]);
+    return { items: rows.slice(0, 8).map(toSchedule), hasMore: rows.length > 8 };
+}
+
+async function remove(id, owner) {
+    await ensureSchema();
+    const result = await run("DELETE FROM dragon_claw_schedules WHERE id = ? AND owner = ? AND status <> 'running'", [id, owner]);
+    if (!result.changes) {
+        if (!await getForOwner(id, owner)) throw serviceError('SCHEDULE_NOT_FOUND', '定时任务不存在', 404);
+        throw serviceError('SCHEDULE_RUNNING', '任务正在执行', 409);
+    }
+}
+
 /** 等待执行或正在执行的任务数（前端据此决定是否继续轮询完成提醒）。 */
 async function countActive(owner) {
     await ensureSchema();
@@ -368,12 +396,13 @@ async function pushResult(schedule, row, reply, push) {
     return { at: now(), sent: results.filter(item => item.ok).length, failed: results.filter(item => !item.ok).length, results };
 }
 
-/** 认领：把 next_run_at 推进到下一次（一次性任务清空并标为执行中），返回是否抢到。 */
+/** 用旧状态、时间和次数认领；完成时只允许写回本次认领的记录。 */
 async function claim(row, next) {
-    const result = await run(`UPDATE dragon_claw_schedules SET next_run_at = ?, status = ?, updated_at = ?
-        WHERE id = ? AND status = 'active' AND next_run_at = ?`,
-    [next ? next.toISOString() : null, row.kind === 'once' ? 'running' : 'active', now(), row.id, row.next_run_at]);
-    return Boolean(result?.changes);
+    const started = now();
+    const result = await run(`UPDATE dragon_claw_schedules SET next_run_at = ?, status = 'running', updated_at = ?
+        WHERE id = ? AND status = ? AND next_run_at IS ? AND run_count = ?`,
+    [next?.toISOString() || null, started, row.id, row.status, row.next_run_at, row.run_count]);
+    return result.changes ? started : null;
 }
 
 // 每次执行完在告警台留一条（与基座 Web 版的消息中心一致）：成功是 info，失败是 warn；告警台出问题不影响任务
@@ -391,26 +420,48 @@ function noticeRun(row, schedule, { ok, text }) {
 async function execute(row, firedAt = new Date(), { push = options => require('./channels').push(options) } = {}) {
     const schedule = toSchedule(row);
     const next = row.kind === 'recurring' ? parser.nextRecurring(schedule.rule, firedAt, schedule.timezone, await workdays()) : null;
-    if (!(await claim(row, next))) return { skipped: true };
+    const started = await claim(row, next);
+    if (!started) return { skipped: true };
+    return finishRun(row, schedule, firedAt, push, started);
+}
+
+async function runNow(id, owner, expectedCount, expectedStatus) {
+    await ensureSchema();
+    const row = await get('SELECT * FROM dragon_claw_schedules WHERE id = ? AND owner = ?', [id, owner]);
+    if (!row) throw serviceError('SCHEDULE_NOT_FOUND', '定时任务不存在', 404);
+    if (row.status === 'running' || row.status !== expectedStatus || row.run_count !== expectedCount) throw serviceError('SCHEDULE_CHANGED', '任务状态已变更，请刷新', 409);
+    const at = new Date();
+    const schedule = toSchedule(row);
+    let next = null;
+    if (row.status === 'active' && row.kind === 'recurring') {
+        next = row.next_run_at > at.toISOString() ? new Date(row.next_run_at) : parser.nextRecurring(schedule.rule, at, schedule.timezone, await workdays());
+    }
+    const started = await claim(row, next);
+    if (!started) throw serviceError('SCHEDULE_CHANGED', '任务状态已变更，请刷新', 409);
+    finishRun(row, schedule, at, options => require('./channels').push(options), started, true).catch(error => console.error('[Schedule] completion failed', error.message));
+    return { ...schedule, status: 'running', nextRunAt: next?.toISOString() || null };
+}
+
+async function finishRun(row, schedule, firedAt, push, started, manual = false) {
+    const where = "WHERE id = ? AND status = 'running' AND updated_at = ?";
     try {
         const result = await runTurn(schedule, row, firedAt);
         const pushed = schedule.targets.length && result.reply ? await pushResult(schedule, row, result.reply, push) : null;
-        if (pushed) await run('UPDATE dragon_claw_schedules SET last_push_json = ? WHERE id = ?', [JSON.stringify(pushed), row.id]);
-        await run(`UPDATE dragon_claw_schedules SET session_id = ?, last_run_at = ?, last_status = 'ok', last_error = NULL, last_reply = ?,
-            run_count = run_count + 1, status = CASE WHEN status = 'running' THEN 'done' ELSE status END, updated_at = ? WHERE id = ?`,
-        [result.sessionId || row.session_id, now(), result.reply.slice(0, 600), now(), row.id]);
+        await run(`UPDATE dragon_claw_schedules SET session_id = ?, last_run_at = ?, last_status = 'ok', last_error = NULL, last_reply = ?, last_push_json = ?,
+            run_count = run_count + 1, status = CASE WHEN next_run_at IS NOT NULL THEN 'active' ELSE ? END, updated_at = ? ${where}`,
+        [result.sessionId || row.session_id, now(), result.reply.slice(0, 600), pushed ? JSON.stringify(pushed) : null, row.status === 'cancelled' ? 'cancelled' : 'done', now(), row.id, started]);
         noticeRun(row, schedule, { ok: true, text: result.reply });
         return { ran: true };
     } catch (error) {
-        if (error.busy) {
+        if (error.busy && !manual) {
             // 对话正在压缩/执行：恢复到期状态，稍后重试（不计入执行次数）
-            await run("UPDATE dragon_claw_schedules SET next_run_at = ?, status = CASE WHEN status = 'running' THEN 'active' ELSE status END, updated_at = ? WHERE id = ?",
-                [new Date(Date.now() + BUSY_RETRY_MS).toISOString(), now(), row.id]);
+            await run(`UPDATE dragon_claw_schedules SET next_run_at = ?, status = 'active', updated_at = ? ${where}`,
+                [new Date(Date.now() + BUSY_RETRY_MS).toISOString(), now(), row.id, started]);
             return { retry: true };
         }
         await run(`UPDATE dragon_claw_schedules SET session_id = COALESCE(?, session_id), last_run_at = ?, last_status = 'failed', last_error = ?,
-            run_count = run_count + 1, status = CASE WHEN status = 'running' THEN 'failed' ELSE status END, updated_at = ? WHERE id = ?`,
-        [error.sessionId || null, now(), String(error.message || error).slice(0, 500), now(), row.id]);
+            run_count = run_count + 1, status = CASE WHEN next_run_at IS NOT NULL THEN 'active' ELSE ? END, updated_at = ? ${where}`,
+        [error.sessionId || null, now(), String(error.message || error).slice(0, 500), row.status === 'cancelled' ? 'cancelled' : 'failed', now(), row.id, started]);
         noticeRun(row, schedule, { ok: false, text: String(error.message || error) });
         return { failed: true, error: error.message };
     }
@@ -420,7 +471,7 @@ async function runTenant(tenantId, { now: at = new Date(), push } = {}) {
     return runWithTenant(tenantId, async () => {
         await ensureSchema();
         // 服务重启时中断的一次性任务：标为失败，避免永远停在「执行中」
-        await run("UPDATE dragon_claw_schedules SET status = 'failed', last_status = 'failed', last_error = '执行过程中服务重启', updated_at = ? WHERE status = 'running' AND updated_at < ?",
+        await run("UPDATE dragon_claw_schedules SET status = CASE WHEN next_run_at IS NULL THEN 'failed' ELSE 'active' END, last_status = 'failed', last_error = '执行过程中服务重启', updated_at = ? WHERE status = 'running' AND updated_at < ?",
             [now(), new Date(at.getTime() - RUN_TIMEOUT_MS - 60000).toISOString()]);
         const due = await all("SELECT * FROM dragon_claw_schedules WHERE status = 'active' AND next_run_at IS NOT NULL AND next_run_at <= ? ORDER BY next_run_at LIMIT ?", [at.toISOString(), BATCH]);
         let ran = 0;
@@ -462,4 +513,4 @@ function stop() {
     timer = null;
 }
 
-module.exports = { create, createForChannel, list, listForTarget, countActive, cancel, getForOwner, execute, runTenant, tick, start, stop, ensureSchema };
+module.exports = { listPage, remove, runNow, create, createForChannel, list, listForTarget, countActive, cancel, getForOwner, execute, runTenant, tick, start, stop, ensureSchema };

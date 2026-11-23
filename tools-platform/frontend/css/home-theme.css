@@ -93,6 +93,21 @@ html.platform-home:not([data-theme="dark"]) :is(.dc-session-item, .dc-slash-item
 
 html.platform-home:not([data-theme="dark"]) :is(.dc-session-item:hover, .dc-session-item.is-active, .dc-slash-item.is-active, .wsp-picker-item:hover) { background: var(--v2-hover); }
 
+/* /schedule recipients in the composer and the channel picker. */
+html.platform-home:not([data-theme="dark"]) :is(.dc-push-label, .dc-push-chip button, .dc-push-tab, .dc-session-tag, .dc-cmd-note) { color: var(--v2-ink2); }
+
+html.platform-home:not([data-theme="dark"]) :is(.dc-push-chip, .dc-push-tab.is-active) { background: var(--v2-accent-soft); border-color: var(--v2-focus); color: var(--v2-ink); }
+
+html.platform-home:not([data-theme="dark"]) .dc-push-chip button:is(:hover, :focus-visible) { background: var(--v2-bg); color: var(--v2-ink); }
+
+html.platform-home:not([data-theme="dark"]) .dc-push-check { border-color: var(--v2-ink3); }
+
+html.platform-home:not([data-theme="dark"]) .dc-push-item.is-active .dc-push-check { background: var(--v2-accent); border-color: var(--v2-accent); color: #fff; }
+
+html.platform-home:not([data-theme="dark"]) .dc-push-foot .dc-push-count { color: var(--v2-ink); }
+
+html.platform-home:not([data-theme="dark"]) :is(.dc-cmd-link.is-danger, .dc-schedule-item.is-failed .dc-session-last) { color: #b42318; }
+
 html.platform-home:not([data-theme="dark"]) :is(.card-impact, .card-impact strong, .card-foot, .home-group-head .skill-restore, .skill-mention-badge) { color: var(--v2-ink2); }
 
 html.platform-home:not([data-theme="dark"]) .tool-card.home-sort-ghost.is-lifted { background: var(--v2-bg); box-shadow: var(--v2-shadow-box); }

@@ -34,6 +34,22 @@ process.env.TOOLS_BRANDING_DIR = path.join(userDataPath, 'branding');
 process.env.TOOLS_PROMO_CACHE_DIR = path.join(userDataPath, 'cache', 'home-videos');
 // Electron networking follows the system/enterprise proxy, including GitHub redirects.
 require('./backend/models/home-promo-videos').configurePromoVideoFetch((url, init) => net.fetch(url, init));
+// 模型接口同样走 Electron 网络栈：企业内网常要经系统代理 / PAC 才能出网，Node 自带 fetch 不认系统代理会直连超时。
+// 单独的会话分区：不带主窗口的 Cookie；未勾选“校验证书”的模型用接受自签证书的分区（与原先直连时的行为一致）。
+if (process.env.TOOLS_AI_DIRECT_FETCH !== '1') {
+    const aiUpstreamSessions = {};
+    const aiUpstreamSession = verifySsl => {
+        const key = verifySsl ? 'strict' : 'insecure';
+        if (!aiUpstreamSessions[key]) {
+            const ses = session.fromPartition(`dragon-ai-upstream-${key}`);
+            if (!verifySsl) ses.setCertificateVerifyProc((_request, callback) => callback(0));
+            aiUpstreamSessions[key] = ses;
+        }
+        return aiUpstreamSessions[key];
+    };
+    require('./backend/models/ai-provider-client').configureUpstreamFetch((url, init = {}, { verifySsl = false } = {}) =>
+        aiUpstreamSession(verifySsl).fetch(url, { ...init, credentials: 'omit', bypassCustomProtocolHandlers: true }));
+}
 if (app.isPackaged) {
     process.env.TOOLS_MEDIA_DIR = path.join(userDataPath, 'media');
 }

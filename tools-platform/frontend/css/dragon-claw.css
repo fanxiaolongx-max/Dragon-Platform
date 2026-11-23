@@ -1469,7 +1469,21 @@ body.dc-chatting .dc-composer {
 .dc-schedule-item .dc-session-title { white-space: normal; }
 .dc-schedule-actions { display: flex; gap: 14px; margin-top: 2px; }
 .dc-schedule-actions:empty { display: none; }
-.dc-schedule-card { grid-template-rows: auto minmax(0, 1fr) auto; }
+.dc-schedule-card { grid-template-rows: auto auto minmax(0, 1fr) auto auto; width: min(720px, 100%); max-height: min(86dvh, 760px); }
+.dc-schedule-filters, .dc-schedule-pages { display: flex; align-items: center; gap: 8px; }
+.dc-schedule-filters input { flex: 1; min-width: 0; }
+.dc-schedule-pages { justify-content: center; font-size: 12px; }
+.dc-schedule-pages[hidden] { display: none; }
+.dc-schedule-actions { flex-wrap: wrap; }
+.dc-schedule-card .dc-session-list { min-height: 0; overscroll-behavior: contain; }
+.dc-schedule-card .dc-push-foot { justify-content: flex-end; }
+.dc-schedule-card .dc-session-title { overflow-wrap: anywhere; }
+.dc-schedule-card .dc-cmd-link { padding: 4px 8px; border-radius: 7px; transition: background-color 140ms ease, transform 140ms ease; }
+.dc-schedule-card .dc-cmd-link:hover:not(:disabled) { background: var(--v2-hover); text-decoration: none; }
+.dc-schedule-card .dc-cmd-link:active:not(:disabled) { transform: translateY(1px); }
+@media (prefers-reduced-motion: reduce) {
+    .dc-schedule-card .dc-cmd-link { transition: none; transform: none !important; }
+}
 .dc-schedule-card:focus { outline: none; }
 .dc-schedule-card .dc-push-foot { flex-wrap: wrap; align-items: flex-end; gap: 12px; }
 .dc-schedule-card .dc-push-foot > span { flex: 1 1 280px; min-width: 0; line-height: 1.6; overflow-wrap: anywhere; }

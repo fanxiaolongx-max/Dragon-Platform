@@ -27,6 +27,27 @@ async function until(code) { for (let n = 0; n < 160; n++) {
         return;
     await wait(30);
 } throw Error('Timed out: ' + code); }
+async function assertProgressLayout(expectedText) {
+    const pair = '.dc-provider-message.is-continued:has(+ .dc-provider-message)';
+    await until(`dcThread.querySelector(${JSON.stringify(pair)})`);
+    await wait(300);
+    const layout = await evaluate(`(() => {
+        const first = dcThread.querySelector(${JSON.stringify(pair)});
+        const body = first.querySelector('.dc-msg-body').getBoundingClientRect();
+        const copy = first.querySelector('[data-dc-copy]');
+        const button = copy.getBoundingClientRect();
+        const next = first.nextElementSibling.querySelector('.dc-msg-body').getBoundingClientRect();
+        copy.focus({ preventScroll: true });
+        const copyFocusable = document.activeElement === copy;
+        copy.blur();
+        return { gap: Math.round(next.top - body.bottom), copyAlongside: button.top < body.bottom && button.left >= body.right,
+            copyFocusable, text: copy.dataset.dcCopy };
+    })()`);
+    assert.ok(layout.gap >= 0 && layout.gap <= 12, `consecutive replies have a compact gap, got ${layout.gap}px`);
+    assert.equal(layout.copyAlongside, true, 'copy stays beside the reply text');
+    assert.equal(layout.copyFocusable, true, 'the copy button is still keyboard accessible');
+    assert.equal(layout.text, expectedText);
+}
 app.whenReady().then(async () => {
     const web = express();
     web.use(express.json());
@@ -113,6 +134,7 @@ app.whenReady().then(async () => {
     await until('document.querySelector(".desktop-agent-thinking [data-desktop-busy]")?.textContent.includes("1")');
     assert.equal(await evaluate('dcThread.querySelector(".dc-msg")===window.__first'), true, 'existing messages are not re-rendered');
     assert.equal(await evaluate('dcThread.lastElementChild.classList.contains("desktop-agent-thinking")'), true);
+    await assertProgressLayout('native reply: A Codex follow-up');
     assert.match(await evaluate('document.querySelector("[data-wsp-ext-body]").textContent'), /codex original desktop conversation/);
     assert.equal(await evaluate('document.querySelectorAll(".desktop-agent-dock [data-desktop-mode]").length'), 2, 'running Codex offers queue and steer');
     await evaluate('dcInput.value="Queued while running";dcInput.dispatchEvent(new Event("input",{bubbles:true}));dcSend.click();');
@@ -227,7 +249,9 @@ app.whenReady().then(async () => {
     await assertAgentAttachmentsLeft();
 
     histories.claudecode[0].content += '\n' + 'A long user message line.\n'.repeat(14);
+    histories.claudecode.push({ id: 'a2', role: 'assistant', content: 'Checking the test output.' });
     await choose('claudecode');
+    await assertProgressLayout('claudecode original assistant reply');
     claudeChoice = { id: 'a'.repeat(64), kind: 'session-suggestion', prompt: '要在单独的会话中启动吗？ 排查 WorkBuddy 的 TPS/TTFT 显示为空 <script>window.choiceInjected=true</script>', options: ['在此处操作', '新建会话'] };
     busyNow = true;
     await evaluate('document.querySelector("[data-desktop-refresh]").click()');
@@ -331,8 +355,8 @@ app.whenReady().then(async () => {
     hiddenProvider='';await evaluate('HomeDesktopAgents.refresh()');await until('dcThread.textContent.includes("antigravity original assistant reply")');
     await evaluate('document.querySelector("[data-chat-source=agents]").click()');
     await evaluate('let s=document.querySelector("[data-desktop-provider]");if(s.tagName==="SELECT"){s.value="codex";s.dispatchEvent(new Event("change",{bubbles:true}))}else document.querySelector("[data-desktop-provider=codex]")?.click()');
-    // 「桌面 Agent」分类下点新对话：进入当前 Agent 的新会话，发送后在桌面新建并打开
-    await evaluate('homeChatNew.click()');
+    // 创建桌面 Agent 会话，发送后打开原生对话。
+    assert.equal(await evaluate('HomeDesktopAgents.newChat({ provider: "codex", force: true })'), true);
     await until('/新建 Codex 会话|New Codex session/.test(dcInput.placeholder)');
     assert.equal(await evaluate('document.body.classList.contains("dc-external-view")'), true);
     await evaluate('dcInput.value="Kick off a native task";dcInput.dispatchEvent(new Event("input",{bubbles:true}));dcSend.click();');

@@ -161,6 +161,20 @@ body.dc-external-view .dc-agent-discussion{display:none}
 .dc-msg--ai.dc-provider-message{margin-bottom:12px}.dc-provider-message .dc-msg-avatar{object-fit:contain;border-radius:6px}.dc-provider-message.desktop-agent-cont{margin-top:-6px}
 .dc-provider-message .dc-msg-body>h3:first-child{font-size:12px;line-height:1.5;margin:0 0 5px;color:var(--dc-muted,#aabaca)}
 
+/* Keep copy accessible without a separate toolbar row between consecutive replies. */
+body.dc-external-view .dc-provider-message.is-continued .dc-msg-main {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: 6px;
+}
+body.dc-external-view .dc-provider-message.is-continued .dc-msg-body { grid-area: 1 / 1; }
+body.dc-external-view .dc-provider-message.is-continued .dc-msg-tools {
+    grid-area: 1 / 2;
+    align-self: start;
+    margin-top: 0;
+}
+body.dc-external-view .dc-provider-message.is-continued .dc-msg-attachments { grid-column: 1 / -1; }
+
 .desktop-agent-history-load{margin:12px 0 24px;padding:20px;border:1px solid var(--border-color,rgba(148,163,184,.25));border-radius:12px;background:var(--card-bg,rgba(24,41,60,.75));color:var(--text-primary,#dbeafe);overflow-wrap:anywhere}
 .desktop-agent-history-load b{font-size:14px}.desktop-agent-history-load p,.desktop-agent-history-load small{font-size:12px;line-height:1.6;color:var(--text-secondary,#94a3b8)}
 .desktop-agent-history-load p{margin:8px 0 12px}.desktop-agent-history-load button{font:inherit;font-size:12px;padding:6px 12px;border:1px solid var(--border-color,#64748b);border-radius:8px;background:transparent;color:inherit;cursor:pointer}

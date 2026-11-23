@@ -14,6 +14,7 @@
             scheduleTitle: '定时任务', scheduleEmpty: '还没有定时任务', scheduleHint: '新建：/schedule 时间 指令，例如「/schedule 明天 9:00 汇总昨天的告警」「/schedule 每个工作日 9:30 看一下待办」「/schedule 30分钟后 提醒我开会」', scheduleCreated: '已预约 · {when}：{text}', scheduleCreatedRecurring: '已预约 · {rule}，下次 {when}：{text}', scheduleFailed: '预约失败', scheduleNext: '下次 {time}', scheduleLast: '上次 {time}', scheduleCancel: '取消', scheduleCancelled: '已取消定时任务', scheduleOpen: '打开对话', scheduleViewAll: '查看定时任务', scheduleOnce: '一次性', scheduleStatus_active: '等待执行', scheduleStatus_running: '执行中', scheduleStatus_done: '已完成', scheduleStatus_cancelled: '已取消', scheduleStatus_failed: '失败', scheduleRunDone: '⏰ 定时任务已执行：{text}', scheduleRunFailed: '⏰ 定时任务执行失败：{text}', scheduleRuns: '已执行 {count} 次', scheduleLoadFailed: '定时任务加载失败',
             planNeedTask: '请在 /plan 后写上要做的事', planPrompt: '请先为下面的任务制定（或根据我的意见修改上一版）执行计划，暂时不要执行：\n- 用编号列出步骤，每步写清要做什么、会动到哪些文件或数据、怎么确认做好了；\n- 需要我先决定的问题单独列出；\n- 可以只读查看必要的信息，但不要修改文件、执行命令或产生任何副作用；\n- 计划写完就停，等我确认后再执行。\n\n任务：{task}', planExecute: '执行计划', planRevise: '修改计划', planRevisePrefix: '/plan 调整：', planGo: '计划已确认，请按上面的计划逐步执行，每完成一步简要说明结果；遇到计划外的情况先停下来问我。', planGoShown: '✅ 按计划执行',
             btwTitle: '顺便问', btwBadge: '不计入当前对话', btwNeedQuestion: '请在 /btw 后写上问题', btwClose: '关闭', btwFailed: '回答失败', btwPending: '（主对话里我刚问了：{text}，回复还在生成）',
+            scheduleSearch: '搜索任务指令', scheduleAll: '全部状态', scheduleNoMatch: '没有匹配的任务', schedulePrev: '上一页', scheduleNextPage: '下一页', schedulePage: '第 {page} 页', scheduleRun: '立即执行', scheduleRunOnce: '执行一次', scheduleDelete: '删除', scheduleConfirm: '永久删除', scheduleKeep: '保留', scheduleStarted: '正在执行', scheduleRetry: '重试', scheduleActionFailed: '任务操作失败',
             scheduleNew: '新建定时任务', pushTo: '推送到', pushAdd: '+ 选择 WeLink/微信 的人或群（可选）', pushAddMore: '+ 添加', pushRemove: '移除', pushTitle: '推送到', pushSearch: '搜索名称或账号，支持拼音…', pushGroup: '群', pushUser: '联系人', pushSelected: '已选 {count} 个', pushHint: '执行完成后把结果推送给所选对象', pushDone: '完成', pushEmpty: '还没有可推送的对象（联系人需先与助理单聊过，群需在群里用过助理）', pushNoMatch: '没有匹配的对象', pushNoChannel: '还没有对接 WeLink 或微信', pushLimit: '最多选择 10 个对象', scheduleCreatedPush: '，完成后推送给 {names}', schedulePushTo: '推送给 {names}', schedulePushResult: '上次推送：成功 {sent}，失败 {failed}',
             datacomTitle: '数通协议专家', datacomDescription: '协议图解 · 交互实验 · 视频讲解',
             badge: '全能智能体', newChat: '新对话', history: '历史', browser: '浏览器', terminal: '终端', moreActions: '更多操作', agentRadar: '智能体雷达', attach: '添加附件（Excel、CSV、Word、PPT、文本等，单个不超过 20MB）', attachLabel: '附件', attachUploading: '上传中…', attachFailed: '上传失败', attachRemove: '移除', attachTooMany: '一次最多 5 个附件', attachPending: '附件还在上传，请稍候', attachDrop: '松开即可添加附件', exportLog: '导出日志', exportLogEmpty: '当前对话还没有保存的记录，发送一条消息后再导出', exportLogDone: '对话日志已导出', exportLogFailed: '导出失败', exportLogBusy: '回复完成后再导出，日志才完整', exportMenu: '导出方式', exportHtml: '网页快照（HTML）', exportHtmlDesc: '最近 {days} 天、最多 {count} 条消息；与聊天界面一致，含表格、图片和文件，可直接转发', exportJson: '研发日志（JSON）', exportJsonDesc: '完整的工具过程与模型配置，便于研发定位问题', exportAgentJsonDesc: '当前 Agent 的可读取消息、附件信息与会话状态，最多 200 条', exportAgentHtmlDesc: '当前已加载的 Agent 对话快照，含图片、附件和静态预览，最多 200 条消息', exportHtmlWorking: '正在打包网页快照…', exportHtmlDone: '网页快照已导出', exportHtmlSkipped: '网页快照已导出，{count} 个大文件未打包',
@@ -87,6 +88,7 @@
             scheduleTitle: 'Scheduled tasks', scheduleEmpty: 'No scheduled tasks yet', scheduleHint: 'Create: /schedule <time> <instruction>, e.g. "/schedule tomorrow 9:00 summarize yesterday\'s alerts", "/schedule weekdays 9:30 check my todos", "/schedule 30m remind me of the meeting"', scheduleCreated: 'Scheduled · {when}: {text}', scheduleCreatedRecurring: 'Scheduled · {rule}, next {when}: {text}', scheduleFailed: 'Could not schedule', scheduleNext: 'Next {time}', scheduleLast: 'Last {time}', scheduleCancel: 'Cancel', scheduleCancelled: 'Scheduled task cancelled', scheduleOpen: 'Open chat', scheduleViewAll: 'View scheduled tasks', scheduleOnce: 'One-time', scheduleStatus_active: 'Waiting', scheduleStatus_running: 'Running', scheduleStatus_done: 'Done', scheduleStatus_cancelled: 'Cancelled', scheduleStatus_failed: 'Failed', scheduleRunDone: '⏰ Scheduled task ran: {text}', scheduleRunFailed: '⏰ Scheduled task failed: {text}', scheduleRuns: 'Ran {count} times', scheduleLoadFailed: 'Could not load scheduled tasks',
             planNeedTask: 'Add the task after /plan', planPrompt: 'Before doing anything, write (or revise per my feedback) a plan for the task below. Do not execute it yet:\n- Number the steps; for each, say what you will do, which files or data it touches, and how to verify it;\n- List any decisions I need to make first;\n- You may read what you need, but do not modify files, run commands, or cause side effects;\n- Stop after the plan and wait for my confirmation.\n\nTask: {task}', planExecute: 'Run plan', planRevise: 'Revise plan', planRevisePrefix: '/plan Revise: ', planGo: 'Plan confirmed. Execute it step by step, briefly reporting each step; if something falls outside the plan, stop and ask me first.', planGoShown: '✅ Run the plan',
             btwTitle: 'By the way', btwBadge: 'Not added to this chat', btwNeedQuestion: 'Add a question after /btw', btwClose: 'Close', btwFailed: 'Could not answer', btwPending: '(In the main chat I just asked: {text}; the reply is still coming)',
+            scheduleSearch: 'Search instructions', scheduleAll: 'All statuses', scheduleNoMatch: 'No matching tasks', schedulePrev: 'Previous', scheduleNextPage: 'Next', schedulePage: 'Page {page}', scheduleRun: 'Run now', scheduleRunOnce: 'Run once', scheduleDelete: 'Delete', scheduleConfirm: 'Delete permanently', scheduleKeep: 'Keep', scheduleStarted: 'Running', scheduleRetry: 'Retry', scheduleActionFailed: 'Task action failed',
             scheduleNew: 'New task', pushTo: 'Push to', pushAdd: '+ Pick WeLink/WeChat people or groups (optional)', pushAddMore: '+ Add', pushRemove: 'Remove', pushTitle: 'Push to', pushSearch: 'Search name or account (pinyin works)…', pushGroup: ' group', pushUser: ' contact', pushSelected: '{count} selected', pushHint: 'The result is pushed to them after it runs', pushDone: 'Done', pushEmpty: 'Nobody can be pushed to yet (contacts must chat with the assistant first; groups must have used it)', pushNoMatch: 'No matches', pushNoChannel: 'WeLink or WeChat is not connected yet', pushLimit: 'Pick up to 10', scheduleCreatedPush: ', then push to {names}', schedulePushTo: 'Push to {names}', schedulePushResult: 'Last push: {sent} sent, {failed} failed',
             datacomTitle: 'Datacom Protocol Expert', datacomDescription: 'Visual guides · Interactive labs · Videos',
             badge: 'All-round agent', newChat: 'New chat', history: 'History', browser: 'Browser', terminal: 'Terminal', moreActions: 'More actions', agentRadar: 'Agent radar', attach: 'Attach files (Excel, CSV, Word, PowerPoint, text…, up to 20 MB each)', attachLabel: 'Attachments', attachUploading: 'Uploading…', attachFailed: 'Upload failed', attachRemove: 'Remove', attachTooMany: 'Up to 5 attachments at a time', attachPending: 'Attachments are still uploading', attachDrop: 'Drop to attach', exportLog: 'Export log', exportLogEmpty: 'Nothing saved in this chat yet. Send a message first.', exportLogDone: 'Chat log exported', exportLogFailed: 'Export failed', exportLogBusy: 'Export after the reply finishes so the log is complete', exportMenu: 'Export as', exportHtml: 'Web page (HTML)', exportHtmlDesc: 'Last {days} days, up to {count} messages. Looks like this chat, with tables, images and files', exportJson: 'Debug log (JSON)', exportJsonDesc: 'Full tool steps and model settings for troubleshooting', exportAgentJsonDesc: 'Available agent messages, attachment metadata and session status, up to 200 messages', exportAgentHtmlDesc: 'Snapshot of the loaded agent conversation, with images, files and static previews, up to 200 messages', exportHtmlWorking: 'Packing the web page…', exportHtmlDone: 'Web page exported', exportHtmlSkipped: 'Web page exported; {count} large file(s) left out',
@@ -1726,11 +1728,46 @@
         return res.json();
     }
 
+    async function loadSchedulePage(panel = scheduleWatch.panel) {
+        if (!panel || panel !== scheduleWatch.panel) return;
+        const view = panel.scheduleView;
+        clearTimeout(view.refresh);
+        const request = ++view.request;
+        const params = new URLSearchParams({ page: view.page, q: panel.querySelector('[data-schedule-search]').value.trim(), status: panel.querySelector('[data-schedule-status]').value });
+        try {
+            const res = await fetch(`/api/ai/schedules?${params}`, { headers: authHeaders() });
+            if (!res.ok) throw new Error();
+            const data = await res.json();
+            if (scheduleWatch.panel !== panel || request !== view.request) return;
+            if (!data.items.length && view.page > 1) {
+                view.page--;
+                return loadSchedulePage(panel);
+            }
+            scheduleWatch.items = data.items;
+            view.more = data.hasMore;
+            renderSchedulePanel();
+            if (data.items.some(item => item.status === 'running') && !view.confirm) view.refresh = setTimeout(() => loadSchedulePage(panel), 3000);
+        } catch {
+            if (scheduleWatch.panel !== panel || request !== view.request) return;
+            panel.querySelector('.dc-session-list').innerHTML = `<div class="dc-session-empty">${escapeHtml(tx('scheduleLoadFailed'))} <button class="dc-cmd-link" data-schedule-retry>${escapeHtml(tx('scheduleRetry'))}</button></div>`;
+        }
+    }
+
     function renderSchedulePanel() {
         const list = scheduleWatch.panel?.querySelector('.dc-session-list');
         if (!list) return;
+        const panel = scheduleWatch.panel;
+        const view = panel.scheduleView;
+        const hint = panel.querySelector('.dc-push-foot > span');
+        hint.hidden = Boolean(scheduleWatch.items.length || panel.querySelector('[data-schedule-search]').value || panel.querySelector('[data-schedule-status]').value);
+        const nav = panel.querySelector('.dc-schedule-pages');
+        nav.hidden = view.page === 1 && !view.more;
+        nav.querySelector('span').textContent = tx('schedulePage', { page: view.page });
+        nav.querySelector('[data-step="-1"]').disabled = view.page === 1;
+        nav.querySelector('[data-step="1"]').disabled = !view.more;
         if (!scheduleWatch.items.length) {
-            list.innerHTML = `<div class="dc-session-empty">${escapeHtml(tx('scheduleEmpty'))}</div>`;
+            const filtered = panel.querySelector('[data-schedule-search]').value.trim() || panel.querySelector('[data-schedule-status]').value;
+            list.innerHTML = `<div class="dc-session-empty">${escapeHtml(tx(filtered ? 'scheduleNoMatch' : 'scheduleEmpty'))}</div>`;
             return;
         }
         list.innerHTML = scheduleWatch.items.map(item => {
@@ -1749,13 +1786,18 @@
                 ${pushLine ? `<span class="dc-session-meta dc-schedule-push${item.lastPush?.failed ? ' is-failed' : ''}">📤 ${escapeHtml(pushLine)}</span>` : ''}
                 <span class="dc-schedule-actions">
                     ${item.sessionId && item.lastRunAt ? `<button type="button" class="dc-cmd-link" data-dc-schedule-open="${escapeHtml(item.id)}">${escapeHtml(tx('scheduleOpen'))}</button>` : ''}
+                    ${item.status !== 'running' ? `<button type="button" class="dc-cmd-link" data-dc-schedule-run="${escapeHtml(item.id)}">${escapeHtml(tx(item.status === 'active' ? 'scheduleRun' : 'scheduleRunOnce'))}</button>` : ''}
                     ${item.status === 'active' ? `<button type="button" class="dc-cmd-link is-danger" data-dc-schedule-cancel="${escapeHtml(item.id)}">${escapeHtml(tx('scheduleCancel'))}</button>` : ''}
+                    ${item.status !== 'running' ? `<button type="button" class="dc-cmd-link is-danger" data-dc-schedule-delete="${escapeHtml(item.id)}">${escapeHtml(tx(view.confirm === item.id ? 'scheduleConfirm' : 'scheduleDelete'))}</button>` : ''}
+                    ${view.confirm === item.id ? `<button type="button" class="dc-cmd-link" data-schedule-keep>${escapeHtml(tx('scheduleKeep'))}</button>` : ''}
                 </span>
             </div>`;
         }).join('');
     }
 
     function closeSchedulePanel() {
+        clearTimeout(scheduleWatch.panel?.scheduleView.refresh);
+        clearTimeout(scheduleWatch.panel?.scheduleView.debounce);
         scheduleWatch.panel?.remove();
         scheduleWatch.panel = null;
         el.input.focus({ preventScroll: true });
@@ -1769,11 +1811,27 @@
             <div class="dc-session-backdrop" data-dc-schedule-close></div>
             <div class="dc-session-card dc-schedule-card" role="dialog" aria-modal="true" aria-label="${escapeHtml(tx('scheduleTitle'))}" tabindex="-1">
                 <div class="dc-session-head"><b>⏰ ${escapeHtml(tx('scheduleTitle'))}</b><button type="button" class="dc-session-close" data-dc-schedule-close aria-label="${escapeHtml(tx('btwClose'))}">×</button></div>
+                <div class="dc-schedule-filters">
+                    <input type="search" class="dc-session-search" data-schedule-search aria-label="${escapeHtml(tx('scheduleSearch'))}" placeholder="${escapeHtml(tx('scheduleSearch'))}">
+                    <select class="dc-session-search" data-schedule-status aria-label="${escapeHtml(tx('scheduleAll'))}"><option value="">${escapeHtml(tx('scheduleAll'))}</option>${['active','running','done','failed','cancelled'].map(status => `<option value="${status}">${escapeHtml(tx('scheduleStatus_' + status))}</option>`).join('')}</select>
+                </div>
                 <div class="dc-session-list"><div class="dc-session-empty">${escapeHtml(tx('sessionLoading'))}</div></div>
+                <div class="dc-schedule-pages" hidden><button class="dc-cmd-link" data-step="-1">${escapeHtml(tx('schedulePrev'))}</button><span aria-live="polite"></span><button class="dc-cmd-link" data-step="1">${escapeHtml(tx('scheduleNextPage'))}</button></div>
                 <div class="dc-session-foot dc-push-foot"><span>${escapeHtml(tx('scheduleHint'))}</span><button type="button" class="dc-action dc-action--primary" data-dc-schedule-new>${escapeHtml(tx('scheduleNew'))}</button></div>
             </div>`;
         document.body.appendChild(overlay);
         scheduleWatch.panel = overlay;
+        const view = overlay.scheduleView = { page: 1, request: 0, confirm: '', busy: false };
+        function filterChanged(delay) {
+            view.request++;
+            view.page = 1;
+            view.confirm = '';
+            clearTimeout(view.refresh);
+            clearTimeout(view.debounce);
+            view.debounce = setTimeout(() => loadSchedulePage(overlay), delay);
+        }
+        overlay.querySelector('[data-schedule-search]').addEventListener('input', () => filterChanged(160));
+        overlay.querySelector('[data-schedule-status]').addEventListener('change', () => filterChanged(0));
         overlay.addEventListener('keydown', event => { if (event.key === 'Escape') { event.preventDefault(); closeSchedulePanel(); } });
         overlay.addEventListener('click', async event => {
             if (event.target.closest('[data-dc-schedule-close]')) return closeSchedulePanel();
@@ -1790,32 +1848,56 @@
                 closeSchedulePanel();
                 return openSession({ id: item.sessionId });
             }
-            const cancel = event.target.closest('[data-dc-schedule-cancel]');
-            if (cancel) {
-                cancel.disabled = true;
-                try {
-                    const res = await fetch(`/api/ai/schedules/${encodeURIComponent(cancel.dataset.dcScheduleCancel)}`, { method: 'DELETE', headers: authHeaders() });
-                    const data = await res.json().catch(() => ({}));
-                    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-                    scheduleWatch.items = scheduleWatch.items.map(entry => entry.id === data.item.id ? data.item : entry);
-                    renderSchedulePanel();
-                    showToast(tx('scheduleCancelled'));
-                } catch (error) {
-                    cancel.disabled = false;
-                    showToast(`${tx('scheduleFailed')}：${error.message}`);
+            if (view.busy) return;
+            const step = event.target.closest('[data-step]');
+            if (step) {
+                view.page = Math.max(1, view.page + Number(step.dataset.step));
+                view.confirm = '';
+                step.disabled = true;
+                overlay.querySelector('.dc-session-list').scrollTop = 0;
+                return loadSchedulePage(overlay);
+            }
+            if (event.target.closest('[data-schedule-retry]')) return loadSchedulePage(overlay);
+            if (event.target.closest('[data-schedule-keep]')) {
+                view.confirm = '';
+                return loadSchedulePage(overlay);
+            }
+            const button = event.target.closest('[data-dc-schedule-cancel], [data-dc-schedule-run], [data-dc-schedule-delete]');
+            if (!button) return;
+            const { dcScheduleCancel, dcScheduleRun, dcScheduleDelete } = button.dataset;
+            const id = dcScheduleCancel || dcScheduleRun || dcScheduleDelete;
+            if (dcScheduleDelete && view.confirm !== id) {
+                view.confirm = id;
+                clearTimeout(view.refresh);
+                renderSchedulePanel();
+                overlay.querySelector('[data-schedule-keep]').focus();
+                return;
+            }
+            view.busy = true;
+            button.disabled = true;
+            button.setAttribute('aria-busy', 'true');
+            try {
+                const path = dcScheduleRun ? '/run' : dcScheduleDelete ? '/record' : '';
+                const options = { method: dcScheduleRun ? 'POST' : 'DELETE', headers: authHeaders() };
+                if (dcScheduleRun) {
+                    options.headers = { ...options.headers, 'Content-Type': 'application/json' };
+                    const { runCount, status } = scheduleWatch.items.find(item => item.id === id);
+                    options.body = JSON.stringify({ runCount, status });
                 }
+                const res = await fetch(`/api/ai/schedules/${encodeURIComponent(id)}${path}`, options);
+                if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `HTTP ${res.status}`);
+                if (dcScheduleRun) watchSchedules(true);
+                if (!dcScheduleDelete) showToast(tx(dcScheduleRun ? 'scheduleStarted' : 'scheduleCancelled'));
+            } catch (error) {
+                showToast(`${tx('scheduleActionFailed')}：${error.message}`);
+            } finally {
+                view.confirm = '';
+                await loadSchedulePage(overlay);
+                view.busy = false;
             }
         });
-        overlay.querySelector('.dc-schedule-card').focus();
-        try {
-            const data = await fetchSchedules();
-            if (scheduleWatch.panel !== overlay) return;
-            scheduleWatch.items = data.items || [];
-            renderSchedulePanel();
-        } catch {
-            const list = overlay.querySelector('.dc-session-list');
-            if (list) list.innerHTML = `<div class="dc-session-empty">${escapeHtml(tx('scheduleLoadFailed'))}</div>`;
-        }
+        overlay.querySelector('[data-schedule-search]').focus();
+        await loadSchedulePage(overlay);
     }
 
     // 有进行中的任务时每分钟查一次「上次检查之后执行过的」，给出提醒；正看着那段对话就刷新它
@@ -1836,8 +1918,7 @@
                 if (item.sessionId && item.sessionId === state.sessionId && !state.controller && !state.restoring && !external.active) openSession({ id: item.sessionId });
             }
             if (scheduleWatch.panel && data.items?.length) {
-                scheduleWatch.items = (await fetchSchedules()).items || [];
-                renderSchedulePanel();
+                await loadSchedulePage();
             }
             return Number(data.active) > 0;
         } catch {
