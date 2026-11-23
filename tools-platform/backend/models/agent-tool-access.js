@@ -11,7 +11,7 @@ function groupFor(name) {
         if (group.names.includes(name)) return id;
     }
     if (ALWAYS.has(name)) return 'always';
-    if (['find_platform_tools', 'read_tool_guide'].includes(name)) return 'platform_tools';
+    if (['find_platform_tools', 'read_tool_guide', 'read_page_config'].includes(name)) return 'platform_tools';
     if (['search_my_conversations', 'read_my_conversation'].includes(name)) return 'my_conversations';
     if (['read_skill', 'save_skill'].includes(name)) return 'agent_skills';
     if (['publish_html_tool', 'send_notification'].includes(name)) return 'publish_tools';

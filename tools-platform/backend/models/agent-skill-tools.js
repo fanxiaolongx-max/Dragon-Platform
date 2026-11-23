@@ -102,9 +102,18 @@ async function execute(call, { username = '', secrets = [], user, root = '' } = 
         const skill = parse(markdown);
         const existed = Boolean(await store.withSkillForUser(skill.id, user, item => store.getSkill(item.id)).catch(() => null));
         const saved = await store.createFromMarkdown(markdown, { source: 'agent', createdBy: username, overwrite: true, user });
+        const verified = await store.getSkill(saved.id).catch(() => null);
+        if (!verified || !String(verified.markdown || '').trim()) {
+            return {
+                content: `错误（VERIFY_FAILED）：技能保存后回读校验失败，未找到已保存的技能 @${saved.id}。`,
+                summary: '保存回读验真失败',
+                isError: true
+            };
+        }
         return {
-            content: `已${existed ? '更新' : '创建'}技能 @${saved.id}「${saved.name}」${existed ? '，旧版本已自动备份，可在技能管理里回退' : ''}。下次对话即可使用。`,
-            summary: `${existed ? '更新' : '创建'} @${saved.id}`
+            verified: true,
+            content: `已${existed ? '更新' : '创建'}技能 @${verified.id}「${verified.name}」（已回读验真）${existed ? '，旧版本已自动备份，可在技能管理里回退' : ''}。下次对话即可使用。`,
+            summary: `${existed ? '更新' : '创建'} @${verified.id} · 已回读`
         };
     } catch (error) {
         return { content: `错误（${error.code || 'ERROR'}）：${error.message}`, summary: String(error.message || '').slice(0, 120), isError: true };

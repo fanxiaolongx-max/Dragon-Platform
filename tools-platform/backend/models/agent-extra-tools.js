@@ -4,8 +4,9 @@
 // - 不选目录的对话：forChat() 建一个只含附加工具的登记表，审批卡走同一套 /api/agent-workspace/approvals。
 // 只给管理员（打开网址可访问服务端能访问的内网地址）。
 const browser = require('./agent-browser');
+const pageConfigTools = require('./agent-page-config-tools');
 
-// 平台工具向导：按需求找平台上的工具、读某个工具的使用说明（只读，所有账号可用）
+// 平台工具向导：按需求找平台上的工具、读某个工具的使用说明、读白名单页面配置（只读，按权限过滤）
 const PLATFORM_TOOL_DEFINITIONS = [
     {
         name: 'find_platform_tools',
@@ -16,10 +17,14 @@ const PLATFORM_TOOL_DEFINITIONS = [
         name: 'read_tool_guide',
         description: '读取平台上某个工具的使用说明：能做什么、什么时候用、操作步骤、工作原理、注意事项。用户问某个工具怎么用、怎么工作时用；tool 填工具名称、入口路径或 find_platform_tools 返回的 id。',
         parameters: { type: 'object', properties: { tool: { type: 'string' } }, required: ['tool'] }
-    }
+    },
+    pageConfigTools.DEFINITION
 ];
 
-async function executePlatformTool(name, args = {}, user) {
+async function executePlatformTool(name, args = {}, user, { tenantId = '', sensitiveValues = [] } = {}) {
+    if (name === 'read_page_config') {
+        return pageConfigTools.execute(args, { user, tenantId, secrets: sensitiveValues });
+    }
     const guides = require('./platform-tool-guides');
     try {
         if (name === 'find_platform_tools') {
@@ -48,14 +53,14 @@ async function executePlatformTool(name, args = {}, user) {
     }
 }
 
-const platformToolset = user => ({
+const platformToolset = (user, opts = {}) => ({
     id: 'platform_tools',
-    label: '平台工具向导：按需求找平台上的工具、读某个工具的使用说明（怎么用、原理）',
+    label: '平台工具向导与页面配置：按需求找平台工具、读使用说明、只读查看各页面白名单配置',
     definitions: PLATFORM_TOOL_DEFINITIONS,
     kindOf: () => 'read',
     preview: async () => ({}),
     alwaysKey: name => name,
-    execute: call => executePlatformTool(call.name, call.args && typeof call.args === 'object' ? call.args : {}, user)
+    execute: call => executePlatformTool(call.name, call.args && typeof call.args === 'object' ? call.args : {}, user, opts)
 });
 
 /**
@@ -65,8 +70,10 @@ const platformToolset = user => ({
  */
 async function toolsets({ owner, user, readOnly, channel = null, root = '', chatSessionId = '', sensitiveValues = [] }) {
     if (!owner) return [];
+    const ownerText = String(owner || '');
+    const tenantId = ownerText.includes('::') ? ownerText.slice(0, ownerText.indexOf('::')) : '';
     // 平台共享的 MCP 服务与服务器本机浏览器运行在团队沙箱之外：非超级管理员默认不开放，由 agent-tool-access 统一过滤
-    const sets = [platformToolset(user ?? await require('./tool-distribution').actorForOwner(owner))];
+    const sets = [platformToolset(user ?? await require('./tool-distribution').actorForOwner(owner), { tenantId, sensitiveValues })];
     if (channel) {
         if (channel.canSaveSkills) sets.push(require('./agent-skill-tools').toolset({ owner, user }));
         sets.push(...await require('./agent-mcp').toolsets({ readOnly, trustedOnly: true }).catch(error => { console.warn('[agent] MCP 工具不可用：', error.message || error); return []; }));

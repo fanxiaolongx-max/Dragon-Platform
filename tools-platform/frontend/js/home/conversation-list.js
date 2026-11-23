@@ -298,7 +298,7 @@
     window.addEventListener('scroll',()=>close(),true);
     window.addEventListener('resize',()=>close());window.addEventListener('blur',()=>close());
     window.addEventListener('tools:authchange',()=>{if(identity()!==account)load();});
-    window.addEventListener('storage',event=>{if(!event.key||['tools_user','tools_tenant_id','tools_token'].includes(event.key))load();});
+    window.addEventListener('storage',event=>{if(!event.key||['tools_user','tools_tenant_id','tools_token'].includes(event.key)){if(identity()!==account)load();}});
     window.addEventListener('tools:languagechange',()=>{close();signal('*');});
     if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',load,{once:true});else load();
 })();

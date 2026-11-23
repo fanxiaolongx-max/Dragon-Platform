@@ -144,3 +144,27 @@ test('save_skill takes the SKILL.md from a draft file in the workspace, so a lon
     assert.match((await store.getSkill('demo-report')).markdown, /3\. 写报告/);
     assert.deepEqual(skillTools.DEFINITIONS.find(item => item.name === 'save_skill').parameters.required, ['reason']);
 });
+
+test('save_skill verifies persisted readback and fails explicitly if readback returns empty', async () => {
+    const superUser = { ...user, isSuper: true };
+    const ok = await skillTools._internal.execute(
+        { name: 'save_skill', args: { markdown: skillMd('1. 验证回读'), reason: '测试回读' } },
+        { username: 'admin', user: superUser, root }
+    );
+    assert.equal(ok.verified, true);
+    assert.ok(!ok.isError);
+    assert.match(ok.content, /回读验真/);
+
+    const origGetSkill = store.getSkill;
+    store.getSkill = async () => null;
+    try {
+        const failed = await skillTools._internal.execute(
+            { name: 'save_skill', args: { markdown: skillMd('1. 模拟回读丢失'), reason: '测试回读失败' } },
+            { username: 'admin', user: superUser, root }
+        );
+        assert.equal(failed.isError, true);
+        assert.match(failed.content, /VERIFY_FAILED|回读校验失败/);
+    } finally {
+        store.getSkill = origGetSkill;
+    }
+});

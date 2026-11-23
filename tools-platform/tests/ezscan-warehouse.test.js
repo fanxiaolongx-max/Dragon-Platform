@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const express = require('express');
-const request = require('supertest');
+const supertest = require('supertest');
 
 const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), 'ezscan-warehouse-'));
 process.env.TOOLS_DATA_DIR = path.join(sandbox, 'data');
@@ -48,11 +48,16 @@ function state(label = 'Warehouse product') {
     };
 }
 
+let server;
+const request = target => supertest(target === app ? server : target);
+
 function api(method, url = endpoint, token = 'warehouse-admin') {
     return request(app)[method](url).set('Authorization', `Bearer ${token}`);
 }
 
 test.before(async () => {
+    server = app.listen(0, '127.0.0.1');
+    await new Promise(resolve => server.once('listening', resolve));
     const expiry = Date.now() + 600000;
     await sessions.saveSession('warehouse-admin', 'admin', 'admin', expiry);
     await sessions.saveSession('warehouse-viewer', 'viewer', 'user', expiry);
@@ -66,6 +71,10 @@ test.before(async () => {
 });
 
 test.after(async () => {
+    if (server) {
+        server.closeAllConnections?.();
+        await new Promise(resolve => server.close(resolve));
+    }
     await pool.closeAll();
     await appDb.closeDatabase();
     await platformDb.closeDatabase();
