@@ -1,10 +1,10 @@
 {
   "zh": [
-    "修复 Worktree 下拉菜单中删除按钮挤压名称与分支导致无法显示的问题，并自动清理最近工作空间列表中已失效/不存在或过期的临时沙箱目录。",
-    "账号管理优化：同队成员超过 2 人时折叠展示并支持弹窗查看全部成员；单人团队绑定或换绑团队前提示原团队数据将丢失，切换后自动清理无人使用的团队空间。"
+    "更新「WE✖️AI / 提词器（we-ai）」演讲与幻灯片深色主题配色，同步演讲文稿、开场词与逐句时间轴。",
+    "新增 12 路峰会版多语种配音（*-summit.mp3，we-ai-narration-20261123-1）并更新内置工具说明文档。"
   ],
   "en": [
-    "Fixed the Worktree menu delete button squeezing directory and branch labels to zero width, and automatically prune missing or expired scratch directories from recent workspaces.",
-    "Account management improvements: collapse long teammate lists after 2 names with a view-all popover, warn before rebinding sole-member teams that original data will be lost, and clean up unused team spaces after rebinding."
+    "Updated dark-theme palettes across the WE×AI slides (ai-en) and teleprompter (we-ai), along with refreshed talk scripts, opening cues, and sentence timelines.",
+    "Added 12 summit multilingual narration audio tracks (*-summit.mp3 via we-ai-narration-20261123-1) and updated built-in tool guides."
   ]
 }

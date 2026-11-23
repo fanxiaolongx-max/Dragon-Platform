@@ -6,7 +6,7 @@ const os = require('node:os');
 const path = require('node:path');
 const vm = require('node:vm');
 const express = require('express');
-const request = require('supertest');
+const supertest = require('supertest');
 
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'requirements-transport-'));
 process.env.TOOLS_DATA_DIR = temp;
@@ -30,6 +30,8 @@ app.use((req, res, next) => {
     next();
 });
 app.use('/api/requirements', router);
+let server;
+const request = target => supertest(target === app ? server : target);
 const call = (method, url, body, role = 'admin', username = 'admin') => {
     const req = request(app)[method](url).set('x-test-user', username).set('x-test-role', role);
     return body === undefined ? req : req.send(body);
@@ -52,7 +54,19 @@ function browser(getConfig = () => transport.getPublicConfig(user), overrides = 
     return vm.runInContext('ReqApp', context);
 }
 
-test.after(async () => { await pool.closeAll(); fs.rmSync(temp, { recursive: true, force: true }); });
+test.before(async () => {
+    server = app.listen(0, '127.0.0.1');
+    await new Promise(resolve => server.once('listening', resolve));
+});
+
+test.after(async () => {
+    if (server) {
+        server.closeAllConnections?.();
+        await new Promise(resolve => server.close(resolve));
+    }
+    await pool.closeAll();
+    fs.rmSync(temp, { recursive: true, force: true });
+});
 
 test('browser encrypts all request fields; authenticated creation and admin editing preserve script text', async () => {
     assert.equal((await request(app).get('/api/requirements/transport-key')).status, 401);

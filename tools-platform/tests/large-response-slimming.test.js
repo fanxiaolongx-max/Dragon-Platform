@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const express = require('express');
-const request = require('supertest');
+const supertest = require('supertest');
 
 const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), 'large-response-slimming-'));
 process.env.TOOLS_DATA_DIR = path.join(sandbox, 'data');
@@ -35,7 +35,19 @@ const snapshotPayload = (id, timestamp, month) => ({
 const exec = (sql, params = []) => new Promise((resolve, reject) => pool.getConnection('report.db', 'report').run(sql, params, error => error ? reject(error) : resolve()));
 const execReq = (sql, params = []) => new Promise((resolve, reject) => pool.getConnection('requirements.db').run(sql, params, error => error ? reject(error) : resolve()));
 
+let server;
+const request = target => supertest(target === app ? server : target);
+
+test.before(async () => {
+    server = app.listen(0, '127.0.0.1');
+    await new Promise(resolve => server.once('listening', resolve));
+});
+
 test.after(async () => {
+    if (server) {
+        server.closeAllConnections?.();
+        await new Promise(resolve => server.close(resolve));
+    }
     await appDb.closeDatabase();
     await pool.closeAll();
     fs.rmSync(sandbox, { recursive: true, force: true });
