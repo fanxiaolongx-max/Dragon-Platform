@@ -47,8 +47,11 @@ if (process.env.TOOLS_AI_DIRECT_FETCH !== '1') {
         }
         return aiUpstreamSessions[key];
     };
-    require('./backend/models/ai-provider-client').configureUpstreamFetch((url, init = {}, { verifySsl = false } = {}) =>
-        aiUpstreamSession(verifySsl).fetch(url, { ...init, credentials: 'omit', bypassCustomProtocolHandlers: true }));
+    require('./backend/models/ai-provider-client').configureUpstreamFetch((url, init = {}, { verifySsl = false } = {}) => {
+        // 明文 http://（尤其带域名的内网网关）无需走跳过 HTTPS 证书校验的分区，避免自定义 cert-verify 分区在代理/PAC 下异常阻塞
+        const effectiveVerify = /^http:\/\//i.test(String(url)) ? true : verifySsl === true;
+        return aiUpstreamSession(effectiveVerify).fetch(url, { ...init, credentials: 'omit', bypassCustomProtocolHandlers: true });
+    });
 }
 if (app.isPackaged) {
     process.env.TOOLS_MEDIA_DIR = path.join(userDataPath, 'media');

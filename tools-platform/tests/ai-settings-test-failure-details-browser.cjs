@@ -170,7 +170,7 @@ app.whenReady().then(async () => {
     })()`);
     assert.deepEqual(authControls.initial.opts, ['bearer', 'x-api-key', 'api-key', 'x-goog-api-key', 'none', 'custom']);
     assert.equal(authControls.initial.customHidden, true);
-    assert.equal(authControls.initial.verifyChecked, true);
+    assert.equal(authControls.initial.verifyChecked, false, '配置里没写 verifySsl 时默认不校验证书（与内网自签证书兼容）');
     assert.equal(authControls.customShown, true);
     assert.equal(authControls.hiddenAgain, true);
 

@@ -7,11 +7,20 @@ const { redactText, redactValue } = require('../models/ai-sensitive-data');
 
 const TEST_TIMEOUT_MS = 30000;
 
+const IMAGE_TEST_MODEL_RE = /^(?:qwen-image|gpt-image|dall-e|imagen|flux)/i;
+
+function isOpenAiImageTest(settings = {}) {
+    const provider = aiProviderClient.normalizeProvider(settings.provider);
+    if (!['openai', 'openai-compatible'].includes(provider)) return false;
+    return settings.category === 'image' || IMAGE_TEST_MODEL_RE.test(String(settings.model || ''));
+}
+
 function expectedEndpointForSettings(settings = {}) {
     const provider = aiProviderClient.normalizeProvider(settings.provider);
     const base = aiProviderClient.getBaseUrl(settings);
     if (provider === 'anthropic') return `${base}/messages`;
     if (provider === 'gemini') return `${base}/models/${encodeURIComponent(settings.model || 'gemini-2.5-flash')}:generateContent`;
+    if (isOpenAiImageTest(settings)) return `${base}/images/generations`;
     return `${base}/chat/completions`;
 }
 
@@ -288,19 +297,30 @@ async function runConnectionTest(req, res, { profileId = null } = {}) {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), TEST_TIMEOUT_MS);
         let result;
+        const imageTest = isOpenAiImageTest(settings);
         try {
             const client = aiProviderClient.createClient(settings);
-            result = await client.generateText({
-                systemInstruction: '你是模型连通性测试助手。请只回复 OK，不要输出多余内容。',
-                prompt: '请回复：OK',
-                maxOutputTokens: testMaxTokens,
-                temperature: testTemperature,
-                signal: controller.signal
-            });
+            if (imageTest) {
+                result = await client.generateImage({
+                    prompt: 'A clean minimal geometric blue circle on white background',
+                    aspectRatio: '1:1',
+                    signal: controller.signal
+                });
+            } else {
+                result = await client.generateText({
+                    systemInstruction: '你是模型连通性测试助手。请只回复 OK，不要输出多余内容。',
+                    prompt: '请回复：OK',
+                    maxOutputTokens: testMaxTokens,
+                    temperature: testTemperature,
+                    signal: controller.signal
+                });
+            }
         } finally {
             clearTimeout(timer);
         }
-        const replyText = String(result?.text || '').trim();
+        const replyText = imageTest
+            ? (Array.isArray(result?.images) && result.images.length ? `OK（已生成 ${result.images.length} 张测试图片）` : String(result?.text || '').trim())
+            : String(result?.text || '').trim();
         if (!replyText) {
             const err = new Error(result?.reasoningOnly
                 ? '模型已连通但本次输出仅包含思考过程（reasoning），未返回最终正文。'

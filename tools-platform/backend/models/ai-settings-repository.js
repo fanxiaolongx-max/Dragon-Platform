@@ -585,7 +585,7 @@ async function buildRuntimeSettings(payload = {}) {
         // 公共模型的连通性测试：只能换成它自己列出的模型，其余参数（尤其 Base URL）一律用超级管理员的配置，Key 不会被发往别处
         const stored = profileSettings(target);
         const model = stored.models.includes(String(payload.model || '')) ? String(payload.model) : stored.model;
-        return runtimeSettings({ ...stored, model });
+        return runtimeSettings({ ...stored, category: profileCategory(target), model });
     }
     const current = payload.profileId ? await getStoredSettings(payload.profileId).catch(() => DEFAULT_SETTINGS) : DEFAULT_SETTINGS;
     const nextPayload = { ...payload };
@@ -594,7 +594,11 @@ async function buildRuntimeSettings(payload = {}) {
     if (!Object.prototype.hasOwnProperty.call(nextPayload, 'apiKey') || String(nextPayload.apiKey || '').trim() === '') {
         nextPayload.apiKey = current.apiKey;
     }
-    return runtimeSettings(normalizeSettings(nextPayload, current));
+    const normalized = normalizeSettings(nextPayload, current);
+    const category = payload.category === 'image' || payload.category === 'chat'
+        ? payload.category
+        : (target ? profileCategory(target) : profileCategory({ model: normalized.model }));
+    return runtimeSettings({ ...normalized, category });
 }
 
 async function getPublicSettings() {

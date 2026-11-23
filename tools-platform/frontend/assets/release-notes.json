@@ -1,10 +1,14 @@
 {
   "zh": [
-    "定时任务面板升级：支持分页浏览、关键词检索与状态筛选，新增立即手动执行一次与删除单条任务记录，并优化定时任务与桌面智能体界面细节。",
-    "桌面端模型请求接入 Electron 网络栈以自动遵循系统与企业代理/PAC 配置，同时兼容仅填域名或网关前缀的 Anthropic 接口基地址（自动补全 /v1）。"
+    "全局设置 → AI 助手新增「01平台接入」：粘贴 API Token 自动测试连接，保存后一键配置并启用全局对话模型（qwen3.8-27b）与生图模型（qwen-image-2.1）；还没添加自定义模型时会主动提示。",
+    "生图模型支持 OpenAI 兼容接口（/images/generations，如 qwen-image-2.1），生图模型的「测试连接」会真正生成一张测试图。",
+    "测试连接因证书策略失败时自动换一种「校验 HTTPS 证书」设置重试，成功后自动保存；切换供应商协议时不再清空已填的接口地址、Token 和模型列表。",
+    "桌面版访问 http:// 的内网模型网关不再走跳过证书校验的专用通道，避免在代理 / PAC 环境下请求卡住。"
   ],
   "en": [
-    "Upgraded scheduled tasks with paginated browsing, keyword search and status filtering, manual run-now execution, single-record deletion, and UI refinements across schedules and desktop agents.",
-    "Desktop AI model requests now route through Electron's network stack to honor system/enterprise proxies and PAC rules, and Anthropic base URLs without a version segment automatically append /v1."
+    "Global Settings → AI assistant adds 01 Platform quick connect: paste an API token to test it automatically, then save to configure and activate the global chat model (qwen3.8-27b) and image model (qwen-image-2.1); shown proactively when no custom model has been added yet.",
+    "Image models support OpenAI-compatible endpoints (/images/generations, e.g. qwen-image-2.1), and testing an image model now generates a real test image.",
+    "When a connection test fails because of the certificate policy, it retries with the other verify-HTTPS setting and saves it on success; switching provider protocols no longer clears the base URL, token or model list you entered.",
+    "On desktop, plain http:// model gateways no longer go through the certificate-skipping channel, avoiding stalled requests behind proxies or PAC."
   ]
 }

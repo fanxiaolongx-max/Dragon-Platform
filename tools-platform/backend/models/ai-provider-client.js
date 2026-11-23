@@ -129,8 +129,8 @@ function trimSlash(value) {
 function getBaseUrl(settings = {}) {
     const provider = normalizeProvider(settings.provider);
     let base = trimSlash(settings.apiBaseUrl || DEFAULT_BASE_URLS[provider]);
-    if ((provider === 'openai' || provider === 'openai-compatible' || provider === 'minimax') && /\/chat\/completions$/i.test(base)) {
-        base = trimSlash(base.replace(/\/chat\/completions$/i, ''));
+    if ((provider === 'openai' || provider === 'openai-compatible' || provider === 'minimax') && /\/(?:chat\/completions|images\/generations)$/i.test(base)) {
+        base = trimSlash(base.replace(/\/(?:chat\/completions|images\/generations)$/i, ''));
     } else if (provider === 'anthropic') {
         if (/\/messages$/i.test(base)) base = trimSlash(base.replace(/\/messages$/i, ''));
         // 与 Anthropic SDK / Claude Code 的约定一致：基地址只填到域名或网关前缀（如 http://host:port、…/anthropic）时，
@@ -1130,11 +1130,14 @@ class AiProviderClient {
         return this.generateText({ messages, systemInstruction, maxOutputTokens, temperature, responseMimeType, json, thinkingBudget, onDelta, onReasoning, signal, tools, toolChoice });
     }
 
-    // Image generation with a Gemini image model: the prompt, optionally with reference pictures to edit or follow.
+    // Image generation with Gemini or OpenAI-compatible image models (e.g. qwen-image-2.1).
     // Returns { images: [{ mimeType, data }], text, usage }.
     async generateImage({ prompt, images = [], aspectRatio = '', signal } = {}) {
+        if (this.provider === 'openai' || this.provider === 'openai-compatible') {
+            return this.generateOpenAiImage({ prompt, aspectRatio, signal });
+        }
         if (this.provider !== 'gemini') {
-            const error = new Error(`绘图模型目前支持 Gemini 图片模型；当前方案是 ${this.provider}`);
+            const error = new Error(`绘图模型目前支持 Gemini 与 OpenAI 兼容图片模型；当前方案是 ${this.provider}`);
             error.status = 400;
             throw error;
         }
@@ -1159,6 +1162,74 @@ class AiProviderClient {
             text: out.filter(part => part.text).map(part => part.text).join('\n').trim(),
             usage: { promptTokens: usage.promptTokenCount || 0, outputTokens: usage.candidatesTokenCount || 0, totalTokens: usage.totalTokenCount || 0 },
             finishReason: String(data.candidates?.[0]?.finishReason || '')
+        };
+    }
+
+    async generateOpenAiImage({ prompt, aspectRatio = '', signal } = {}) {
+        const url = `${this.baseUrl}/images/generations`;
+        const safeEndpoint = sanitizeEndpointUrl(url, [this.apiKey]);
+        const ratioSizes = {
+            '1:1': '1024x1024',
+            '16:9': '1344x768',
+            '9:16': '768x1344',
+            '4:3': '1152x896',
+            '3:4': '896x1152'
+        };
+        const size = ratioSizes[String(aspectRatio || '').trim()] || '1024x1024';
+        const request = (options = { responseFormat: true, includeSize: true }) => this.fetchUpstream(url, {
+            method: 'POST',
+            headers: this.applyExtraHeaders(this.buildAuthHeaders({ 'Content-Type': 'application/json' })),
+            body: JSON.stringify(this.applyExtraBody({
+                model: this.model,
+                prompt: String(prompt || ''),
+                n: 1,
+                ...(options.includeSize ? { size } : {}),
+                ...(options.responseFormat ? { response_format: 'b64_json' } : {})
+            })),
+            signal
+        });
+        let res = await request({ responseFormat: true, includeSize: true });
+        if (res.status === 400) {
+            res = await request({ responseFormat: false, includeSize: false });
+        }
+        if (!res.ok) await parseErrorResponse(res, { endpoint: safeEndpoint });
+        const data = await readProviderJson(res, { endpoint: safeEndpoint });
+        const items = Array.isArray(data?.data) ? data.data : (Array.isArray(data?.images) ? data.images : []);
+        const imagesOut = [];
+        for (const item of items) {
+            if (!item) continue;
+            if (item.b64_json) {
+                const rawB64 = String(item.b64_json);
+                const dataUrlMatch = /^data:(image\/[a-z0-9.+-]+);base64,(.+)$/i.exec(rawB64);
+                imagesOut.push(dataUrlMatch
+                    ? { mimeType: dataUrlMatch[1], data: dataUrlMatch[2] }
+                    : { mimeType: 'image/png', data: rawB64 });
+            } else if (item.url) {
+                const imgUrl = String(item.url);
+                const dataUrlMatch = /^data:(image\/[a-z0-9.+-]+);base64,(.+)$/i.exec(imgUrl);
+                if (dataUrlMatch) {
+                    imagesOut.push({ mimeType: dataUrlMatch[1], data: dataUrlMatch[2] });
+                } else if (/^https?:\/\//i.test(imgUrl)) {
+                    const imgRes = await this.fetchUpstream(imgUrl, { method: 'GET', signal });
+                    if (imgRes.ok) {
+                        const buf = Buffer.from(await imgRes.arrayBuffer());
+                        const mime = (imgRes.headers.get('content-type') || 'image/png').split(';')[0].trim();
+                        imagesOut.push({ mimeType: mime.startsWith('image/') ? mime : 'image/png', data: buf.toString('base64') });
+                    }
+                }
+            }
+        }
+        const usage = data.usage || {};
+        return {
+            images: imagesOut,
+            text: items.map(item => item?.revised_prompt || '').filter(Boolean).join('\n').trim(),
+            usage: {
+                promptTokens: usage.input_tokens || usage.prompt_tokens || 0,
+                outputTokens: usage.output_tokens || usage.completion_tokens || 0,
+                totalTokens: usage.total_tokens || 0
+            },
+            finishReason: 'stop',
+            endpoint: safeEndpoint
         };
     }
 
