@@ -128,7 +128,7 @@ app.whenReady().then(async () => {
   <div id="navSettingsContent"></div>
 </div>
 <script>
-window.navState = { lang: 'zh-CN', aiCategory: 'chat', aiSelectedProfileId: null, aiQuickDraftBaseUrl: 'http://models.ascend.huawei.com', aiQuickDraftToken: '' };
+window.navState = { lang: 'zh-CN', aiCategory: 'chat', aiSelectedProfileId: null, aiQuickAvailable: true, aiQuickDraftBaseUrl: 'http://models.ascend.huawei.com', aiQuickDraftToken: '' };
 window.navEscape = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 window.getAuthHeaderForNav = () => ({});
 window.navLocaleText = (zh, en) => zh || en;

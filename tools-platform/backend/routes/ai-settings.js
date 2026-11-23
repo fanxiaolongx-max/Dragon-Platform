@@ -7,6 +7,26 @@ const { redactText, redactValue } = require('../models/ai-sensitive-data');
 
 const TEST_TIMEOUT_MS = 30000;
 
+// 「01 平台接入」只在公司内网可用：判断方式与首页 WeLink 内网识别一致（解析并连通 WeLink 内网域名）。
+// 外网既不显示入口，也不允许新建 / 修改 / 测试指向 01 平台的模型配置。
+const ZERO_ONE_HOST_RE = /(^|\.)models\.ascend\.huawei\.com$/i;
+const welinkNetwork = () => require('../models/channels/welink-network');
+function pointsToZeroOne(body = {}) {
+    try {
+        const raw = String(body.apiBaseUrl || '').trim();
+        if (!raw) return false;
+        return ZERO_ONE_HOST_RE.test(new URL(/^https?:\/\//i.test(raw) ? raw : `http://${raw}`).hostname);
+    } catch (_) {
+        return false;
+    }
+}
+async function zeroOneGuard(req, res, next) {
+    if (!pointsToZeroOne(req.body || {})) return next();
+    const network = await welinkNetwork().checkIntranet().catch(() => ({ intranet: false }));
+    if (network.intranet) return next();
+    return res.status(403).json({ code: 'ZERO_ONE_INTRANET_ONLY', error: '01 平台仅限公司内网使用：当前网络不是公司内网，不能接入或测试 01 平台模型。' });
+}
+
 const IMAGE_TEST_MODEL_RE = /^(?:qwen-image|gpt-image|dall-e|imagen|flux)/i;
 
 function isOpenAiImageTest(settings = {}) {
@@ -151,6 +171,12 @@ router.get('/', async (req, res) => {
     res.json(await repo.getPublicSettings());
 });
 
+// 「01 平台接入」是否可用（只在公司内网）；单独一个接口，免得外网探测的几秒拖慢设置页
+router.get('/quick-connect', async (req, res) => {
+    const network = await welinkNetwork().checkIntranet({ refresh: req.query.refresh === '1' }).catch(() => ({ intranet: false }));
+    res.json({ available: Boolean(network.intranet), intranet: Boolean(network.intranet), hint: network.intranet ? '' : '01 平台仅限公司内网使用' });
+});
+
 router.get('/usage', async (req, res) => {
     try {
         res.json(await aiUsageRepo.getUsageStats({ dimension: req.query.dimension }));
@@ -191,7 +217,7 @@ router.post('/usage/clear', async (req, res) => {
     }
 });
 
-router.put('/', async (req, res) => {
+router.put('/', zeroOneGuard, async (req, res) => {
     try {
         res.json(await repo.saveSettings(req.body || {}));
     } catch (err) {
@@ -204,7 +230,7 @@ router.put('/model-aliases', (_req, res) => {
     res.status(410).json({ code: 'MODEL_ALIASES_REMOVED', error: '已取消模型名称映射，对话直接显示真实模型名称' });
 });
 
-router.post('/profiles', async (req, res) => {
+router.post('/profiles', zeroOneGuard, async (req, res) => {
     try {
         res.status(201).json(await repo.createProfile(req.body || {}));
     } catch (err) {
@@ -212,7 +238,7 @@ router.post('/profiles', async (req, res) => {
     }
 });
 
-router.put('/profiles/:profileId', async (req, res) => {
+router.put('/profiles/:profileId', zeroOneGuard, async (req, res) => {
     try {
         res.json(await repo.saveSettings({ ...(req.body || {}), profileId: req.params.profileId }));
     } catch (err) {
@@ -368,8 +394,8 @@ async function runConnectionTest(req, res, { profileId = null } = {}) {
     }
 }
 
-router.post('/test', (req, res) => runConnectionTest(req, res));
+router.post('/test', zeroOneGuard, (req, res) => runConnectionTest(req, res));
 
-router.post('/profiles/:profileId/test', (req, res) => runConnectionTest(req, res, { profileId: req.params.profileId }));
+router.post('/profiles/:profileId/test', zeroOneGuard, (req, res) => runConnectionTest(req, res, { profileId: req.params.profileId }));
 
 module.exports = router;

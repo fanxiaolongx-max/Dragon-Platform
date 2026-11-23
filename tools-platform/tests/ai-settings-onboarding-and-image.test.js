@@ -144,6 +144,7 @@ function loadSettingsUiHarness({ fetchImpl }) {
             aiCategory: 'chat',
             aiSaveTimer: null,
             aiQuickAutoTestTimer: null,
+            aiQuickAvailable: true,
             aiQuickDraftBaseUrl: 'http://models.ascend.huawei.com',
             aiQuickDraftToken: '',
             aiQuickShowToken: false,
@@ -450,4 +451,33 @@ test('01 onboarding card, provider change preservation, HTTP domain auto verifyS
     assert.equal(testRequests[1].body.verifySsl, true);
     assert.equal(verifyBox.checked, true);
     assert.equal(calls.some(c => c.method === 'PUT' && c.url.includes('/profiles/') && c.body.verifySsl === true), true);
+});
+
+test('01 平台只在公司内网可用：外网不显示入口，接入 / 测试 01 平台地址被拒；其他地址不受影响', async (t) => {
+    const express = require('express');
+    const saved = process.env.HUAWEI_INTRANET;
+    t.after(() => { if (saved === undefined) delete process.env.HUAWEI_INTRANET; else process.env.HUAWEI_INTRANET = saved; });
+    const app = express();
+    app.use(express.json());
+    app.use('/api/ai-settings', require('../backend/routes/ai-settings'));
+    const server = app.listen(0, '127.0.0.1');
+    await new Promise(resolve => server.once('listening', resolve));
+    t.after(() => new Promise(resolve => server.close(resolve)));
+    const base = `http://127.0.0.1:${server.address().port}/api/ai-settings`;
+    const post = (path, body) => fetch(base + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+
+    process.env.HUAWEI_INTRANET = '0';
+    const outside = await (await fetch(`${base}/quick-connect?refresh=1`)).json();
+    assert.equal(outside.available, false);
+    for (const url of ['http://models.ascend.huawei.com', 'models.ascend.huawei.com/v1', 'https://api.models.ascend.huawei.com/v1']) {
+        const res = await post('/test', { provider: 'openai-compatible', apiBaseUrl: url, apiKey: 'sk-0123456789abcdef', model: 'qwen3.8-27b' });
+        assert.equal(res.status, 403, url);
+        assert.equal((await res.json()).code, 'ZERO_ONE_INTRANET_ONLY');
+    }
+    assert.equal((await post('/profiles', { name: 'x', provider: 'openai-compatible', apiBaseUrl: 'http://models.ascend.huawei.com/v1', model: 'qwen3.8-27b' })).status, 403);
+    const other = await post('/test', { provider: 'openai-compatible', apiBaseUrl: 'http://127.0.0.1:9/v1', apiKey: 'sk-0123456789abcdef', model: 'm' });
+    assert.notEqual(other.status, 403, '其他地址不受 01 平台限制');
+
+    process.env.HUAWEI_INTRANET = '1';
+    assert.equal((await (await fetch(`${base}/quick-connect?refresh=1`)).json()).available, true);
 });

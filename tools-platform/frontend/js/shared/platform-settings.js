@@ -1003,7 +1003,26 @@ function hasUserAddedAiModels(allProfiles = []) {
     return !isBuiltInSampleAiProfile(own[0]);
 }
 
+// 「01 平台接入」只在公司内网显示（后端按 WeLink 内网域名探测，外网也拒绝接入）；探测结果在本页缓存
+function ensureZeroOneAvailability() {
+    if (navState.aiQuickAvailable !== undefined || navState.aiQuickAvailabilityPending) return;
+    navState.aiQuickAvailabilityPending = true;
+    fetch('/api/ai-settings/quick-connect', { headers: getAuthHeaderForNav() })
+        .then(res => (res.ok ? res.json() : { available: false }))
+        .catch(() => ({ available: false }))
+        .then(data => {
+            navState.aiQuickAvailable = data.available === true;
+            navState.aiQuickAvailabilityPending = false;
+            const content = document.getElementById('navSettingsContent');
+            if (navState.aiQuickAvailable && content && document.getElementById('navAiTestResult')) renderAiSettings(content);
+        });
+}
+
 function renderZeroOneOnboardingCard({ hasOwnModels = false } = {}) {
+    if (navState.aiQuickAvailable !== true) {
+        ensureZeroOneAvailability();
+        return '';
+    }
     const showCard = !hasOwnModels || navState.aiQuickForceOpen === true;
     if (!showCard) {
         return `<div class="nav-ai-quick-collapsed-bar">
@@ -5582,6 +5601,8 @@ const AUDIT_ACTION_LABELS = {
     password_change: ['修改本人密码', 'Change own password'],
     team_enter: ['进入团队', 'Enter team'],
     team_leave: ['返回本人空间', 'Back to own space'],
+    user_team_bind: ['账号绑定团队', 'Account bound to team'],
+    user_team_unbind: ['账号解绑团队', 'Account unbound from team'],
     admins_update: ['修改管理员名单', 'Admin list changed'],
     vault_reveal: ['查看密钥明文', 'Secret viewed']
 };
@@ -5818,6 +5839,7 @@ async function renderAccountSettings(content) {
         ]);
         const teamToolRows = (teamTools.items || []).map(tool => `<tr><td>${navEscape(tool.teamName || tool.tenantId)}</td><td>${navEscape(tool.icon || '🧩')} ${navEscape(tool.name || tool.slug)}</td><td>${navEscape(tool.updatedAt ? new Date(tool.updatedAt).toLocaleString() : '')}</td><td class="nav-account-actions"><a href="${navEscape(tool.href)}" target="_blank" rel="noopener">${navEscape(accountText('打开', 'Open'))}</a></td></tr>`).join('');
         const currentTenant = localStorage.getItem('tools_tenant_id') || 'default';
+        navState.accountUsers = users;
         const rows = users.map(raw => {
             // 旧后端（尚未重启）的账号列表没有 isSuper / tenantId：管理员按超级管理员显示，不出现「进入团队」
             const u = { ...raw, isSuper: typeof raw.isSuper === 'boolean' ? raw.isSuper : raw.role === 'admin' };
@@ -5827,13 +5849,18 @@ async function renderAccountSettings(content) {
             const name = encodeURIComponent(u.username);
             const enter = !u.isSuper && u.tenantId && u.tenantId !== currentTenant
                 ? `<button onclick="switchNavTeam('${navEscape(u.tenantId)}')">${navEscape(accountText('进入团队', 'Enter team'))}</button>` : '';
+            const bind = !u.isSuper && u.ownTenantId
+                ? `<button onclick="bindUserTeam(decodeURIComponent('${name}'))">${navEscape(u.bound ? accountText('更换 / 解绑团队', 'Change / unbind team') : accountText('绑定团队', 'Bind team'))}</button>` : '';
+            const members = (u.teamMembers || []).filter(m => m !== u.username);
+            const teamCell = `${navEscape(u.teamName || u.username)}${u.bound ? ` <span class="nav-account-role readonly">${navEscape(accountText('已绑定', 'Bound'))}</span>` : ''}${members.length ? `<br><small>${navEscape(accountText('同队：', 'Shared with: '))}${navEscape(members.join('、'))}</small>` : ''}`;
             return `
                 <tr>
                     <td>${navEscape(u.username)}</td>
-                    <td>${navEscape(u.teamName || u.username)}</td>
+                    <td>${teamCell}</td>
                     <td>${roleBadge}</td>
                     <td class="nav-account-actions">
                         ${enter}
+                        ${bind}
                         <button onclick="resetPwd(decodeURIComponent('${name}'))">${navEscape(navT('nav.acc.btnReset'))}</button>
                         ${u.isSuper ? '' : `<button onclick="deleteUser(decodeURIComponent('${name}'))">${navEscape(navT('nav.acc.btnDel'))}</button>`}
                     </td>
@@ -5915,6 +5942,37 @@ window.deleteUser = async function (u) {
     });
     try {
         await API.delete('/api/auth/users/' + encodeURIComponent(u) + (purge ? '?purge=1' : ''));
+        renderNavSettingsContent();
+    } catch (e) {
+        await showPlatformNotice({ title: navT('nav.dialog.error'), message: e.message, tone: 'error' });
+    }
+};
+
+// 账号绑定团队：绑到另一个账号的团队后，共用那个团队的抓取脚本、数据导入、报表看板、月报等工具页面数据；
+// 只改归属不搬数据，账号自己原来的数据保留，解绑后恢复；该账号会被要求重新登录
+window.bindUserTeam = async function (u) {
+    const users = Array.isArray(navState.accountUsers) ? navState.accountUsers : [];
+    const me = users.find(x => x.username === u);
+    if (!me) return;
+    const teams = [];
+    for (const x of users) {
+        if (x.isSuper || !x.ownTenantId || x.ownTenantId === me.ownTenantId || teams.some(t => t.value === x.ownTenantId)) continue;
+        const owners = users.filter(y => y.ownTenantId === x.ownTenantId).map(y => y.username);
+        teams.push({ value: x.ownTenantId, label: `${x.displayName || x.username}（${accountText('账号', 'account')} ${owners.join('、')}）` });
+    }
+    const options = [{ value: '', label: accountText('不绑定：使用自己的团队', 'None: use own team') }, ...teams];
+    const values = await showPlatformFormDialog({
+        title: accountText(`账号“${u}”绑定团队`, `Bind “${u}” to a team`),
+        message: accountText(
+            '绑定后该账号进入所选团队，和团队成员共用抓取脚本、数据导入、报表看板、月报等所有工具页面数据和模型配置；AI 对话仍各自私有。账号自己原来的数据不删除，解绑后恢复。该账号会被要求重新登录。',
+            'The account joins the selected team and shares all tool data (scraping scripts, data imports, reports, monthly reports) and models with it; AI chats stay private. Its own data is kept and comes back after unbinding. The account must sign in again.'),
+        fields: [{ name: 'tenantId', label: accountText('团队', 'Team'), options, value: me.bound ? me.tenantId : '' }],
+        icon: '⇄',
+        confirmText: accountText('确定', 'Confirm')
+    });
+    if (!values) return;
+    try {
+        await API.put('/api/auth/users/' + encodeURIComponent(u) + '/team', { tenantId: values.tenantId || '' });
         renderNavSettingsContent();
     } catch (e) {
         await showPlatformNotice({ title: navT('nav.dialog.error'), message: e.message, tone: 'error' });

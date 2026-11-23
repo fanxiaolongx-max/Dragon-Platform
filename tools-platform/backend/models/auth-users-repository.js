@@ -34,6 +34,9 @@ async function ensureReady() {
             if (!columns.has('is_super')) await run('ALTER TABLE auth_users ADD COLUMN is_super INTEGER NOT NULL DEFAULT 0');
             if (!columns.has('display_name')) await run(`ALTER TABLE auth_users ADD COLUMN display_name TEXT NOT NULL DEFAULT ''`);
             if (!columns.has('portal_hash')) await run(`ALTER TABLE auth_users ADD COLUMN portal_hash TEXT NOT NULL DEFAULT ''`);
+            // 账号自己的团队空间：绑定到别的团队时 tenant_id 指向那个团队，own_tenant_id 不变，解绑时回到这里
+            if (!columns.has('own_tenant_id')) await run(`ALTER TABLE auth_users ADD COLUMN own_tenant_id TEXT NOT NULL DEFAULT ''`);
+            await run(`UPDATE auth_users SET own_tenant_id = tenant_id WHERE own_tenant_id = ''`);
             const row = await get('SELECT COUNT(1) AS count FROM auth_users');
             const initial = getInitialAdmin();
             if (row && row.count === 0) {
@@ -62,6 +65,7 @@ function publicUser(row) {
         username: row.username,
         role: row.role,
         tenantId: row.tenant_id || DEFAULT_TENANT_ID,
+        ownTenantId: row.own_tenant_id || row.tenant_id || DEFAULT_TENANT_ID,
         isSuper: Number(row.is_super) === 1,
         displayName: row.display_name || '',
         createdAt: row.created_at
@@ -103,8 +107,8 @@ async function getUserByTenant(tenantId) {
 async function createUser({ username, role = 'admin', passwordHash, tenantId, isSuper = false, displayName = '' }) {
     await ensureReady();
     await run(
-        'INSERT INTO auth_users (username, role, password_hash, tenant_id, is_super, display_name) VALUES (?, ?, ?, ?, ?, ?)',
-        [username, role, passwordHash, tenantId, isSuper ? 1 : 0, displayName]
+        'INSERT INTO auth_users (username, role, password_hash, tenant_id, own_tenant_id, is_super, display_name) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [username, role, passwordHash, tenantId, tenantId, isSuper ? 1 : 0, displayName]
     );
 }
 
@@ -141,8 +145,19 @@ async function deleteUser(username) {
     await run('DELETE FROM auth_users WHERE username = ?', [username]);
 }
 
+/** 把账号放进某个团队（tenantId 为空 = 回到自己的团队）；只改归属，不动任何数据 */
+async function setUserTeam(username, tenantId) {
+    await ensureReady();
+    const row = await get('SELECT own_tenant_id, tenant_id FROM auth_users WHERE username=?', [username]);
+    if (!row) return null;
+    const target = tenantId || row.own_tenant_id || row.tenant_id;
+    await run('UPDATE auth_users SET tenant_id=? WHERE username=?', [target, username]);
+    return target;
+}
+
 module.exports = {
     createUser,
+    setUserTeam,
     deleteUser,
     ensureReady,
     getUser,

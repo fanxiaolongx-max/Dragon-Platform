@@ -215,12 +215,18 @@ router.get('/users', checkAuth, requireSuperAdmin, async (req, res) => {
     try {
         const users = (await authUsersRepo.listUsers()).items || {};
         const tenants = new Map((await tenantsRepo.listManagedTenants()).map(item => [item.id, item]));
-        res.json(Object.values(users).map(user => ({
+        const list = Object.values(users);
+        const teamName = tenantId => (tenantId === tenantsRepo.DEFAULT_TENANT_ID ? '超级管理员空间' : (tenants.get(tenantId)?.name || list.find(u => u.ownTenantId === tenantId)?.displayName || list.find(u => u.ownTenantId === tenantId)?.username || tenantId));
+        res.json(list.map(user => ({
             username: user.username,
             role: user.role,
             isSuper: user.isSuper,
             tenantId: user.tenantId,
-            teamName: user.tenantId === tenantsRepo.DEFAULT_TENANT_ID ? '超级管理员空间' : (tenants.get(user.tenantId)?.name || user.displayName || user.username),
+            ownTenantId: user.ownTenantId,
+            // 绑定到别的账号的团队：和那个团队共用工具页面数据（抓取脚本、数据导入、报表、月报等）
+            bound: user.tenantId !== user.ownTenantId,
+            teamName: teamName(user.tenantId),
+            teamMembers: list.filter(other => other.tenantId === user.tenantId).map(other => other.username),
             displayName: user.displayName,
             createdAt: user.createdAt
         })));
@@ -259,6 +265,43 @@ router.post('/users', checkAuth, requireSuperAdmin, async (req, res) => {
     }
 });
 
+/** 某个团队空间已经没有任何账号在用（既不是谁自己的团队，也没人绑定在上面）就归档；数据保留 */
+async function archiveTeamIfOrphaned(tenantId) {
+    if (!tenantId || tenantId === tenantsRepo.DEFAULT_TENANT_ID) return false;
+    const inUse = Object.values((await authUsersRepo.listUsers()).items).some(other => other.tenantId === tenantId || other.ownTenantId === tenantId);
+    if (inUse) return false;
+    await tenantsRepo.archiveTenant(tenantId).catch(error => { if (error.statusCode !== 404) throw error; });
+    return true;
+}
+
+// PUT /api/auth/users/:username/team：把账号绑定到另一个账号的团队（共用该团队的工具页面数据），tenantId 为空则解绑回自己的团队。
+// 只改归属不搬数据：账号自己团队里原有的数据原样保留，解绑后重新可见。超级管理员空间不能绑定进去（那里有平台级权限）。
+router.put('/users/:username/team', checkAuth, requireSuperAdmin, async (req, res) => {
+    const username = req.params.username;
+    const requested = String(req.body?.tenantId || '').trim().toLowerCase();
+    try {
+        const user = await authUsersRepo.getUser(username);
+        if (!user) return res.status(404).json({ error: '用户不存在' });
+        if (user.isSuper) return res.status(403).json({ error: '超级管理员不能绑定到其他团队' });
+        const target = requested || user.ownTenantId;
+        if (target === tenantsRepo.DEFAULT_TENANT_ID) return res.status(403).json({ error: '不能绑定到超级管理员空间' });
+        if (target !== user.ownTenantId) {
+            const tenant = await tenantsRepo.getTenantById(target).catch(() => null);
+            if (!tenant || tenant.status !== 'active') return res.status(404).json({ error: '团队不存在或已归档' });
+        }
+        if (target === user.tenantId) return res.json({ success: true, unchanged: true, tenantId: target });
+        await authUsersRepo.setUserTeam(username, target === user.ownTenantId ? '' : target);
+        if (user.tenantId !== user.ownTenantId) await archiveTeamIfOrphaned(user.tenantId);
+        // 重新登录后按新团队加载，避免页面里还缓存着原团队的数据
+        await authSessionsRepo.deleteSessionsForUser(username);
+        auditLog.record(req, { action: target === user.ownTenantId ? 'user_team_unbind' : 'user_team_bind', target: username, tenantId: target, detail: { from: user.tenantId, to: target } });
+        res.json({ success: true, tenantId: target, bound: target !== user.ownTenantId });
+    } catch (err) {
+        console.error('[auth] bind team failed:', err);
+        res.status(err.statusCode || 500).json({ error: err.message || '绑定团队失败' });
+    }
+});
+
 // DELETE /api/auth/users/:username?purge=1：删除账号；团队数据默认归档保留，purge=1 时一并彻底删除
 router.delete('/users/:username', checkAuth, requireSuperAdmin, async (req, res) => {
     const username = req.params.username;
@@ -269,12 +312,15 @@ router.delete('/users/:username', checkAuth, requireSuperAdmin, async (req, res)
         if (user.isSuper) return res.status(403).json({ error: '超级管理员不能删除' });
         await authUsersRepo.deleteUser(username);
         await authSessionsRepo.deleteSessionsForUser(username);
-        const tenantId = user.tenantId;
+        // 账号自己的团队空间：别人仍绑定在这个团队上时保留，不归档
+        const tenantId = user.ownTenantId || user.tenantId;
         const sharedWithOthers = Object.values((await authUsersRepo.listUsers()).items).some(other => other.tenantId === tenantId);
         if (tenantId && tenantId !== tenantsRepo.DEFAULT_TENANT_ID && !sharedWithOthers) {
             await tenantsRepo.archiveTenant(tenantId).catch(error => { if (error.statusCode !== 404) throw error; });
             if (purge) await tenantsRepo.deleteTenantPermanently(tenantId);
         }
+        // 被删的账号绑定在别人的团队上：如果它是那个团队最后一个使用者，那个团队也归档
+        if (user.tenantId && user.tenantId !== tenantId) await archiveTeamIfOrphaned(user.tenantId);
         auditLog.record(req, { action: purge ? 'user_delete_purge' : 'user_delete', target: username, tenantId });
         res.json({ success: true, purged: purge });
     } catch (err) {

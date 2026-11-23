@@ -1,14 +1,10 @@
 {
   "zh": [
-    "全局设置 → AI 助手新增「01平台接入」：粘贴 API Token 自动测试连接，保存后一键配置并启用全局对话模型（qwen3.8-27b）与生图模型（qwen-image-2.1）；还没添加自定义模型时会主动提示。",
-    "生图模型支持 OpenAI 兼容接口（/images/generations，如 qwen-image-2.1），生图模型的「测试连接」会真正生成一张测试图。",
-    "测试连接因证书策略失败时自动换一种「校验 HTTPS 证书」设置重试，成功后自动保存；切换供应商协议时不再清空已填的接口地址、Token 和模型列表。",
-    "桌面版访问 http:// 的内网模型网关不再走跳过证书校验的专用通道，避免在代理 / PAC 环境下请求卡住。"
+    "「01平台接入」只在公司内网出现（与首页 WeLink 内网识别一致）；外网不显示，也不能新建、修改或测试指向 01 平台的模型配置。",
+    "账号管理新增「绑定团队」（仅超级管理员）：把账号绑到另一个账号的团队后，共用该团队的抓取脚本、数据导入、报表看板、月报等工具页面数据和模型配置，AI 对话仍各自私有；账号原来的数据保留，解绑后恢复。不能绑进超级管理员空间。"
   ],
   "en": [
-    "Global Settings → AI assistant adds 01 Platform quick connect: paste an API token to test it automatically, then save to configure and activate the global chat model (qwen3.8-27b) and image model (qwen-image-2.1); shown proactively when no custom model has been added yet.",
-    "Image models support OpenAI-compatible endpoints (/images/generations, e.g. qwen-image-2.1), and testing an image model now generates a real test image.",
-    "When a connection test fails because of the certificate policy, it retries with the other verify-HTTPS setting and saves it on success; switching provider protocols no longer clears the base URL, token or model list you entered.",
-    "On desktop, plain http:// model gateways no longer go through the certificate-skipping channel, avoiding stalled requests behind proxies or PAC."
+    "01 Platform quick connect only appears on the company intranet (same check as the home WeLink intranet detection); off the intranet it is hidden and model profiles pointing at 01 Platform cannot be created, changed or tested.",
+    "Account management adds Bind team (super admin only): an account bound to another account's team shares that team's scraping scripts, data imports, reports, monthly reports and other tool data and models, while AI chats stay private; its own data is kept and returns after unbinding. Accounts cannot be bound into the super admin space."
   ]
 }
