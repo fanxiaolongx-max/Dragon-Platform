@@ -231,7 +231,7 @@
                 <b>${escapeHtml(tx(`mode${mode[0].toUpperCase()}${mode.slice(1)}`))}</b>
                 <small>${escapeHtml(tx(`mode${mode[0].toUpperCase()}${mode.slice(1)}Desc`))}</small>
             </button>`).join('');
-        const recent = state.prefs.recentDirectories.filter(item => item !== state.root).slice(0, 6);
+        const recent = state.prefs.recentDirectories.filter(item => item !== state.root && !isScratchDirectory(item)).slice(0, 6);
         // 管理员全部权限；其他账号只读，不显示权限模式切换
         const permission = isReadOnly()
             ? `<div class="wsp-readonly"><b>🔒 ${escapeHtml(tx('readOnlyMode'))}</b><small>${escapeHtml(tx('readOnlyDesc'))}</small></div>`
@@ -1040,7 +1040,7 @@
             const en = window.ToolsI18n?.getLanguage?.() === 'en-US';
             const label = (zh, english) => en ? english : zh;
             const folder = wsIcon('folder');
-            const recent = [...new Set([state.root, state.prefs.lastDirectory, ...state.prefs.recentDirectories].filter(Boolean))].slice(0, 8);
+            const recent = [...new Set([state.root, state.prefs.lastDirectory, ...state.prefs.recentDirectories].filter(item => item && !isScratchDirectory(item)))].slice(0, 8);
             const modeName = isReadOnly() ? tx('readOnlyMode') : tx(`mode${state.permissionMode[0].toUpperCase()}${state.permissionMode.slice(1)}`);
             el.chip.innerHTML = `
                 <details class="dc-context-picker dc-directory-picker" data-wsp-picker="directory">
@@ -1155,7 +1155,7 @@
     }
 
     function renderPickerRecent() {
-        const recent = state.prefs.recentDirectories.slice(0, 8);
+        const recent = state.prefs.recentDirectories.filter(item => !isScratchDirectory(item)).slice(0, 8);
         el.pickerRecent.innerHTML = recent.length
             ? `<span class="wsp-picker-recent-label">${escapeHtml(tx('recentDirs'))}</span>${recent.map(item => { const shown = toDisplayPath(item); return `<button type="button" class="wsp-chip" data-wsp-fill="${escapeHtml(shown)}" title="${escapeHtml(shown)}">${escapeHtml(baseName(item))}</button>`; }).join('')}`
             : '';
@@ -1264,13 +1264,40 @@
         return false;
     }
 
+    function forgetMissingDirectory(targetPath) {
+        if (!targetPath) return;
+        state.prefs = {
+            ...state.prefs,
+            lastDirectory: state.prefs.lastDirectory === targetPath ? '' : state.prefs.lastDirectory,
+            recentDirectories: (state.prefs.recentDirectories || []).filter(item => item !== targetPath)
+        };
+        if (state.root === targetPath) state.root = '';
+        renderChip();
+        renderEnv();
+        if (!el.picker?.hidden) renderPickerRecent();
+        request('POST', `${API}/forget`, { path: targetPath }).catch(() => {});
+    }
+
     async function selectDirectory(fullPath, ticket = ++state.selectionEpoch, { openPanel = true } = {}) {
         if (isSharedLocked()) {
             toast(sharedLockedMessage());
             return;
         }
-        if (!fullPath || isScratchDirectory(fullPath)) return;
-        const data = await request('POST', `${API}/select`, { path: fullPath });
+        if (!fullPath) return;
+        if (isScratchDirectory(fullPath)) {
+            forgetMissingDirectory(fullPath);
+            toast(wsLabel('该临时目录已失效并从列表中移除', 'Temporary workspace expired and was removed from the list'));
+            return;
+        }
+        let data;
+        try {
+            data = await request('POST', `${API}/select`, { path: fullPath });
+        } catch (error) {
+            if (['AGENT_ROOT_NOT_FOUND', 'AGENT_ROOT_NOT_DIR'].includes(error?.code)) {
+                forgetMissingDirectory(fullPath);
+            }
+            throw error;
+        }
         if (ticket !== state.selectionEpoch) throw Object.assign(new Error('Directory selection superseded'), { name: 'AbortError' });
         state.root = data.root;
         state.rootName = data.name || baseName(data.root);

@@ -960,11 +960,126 @@ async function renderPromotionSettings(content) {
     }
 }
 
+function isHttpDomainUrl(rawUrl) {
+    const value = String(rawUrl || '').trim();
+    if (!/^http:\/\//i.test(value)) return false;
+    try {
+        const host = new URL(value).hostname.toLowerCase();
+        if (!host || host === 'localhost' || host.endsWith('.local')) return false;
+        if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(host) || /^\[/.test(host)) return false;
+        return host.includes('.');
+    } catch (_) {
+        return false;
+    }
+}
+
+function normalizeZeroOneBaseUrl(rawUrl) {
+    const trimmed = String(rawUrl || '').trim().replace(/\/+$/, '');
+    let base = trimmed || 'http://models.ascend.huawei.com';
+    if (!/^https?:\/\//i.test(base)) base = `http://${base}`;
+    base = base.replace(/\/+$/, '').replace(/\/(?:chat\/completions|images\/generations)$/i, '').replace(/\/+$/, '');
+    if (!/\/v\d+[a-z0-9]*$/i.test(base)) base = `${base}/v1`;
+    return base;
+}
+
+function isBuiltInSampleAiProfile(profile) {
+    if (!profile || profile.locked) return false;
+    if (profile.category === 'image') return false;
+    if (profile.id !== 'default' && profile.id !== 'default-profile') return false;
+    if (profile.apiKeySource === 'stored' || profile.hasToken) return false;
+    if (String(profile.apiBaseUrl || '').trim()) return false;
+    const models = Array.isArray(profile.models) && profile.models.length ? profile.models : [profile.model].filter(Boolean);
+    if (models.length > 1) return false;
+    const modelName = models[0] || '';
+    return !modelName || modelName === 'gemini-2.5-flash' || modelName === 'gpt-4o-mini';
+}
+
+function hasUserAddedAiModels(allProfiles = []) {
+    const list = Array.isArray(allProfiles) ? allProfiles : [];
+    if (!list.length) return false;
+    const own = list.filter(p => !p.locked);
+    if (!own.length) return false;
+    if (own.length > 1) return true;
+    return !isBuiltInSampleAiProfile(own[0]);
+}
+
+// 「01 平台接入」只在公司内网显示（后端按 WeLink 内网域名探测，外网也拒绝接入）；探测结果在本页缓存
+function ensureZeroOneAvailability() {
+    if (navState.aiQuickAvailable !== undefined || navState.aiQuickAvailabilityPending) return;
+    navState.aiQuickAvailabilityPending = true;
+    fetch('/api/ai-settings/quick-connect', { headers: getAuthHeaderForNav() })
+        .then(res => (res.ok ? res.json() : { available: false }))
+        .catch(() => ({ available: false }))
+        .then(data => {
+            navState.aiQuickAvailable = data.available === true;
+            navState.aiQuickAvailabilityPending = false;
+            const content = document.getElementById('navSettingsContent');
+            if (navState.aiQuickAvailable && content && document.getElementById('navAiTestResult')) renderAiSettings(content);
+        });
+}
+
+function renderZeroOneOnboardingCard({ hasOwnModels = false } = {}) {
+    if (navState.aiQuickAvailable !== true) {
+        ensureZeroOneAvailability();
+        return '';
+    }
+    const showCard = !hasOwnModels || navState.aiQuickForceOpen === true;
+    if (!showCard) {
+        return `<div class="nav-ai-quick-collapsed-bar">
+            <span>${navEscape(navLocaleText('需要快速接入 01 平台或一键重置文字与生图默认模型？', 'Need quick 01 Platform setup for text & image models?'))}</span>
+            <button type="button" class="nav-settings-add secondary" id="navAiQuickOpenBtn" onclick="toggleZeroOneQuickCard(true)">⚡ ${navEscape(navLocaleText('01平台接入', '01 Platform Setup'))}</button>
+        </div>`;
+    }
+    const statusHtml = navState.aiQuickLastStatus
+        ? `<div id="navAiQuickStatus" class="nav-ai-quick-status ${navEscape(navState.aiQuickLastStatus.tone || '')}" aria-live="polite">${navEscape(navState.aiQuickLastStatus.text || '')}${navState.aiQuickLastStatus.hint ? `<small>${navEscape(navState.aiQuickLastStatus.hint)}</small>` : ''}</div>`
+        : `<div id="navAiQuickStatus" class="nav-ai-quick-status" aria-live="polite" hidden></div>`;
+    return `
+        <section class="nav-ai-quick-card" id="navAiQuickCard">
+            ${!hasOwnModels ? `<div class="nav-ai-quick-guide-banner">${navEscape(navLocaleText('检测到当前仅含系统默认样例配置，尚未新增自定义模型：可直接接入「01平台」，一键自动完成全局文字与生图 AI 模型配置。', 'No custom models added yet (only the built-in sample exists). Connect to 01 Platform below to configure both global text and image models automatically.'))}</div>` : ''}
+            <div class="nav-ai-quick-head">
+                <div class="nav-ai-quick-title">
+                    <span class="nav-ai-quick-badge">01</span>
+                    <strong>${navEscape(navLocaleText('01平台接入', '01 Platform Quick Connect'))}</strong>
+                </div>
+                <div class="nav-ai-quick-head-actions">
+                    <button type="button" class="nav-settings-add" id="navAiQuickTestBtn" onclick="testZeroOneQuickConfig()">${navEscape(navLocaleText('测试连接', 'Test connection'))}</button>
+                    ${hasOwnModels ? `<button type="button" class="nav-settings-add secondary" id="navAiQuickHideBtn" onclick="toggleZeroOneQuickCard(false)">${navEscape(navLocaleText('收起', 'Hide'))}</button>` : ''}
+                </div>
+            </div>
+            <div class="nav-ai-quick-row">
+                <label class="nav-ai-quick-token-label" for="navAiQuickToken">${navEscape(navLocaleText('API TOKEN · default 分组', 'API TOKEN · default group'))}</label>
+                <div class="nav-ai-quick-input-group">
+                    <input id="navAiQuickToken" type="${navState.aiQuickShowToken ? 'text' : 'password'}" class="nav-settings-input nav-ai-quick-token-input" autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" value="${navEscape(navState.aiQuickDraftToken || '')}" placeholder="${navEscape(navLocaleText('粘贴 API Token（输入后自动测试连接）', 'Paste API Token (auto-tests after input)'))}" oninput="handleZeroOneTokenInput()" onpaste="setTimeout(handleZeroOneTokenInput, 20)" onkeydown="if(event.key==='Enter'){event.preventDefault();testZeroOneQuickConfig();}">
+                    <button type="button" class="nav-ai-quick-eye" id="navAiQuickEyeBtn" aria-pressed="${navState.aiQuickShowToken ? 'true' : 'false'}" aria-label="${navEscape(navLocaleText('显示或隐藏 API Token', 'Show or hide API Token'))}" title="${navEscape(navLocaleText('显示/隐藏密钥', 'Show/Hide'))}" onclick="toggleZeroOneTokenVisibility()">👁</button>
+                    <button type="button" class="nav-settings-add" id="navAiQuickSaveBtn" onclick="saveZeroOneQuickConfig()">${navEscape(navLocaleText('保存', 'Save'))}</button>
+                    <button type="button" class="nav-settings-add secondary" id="navAiQuickClearBtn" onclick="clearZeroOneQuickConfig()">${navEscape(navLocaleText('清空', 'Clear'))}</button>
+                </div>
+            </div>
+            <div class="nav-ai-quick-steps">
+                <a href="http://models.ascend.huawei.com/sign-up?aff=KizX" target="_blank" rel="noopener noreferrer">${navEscape(navLocaleText('点这里注册', 'Sign up here'))}</a>
+                <span>${navEscape(navLocaleText(' → 登录① 点击「API 密钥」② 创建 API 密钥，分组选 default③ 复制粘贴到上方', ' → Sign in ① Click “API Keys” ② Create API key in group “default” ③ Paste above'))}</span>
+            </div>
+            ${statusHtml}
+            <div class="nav-ai-quick-url-row">
+                <label for="navAiQuickBaseUrl">${navEscape(navLocaleText('平台地址', 'Platform URL'))}</label>
+                <input id="navAiQuickBaseUrl" type="text" class="nav-settings-input" value="${navEscape(navState.aiQuickDraftBaseUrl || 'http://models.ascend.huawei.com')}" placeholder="http://models.ascend.huawei.com" oninput="navState.aiQuickDraftBaseUrl = this.value">
+                <small>${navEscape(navLocaleText('平台地址填到域名即可，不用带 /v1（接口路径已内置；带了也会自动兼容）', 'Enter the platform domain only without /v1 (built in; trailing /v1 is also compatible)'))}</small>
+            </div>
+            <div class="nav-ai-quick-models-preview">
+                <span>${navEscape(navLocaleText('保存后将自动配置并启用全局设置：', 'Saving automatically activates global settings:'))}</span>
+                <code>💬 qwen3.8-27b</code>
+                <code>🎨 qwen-image-2.1</code>
+            </div>
+        </section>
+    `;
+}
+
 async function renderAiSettings(content) {
     content.innerHTML = `<div class="nav-settings-empty">${navEscape(navT('nav.ai.empty'))}</div>`;
     try {
         const settingsStore = await fetchAiSettingsForNav();
         const allProfiles = Array.isArray(settingsStore.profiles) ? settingsStore.profiles : [];
+        const hasOwnModels = hasUserAddedAiModels(allProfiles);
         // Two categories as tabs: 文心 (chat models) and 丹青 (image models); each lists, creates and activates its own.
         const picked = allProfiles.find(item => item.id === navState.aiSelectedProfileId);
         const category = navState.aiCategory || picked?.category || 'chat';
@@ -983,8 +1098,9 @@ async function renderAiSettings(content) {
             <button type="button" role="tab" class="nav-ai-tab ${isImage ? '' : 'is-active'}" aria-selected="${!isImage}" onclick="switchAiCategory('chat')"><span class="nav-ai-tab-icon">${navEscape(navT('nav.ai.chatIcon'))}</span><span><b>${navEscape(navT('nav.ai.chatTitle'))}</b><small>${navEscape(navT('nav.ai.chatSummary', { count: chatCount }))}</small></span></button>
             <button type="button" role="tab" class="nav-ai-tab ${isImage ? 'is-active' : ''}" aria-selected="${isImage}" onclick="switchAiCategory('image')"><span class="nav-ai-tab-icon">${navEscape(navT('nav.ai.imageIcon'))}</span><span><b>${navEscape(navT('nav.ai.imageTitle'))}</b><small>${navEscape(navT('nav.ai.imageSummary', { count: imageCount }))}</small></span></button>
         </div>`;
+        const quickCardHtml = renderZeroOneOnboardingCard({ hasOwnModels });
         if (!settings) {
-            content.innerHTML = `${tabs}<div class="nav-ai-tab-empty"><strong>${navEscape(navT('nav.ai.imageEmpty'))}</strong><span>${navEscape(navT('nav.ai.imageEmptyHelp'))}</span><button type="button" class="nav-settings-add" onclick="createAiProfile()">${navEscape(navT('nav.ai.imageNew'))}</button></div>`;
+            content.innerHTML = `${tabs}${quickCardHtml}<div class="nav-ai-tab-empty"><strong>${navEscape(navT('nav.ai.imageEmpty'))}</strong><span>${navEscape(navT('nav.ai.imageEmptyHelp'))}</span><button type="button" class="nav-settings-add" onclick="createAiProfile()">${navEscape(navT('nav.ai.imageNew'))}</button></div>`;
             return;
         }
         const effectiveAuthMode = resolveAiAuthModeForUi(settings);
@@ -993,6 +1109,7 @@ async function renderAiSettings(content) {
             : (effectiveAuthMode === 'none' ? navT('nav.ai.plhTokenNone') : navT('nav.ai.plhToken'));
         content.innerHTML = `
             ${tabs}
+            ${quickCardHtml}
             <div class="nav-settings-help">${isImage ? navT('nav.ai.imageHelp') : navEscape(navT('nav.ai.help'))}</div>
             <section class="nav-ai-profile-panel">
                 <div class="nav-ai-profile-head">
@@ -1099,10 +1216,10 @@ async function renderAiSettings(content) {
                 </label>
                 <label class="nav-ai-field nav-ai-field-wide">
                     <span>${navEscape(navT('nav.ai.lblApiUrl'))}</span>
-                    <input id="navAiApiBaseUrl" class="nav-settings-input" value="${navEscape(settings.apiBaseUrl || '')}" placeholder="${navEscape(navT('nav.ai.plhApiUrl'))}" oninput="scheduleAiSettingsSave()">
+                    <input id="navAiApiBaseUrl" class="nav-settings-input" value="${navEscape(settings.apiBaseUrl || '')}" placeholder="${navEscape(navT('nav.ai.plhApiUrl'))}" oninput="handleAiApiBaseUrlInput()">
                 </label>
                 <label class="nav-settings-check nav-ai-verify-ssl-check nav-ai-field-wide">
-                    <input id="navAiVerifySsl" type="checkbox" ${settings.verifySsl === true ? 'checked' : ''} onchange="scheduleAiSettingsSave()">
+                    <input id="navAiVerifySsl" type="checkbox" ${settings.verifySsl === true ? 'checked' : ''} onchange="this.dataset.userTouched='1';scheduleAiSettingsSave()">
                     <span><b>${navEscape(navT('nav.ai.verifySslLabel'))}</b><small>${navEscape(navT('nav.ai.verifySslHelp'))}</small></span>
                 </label>
                 <label class="nav-ai-field nav-ai-field-wide">
@@ -1499,30 +1616,66 @@ window.handleAiAuthModeChange = function () {
     scheduleAiSettingsSave();
 };
 
+const PROVIDER_DEFAULT_MODELS = {
+    gemini: 'gemini-2.5-flash',
+    openai: 'gpt-4o-mini',
+    anthropic: 'claude-3-5-sonnet-latest',
+    minimax: 'MiniMax-M2.7-highspeed',
+    'openai-compatible': 'gpt-4o-mini'
+};
+const ALL_PROVIDER_DEFAULT_MODELS = new Set(Object.values(PROVIDER_DEFAULT_MODELS));
+const ALL_PROVIDER_DEFAULT_BASE_URLS = new Set([
+    'https://generativelanguage.googleapis.com/v1beta',
+    'https://api.openai.com/v1',
+    'https://api.anthropic.com/v1',
+    'https://api.minimax.io/v1'
+]);
+
+window.handleAiApiBaseUrlInput = function () {
+    const urlInput = document.getElementById('navAiApiBaseUrl');
+    const verifySslInput = document.getElementById('navAiVerifySsl');
+    if (urlInput && verifySslInput && verifySslInput.dataset.userTouched !== '1') {
+        if (isHttpDomainUrl(urlInput.value) && !verifySslInput.checked) {
+            verifySslInput.checked = true;
+        }
+    }
+    scheduleAiSettingsSave();
+};
+
 window.handleAiProviderChange = function () {
     const provider = document.getElementById('navAiProvider')?.value || 'gemini';
     const modelInput = document.getElementById('navAiModel');
     const authSelect = document.getElementById('navAiAuthMode');
+    const apiBaseUrlInput = document.getElementById('navAiApiBaseUrl');
+    const currentUrl = apiBaseUrlInput ? apiBaseUrlInput.value.trim() : '';
+
+    // 切换协议时保留用户已选的自定义/免认证等认证方式，仅在默认认证冲突（x-goog-api-key <-> bearer）时平滑适配
     if (authSelect) {
-        authSelect.value = provider === 'gemini' ? 'x-goog-api-key' : 'bearer';
+        const curAuth = authSelect.value;
+        if (provider === 'gemini' && !currentUrl && curAuth === 'bearer') {
+            authSelect.value = 'x-goog-api-key';
+        } else if (provider !== 'gemini' && curAuth === 'x-goog-api-key') {
+            authSelect.value = 'bearer';
+        }
     }
     syncAiAuthModeControls();
-    const defaults = {
-        gemini: 'gemini-2.5-flash',
-        openai: 'gpt-4o-mini',
-        anthropic: 'claude-3-5-sonnet-latest',
-        minimax: 'MiniMax-M2.7-highspeed',
-        'openai-compatible': 'gpt-4o-mini'
-    };
-    if (defaults[provider]) {
-        navState.currentEditingModels = [defaults[provider]];
-        if (modelInput) modelInput.value = defaults[provider];
+
+    // 切换供应商协议时绝不清空用户已填写的接口地址、Token 与模型列表；仅当模型列表仍为初始默认占位且未填自定义网关/密钥时才切换默认样例模型
+    const currentModels = getNavAiEditingModels();
+    const tokenInput = document.getElementById('navAiApiKey');
+    const saved = currentAiProfile();
+    const hasCustomUrlOrToken = Boolean(currentUrl || (tokenInput && tokenInput.value.trim()) || saved?.apiKeySource === 'stored');
+    const isUntouchedDefault = currentModels.length <= 1 && (!currentModels[0] || ALL_PROVIDER_DEFAULT_MODELS.has(currentModels[0]));
+    if (!hasCustomUrlOrToken && isUntouchedDefault && PROVIDER_DEFAULT_MODELS[provider]) {
+        navState.currentEditingModels = [PROVIDER_DEFAULT_MODELS[provider]];
+        if (modelInput) modelInput.value = PROVIDER_DEFAULT_MODELS[provider];
         renderNavAiModelChips();
     }
-    const apiBaseUrlInput = document.getElementById('navAiApiBaseUrl');
+
     if (apiBaseUrlInput) {
-        if (provider === 'minimax') apiBaseUrlInput.value = 'https://api.minimax.io/v1';
-        if (['gemini', 'openai', 'anthropic'].includes(provider)) apiBaseUrlInput.value = '';
+        if (!currentUrl || ALL_PROVIDER_DEFAULT_BASE_URLS.has(currentUrl.replace(/\/+$/, ''))) {
+            apiBaseUrlInput.value = provider === 'minimax' ? 'https://api.minimax.io/v1' : '';
+        }
     }
     scheduleAiSettingsSave();
 };
@@ -1661,6 +1814,57 @@ window.copyAiTestFailureDetails = async function (btn) {
     }
 };
 
+async function runSingleAiTestRequest(testUrl, payload) {
+    const res = await fetch(testUrl, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeaderForNav()
+        },
+        body: JSON.stringify(payload)
+    });
+    const rawText = await res.text().catch(() => '');
+    let data = {};
+    if (rawText) {
+        try { data = JSON.parse(rawText); } catch { data = {}; }
+    }
+    return { res, data, rawText };
+}
+
+function getAutoRetryVerifySslTarget(res, data, payload) {
+    if (!payload || typeof payload !== 'object') return null;
+    const upstreamStatus = data?.details?.upstreamStatus;
+    if (upstreamStatus) return null;
+    const msg = `${data?.details?.errorCode || ''} ${data?.details?.cause || ''} ${data?.error || ''}`;
+    if (!payload.verifySsl) {
+        if (res.status === 504 || res.status === 502 || res.status === 0 || /timeout|aborted|fetch failed/i.test(msg)) {
+            return true;
+        }
+        return null;
+    }
+    if (/DEPTH_ZERO_SELF_SIGNED_CERT|SELF_SIGNED_CERT_IN_CHAIN|UNABLE_TO_VERIFY_LEAF_SIGNATURE|CERT_|ERR_TLS_|证书校验失败/i.test(msg)) {
+        return false;
+    }
+    return null;
+}
+
+function buildAiTestHttpError(res, data, rawText, payload, startedAt) {
+    const err = new Error(data.error || `HTTP ${res.status}${res.statusText ? ` (${res.statusText})` : ''}`);
+    err.details = data.details || {
+        provider: payload.provider,
+        model: payload.model,
+        endpoint: payload.apiBaseUrl || '',
+        httpStatus: res.status,
+        upstreamStatusText: res.statusText || '',
+        durationMs: Date.now() - startedAt,
+        contentType: res.headers?.get?.('content-type') || '',
+        hint: navLocaleText('服务端返回了非预期错误或非 JSON 响应，请展开查看返回细节。', 'Unexpected server error or non-JSON response. Expand details below to inspect.'),
+        rawDetail: rawText ? rawText.slice(0, 4000) : '',
+        timestamp: new Date().toISOString()
+    };
+    return err;
+}
+
 window.testAiSettingsNow = async function (specificModel) {
     const resultEl = document.getElementById('navAiTestResult');
     const indicator = document.getElementById('navSettingsSaveState');
@@ -1678,44 +1882,57 @@ window.testAiSettingsNow = async function (specificModel) {
     try {
         const profileId = navState.aiSelectedProfileId;
         payload = collectAiSettingsPayload();
+        payload.category = currentAiProfile()?.category || navState.aiCategory || 'chat';
         if (specificModel) payload.model = specificModel;
-        const res = await fetch(`/api/ai-settings/profiles/${encodeURIComponent(profileId)}/test`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                ...getAuthHeaderForNav()
-            },
-            body: JSON.stringify(payload)
-        });
-        const rawText = await res.text().catch(() => '');
-        let data = {};
-        if (rawText) {
-            try { data = JSON.parse(rawText); } catch { data = {}; }
+        const testUrl = `/api/ai-settings/profiles/${encodeURIComponent(profileId)}/test`;
+        let { res, data, rawText } = await runSingleAiTestRequest(testUrl, payload);
+        let autoVerifySwitchedTo = null;
+        if ((!res.ok || !data.success) && !currentAiProfile()?.locked) {
+            const retryVerifySsl = getAutoRetryVerifySslTarget(res, data, payload);
+            if (retryVerifySsl !== null) {
+                const retryLabel = navLocaleText(
+                    `${testingLabel}（当前策略连接失败，正自动${retryVerifySsl ? '开启' : '关闭'}「校验 HTTPS 证书」重试…）`,
+                    `${testingLabel} (retrying with verifySsl=${retryVerifySsl}…)`
+                );
+                if (resultEl) {
+                    resultEl.className = 'nav-ai-test-result testing';
+                    resultEl.textContent = retryLabel;
+                }
+                if (indicator) indicator.textContent = retryLabel;
+                const retry = await runSingleAiTestRequest(testUrl, { ...payload, verifySsl: retryVerifySsl });
+                if (retry.res.ok && retry.data.success) {
+                    res = retry.res;
+                    data = retry.data;
+                    rawText = retry.rawText;
+                    autoVerifySwitchedTo = retryVerifySsl;
+                }
+            }
         }
         if (!res.ok || !data.success) {
-            const err = new Error(data.error || `HTTP ${res.status}${res.statusText ? ` (${res.statusText})` : ''}`);
-            err.details = data.details || {
-                provider: payload.provider,
-                model: payload.model,
-                endpoint: payload.apiBaseUrl || '',
-                httpStatus: res.status,
-                upstreamStatusText: res.statusText || '',
-                durationMs: Date.now() - startedAt,
-                contentType: res.headers?.get?.('content-type') || '',
-                hint: navLocaleText('服务端返回了非预期错误或非 JSON 响应，请展开查看返回细节。', 'Unexpected server error or non-JSON response. Expand details below to inspect.'),
-                rawDetail: rawText ? rawText.slice(0, 4000) : '',
-                timestamp: new Date().toISOString()
-            };
-            throw err;
+            throw buildAiTestHttpError(res, data, rawText, payload, startedAt);
+        }
+        if (autoVerifySwitchedTo !== null) {
+            const verifySslInput = document.getElementById('navAiVerifySsl');
+            if (verifySslInput) {
+                verifySslInput.checked = autoVerifySwitchedTo;
+                verifySslInput.dataset.userTouched = '1';
+                await saveAiSettingsNow().catch(() => {});
+            }
         }
         const reply = data.reply ? `：${data.reply}` : '';
         const modelTag = data.model ? `[${data.model}] ` : '';
+        const verifyNote = autoVerifySwitchedTo !== null
+            ? navLocaleText(
+                `（已自动${autoVerifySwitchedTo ? '开启' : '关闭'}「校验 HTTPS 证书」并保存）`,
+                ` (auto-${autoVerifySwitchedTo ? 'enabled' : 'disabled'} verifySsl & saved)`
+            )
+            : '';
         const durationTag = Number.isFinite(Number(data.durationMs)) ? ` (${data.durationMs}ms)` : '';
         if (resultEl) {
             resultEl.className = 'nav-ai-test-result ok';
-            resultEl.textContent = `${modelTag}${navT('nav.ai.testOk')}${reply}${durationTag}`;
+            resultEl.textContent = `${modelTag}${navT('nav.ai.testOk')}${verifyNote}${reply}${durationTag}`;
         }
-        if (indicator) indicator.textContent = `${modelTag}${navT('nav.ai.testOk')}${durationTag}`;
+        if (indicator) indicator.textContent = `${modelTag}${navT('nav.ai.testOk')}${verifyNote}${durationTag}`;
     } catch (e) {
         const modelTag = targetModel ? `[${targetModel}] ` : '';
         const fallbackDetails = e.details || {
@@ -1733,6 +1950,227 @@ window.testAiSettingsNow = async function (specificModel) {
         }
         if (indicator) indicator.textContent = `${modelTag}${navT('nav.ai.testFail')}${e.message}`;
     }
+};
+
+function renderZeroOneQuickStatus(tone, text, hint = '') {
+    navState.aiQuickLastStatus = tone ? { tone, text, hint } : null;
+    const statusEl = document.getElementById('navAiQuickStatus');
+    if (!statusEl) return;
+    if (!tone) {
+        statusEl.hidden = true;
+        statusEl.className = 'nav-ai-quick-status';
+        statusEl.innerHTML = '';
+        return;
+    }
+    statusEl.hidden = false;
+    statusEl.className = `nav-ai-quick-status ${tone}`;
+    statusEl.innerHTML = `${navEscape(text)}${hint ? `<small>${navEscape(hint)}</small>` : ''}`;
+}
+
+window.toggleZeroOneQuickCard = function (open) {
+    navState.aiQuickForceOpen = Boolean(open);
+    if (!open) navState.aiQuickLastStatus = null;
+    renderAiSettings(document.getElementById('navSettingsContent'));
+};
+
+window.toggleZeroOneTokenVisibility = function () {
+    const input = document.getElementById('navAiQuickToken');
+    const btn = document.getElementById('navAiQuickEyeBtn');
+    navState.aiQuickShowToken = !navState.aiQuickShowToken;
+    if (input) input.type = navState.aiQuickShowToken ? 'text' : 'password';
+    if (btn) btn.setAttribute('aria-pressed', navState.aiQuickShowToken ? 'true' : 'false');
+};
+
+window.handleZeroOneTokenInput = function () {
+    const input = document.getElementById('navAiQuickToken');
+    const token = input ? input.value.trim() : '';
+    navState.aiQuickDraftToken = token;
+    navState.aiQuickVerified = null;
+    clearTimeout(navState.aiQuickTestTimer);
+    if (!token) {
+        renderZeroOneQuickStatus('', '');
+        return;
+    }
+    if (token.length >= 12) {
+        navState.aiQuickTestTimer = setTimeout(() => {
+            testZeroOneQuickConfig({ auto: true });
+        }, 350);
+    }
+};
+
+window.testZeroOneQuickConfig = async function (options = {}) {
+    const tokenInput = document.getElementById('navAiQuickToken');
+    const urlInput = document.getElementById('navAiQuickBaseUrl');
+    const token = (tokenInput ? tokenInput.value : navState.aiQuickDraftToken || '').trim();
+    const rawUrl = (urlInput ? urlInput.value : navState.aiQuickDraftBaseUrl || 'http://models.ascend.huawei.com').trim();
+    navState.aiQuickDraftToken = token;
+    navState.aiQuickDraftBaseUrl = rawUrl || 'http://models.ascend.huawei.com';
+    if (!token) {
+        if (!options.auto) renderZeroOneQuickStatus('fail', navLocaleText('请先粘贴 01 平台 API Token。', 'Please paste your 01 Platform API Token first.'));
+        return false;
+    }
+    if (token.length < 12) {
+        if (!options.auto) renderZeroOneQuickStatus('fail', navLocaleText('API Token 格式疑似过短（至少 12 位），请检查是否复制完整。', 'Token looks too short (at least 12 characters). Please verify the full key.'));
+        return false;
+    }
+    const baseUrl = normalizeZeroOneBaseUrl(rawUrl);
+    const verifySsl = isHttpDomainUrl(baseUrl);
+    renderZeroOneQuickStatus('testing', navLocaleText('正在验证 Token 与 01 平台连通性（qwen3.8-27b）…', 'Testing 01 Platform connection (qwen3.8-27b)…'));
+    const payload = {
+        provider: 'openai-compatible',
+        authMode: 'bearer',
+        verifySsl,
+        apiBaseUrl: baseUrl,
+        model: 'qwen3.8-27b',
+        models: ['qwen3.8-27b'],
+        apiKey: token,
+        dryRun: true
+    };
+    try {
+        let { res, data, rawText } = await runSingleAiTestRequest('/api/ai-settings/test', payload);
+        let usedVerifySsl = verifySsl;
+        if (!res.ok || !data.success) {
+            const retryVerify = getAutoRetryVerifySslTarget(res, data, payload);
+            if (retryVerify !== null) {
+                const retry = await runSingleAiTestRequest('/api/ai-settings/test', { ...payload, verifySsl: retryVerify });
+                if (retry.res.ok && retry.data.success) {
+                    res = retry.res;
+                    data = retry.data;
+                    rawText = retry.rawText;
+                    usedVerifySsl = retryVerify;
+                }
+            }
+        }
+        if (!res.ok || !data.success) {
+            const err = buildAiTestHttpError(res, data, rawText, payload, Date.now());
+            renderZeroOneQuickStatus('fail', `${navLocaleText('连接测试失败：', 'Connection test failed: ')}${err.message}`, err.details?.hint || '');
+            return false;
+        }
+        navState.aiQuickVerified = { token, baseUrl, verifySsl: usedVerifySsl };
+        const ms = Number.isFinite(Number(data.durationMs || data.latencyMs)) ? ` (${data.durationMs || data.latencyMs}ms)` : '';
+        renderZeroOneQuickStatus('ok', `${navLocaleText('连接成功 · Token 验证通过', 'Connected · Token verified')}${ms}`);
+        return true;
+    } catch (e) {
+        renderZeroOneQuickStatus('fail', `${navLocaleText('连接测试失败：', 'Connection test failed: ')}${e.message}`);
+        return false;
+    }
+};
+
+window.saveZeroOneQuickConfig = async function () {
+    const tokenInput = document.getElementById('navAiQuickToken');
+    const urlInput = document.getElementById('navAiQuickBaseUrl');
+    const saveBtn = document.getElementById('navAiQuickSaveBtn');
+    const indicator = document.getElementById('navSettingsSaveState');
+    const token = (tokenInput ? tokenInput.value : navState.aiQuickDraftToken || '').trim();
+    const rawUrl = (urlInput ? urlInput.value : navState.aiQuickDraftBaseUrl || 'http://models.ascend.huawei.com').trim();
+    navState.aiQuickDraftToken = token;
+    navState.aiQuickDraftBaseUrl = rawUrl || 'http://models.ascend.huawei.com';
+    if (!token || token.length < 12) {
+        renderZeroOneQuickStatus('fail', navLocaleText('请先输入有效的 API Token（至少 12 位）后再保存。', 'Enter a valid API Token (at least 12 characters) before saving.'));
+        return;
+    }
+    const baseUrl = normalizeZeroOneBaseUrl(rawUrl);
+    const verifySsl = navState.aiQuickVerified?.token === token && navState.aiQuickVerified?.baseUrl === baseUrl
+        ? navState.aiQuickVerified.verifySsl
+        : isHttpDomainUrl(baseUrl);
+    if (saveBtn) saveBtn.disabled = true;
+    clearTimeout(navState.aiSaveTimer);
+    clearTimeout(navState.aiQuickTestTimer);
+    try {
+        renderZeroOneQuickStatus('testing', navLocaleText('正在保存并启用全局文字模型（qwen3.8-27b）与生图模型（qwen-image-2.1）…', 'Saving and activating global text (qwen3.8-27b) & image (qwen-image-2.1) models…'));
+        const allProfiles = Array.isArray(navState.aiSettings?.profiles) ? navState.aiSettings.profiles : [];
+        const own = allProfiles.filter(p => !p.locked);
+        const existingChatTarget = own.find(p => (p.category || 'chat') === 'chat' && (p.name === '01 平台 · qwen3.8-27b' || /models\.ascend\.huawei\.com/i.test(p.apiBaseUrl || '')))
+            || (own.length === 1 && isBuiltInSampleAiProfile(own[0]) ? own[0] : null);
+        const chatPayload = {
+            name: '01 平台 · qwen3.8-27b',
+            category: 'chat',
+            provider: 'openai-compatible',
+            authMode: 'bearer',
+            verifySsl,
+            apiBaseUrl: baseUrl,
+            model: 'qwen3.8-27b',
+            models: ['qwen3.8-27b'],
+            apiKey: token
+        };
+        let chatRes;
+        if (existingChatTarget) {
+            chatRes = await requestAiProfile(`/api/ai-settings/profiles/${encodeURIComponent(existingChatTarget.id)}`, {
+                method: 'PUT',
+                body: JSON.stringify(chatPayload)
+            });
+            chatRes = await requestAiProfile(`/api/ai-settings/profiles/${encodeURIComponent(existingChatTarget.id)}/activate`, {
+                method: 'POST'
+            });
+        } else {
+            chatRes = await requestAiProfile('/api/ai-settings/profiles', {
+                method: 'POST',
+                body: JSON.stringify({ ...chatPayload, activate: true })
+            });
+        }
+
+        const existingImgTarget = own.find(p => (p.category || 'chat') === 'image' && (p.name === '01 平台 · qwen-image-2.1' || /models\.ascend\.huawei\.com/i.test(p.apiBaseUrl || '')));
+        const imagePayload = {
+            name: '01 平台 · qwen-image-2.1',
+            category: 'image',
+            provider: 'openai-compatible',
+            authMode: 'bearer',
+            verifySsl,
+            apiBaseUrl: baseUrl,
+            model: 'qwen-image-2.1',
+            models: ['qwen-image-2.1'],
+            apiKey: token
+        };
+        let imgRes;
+        if (existingImgTarget) {
+            imgRes = await requestAiProfile(`/api/ai-settings/profiles/${encodeURIComponent(existingImgTarget.id)}`, {
+                method: 'PUT',
+                body: JSON.stringify(imagePayload)
+            });
+            imgRes = await requestAiProfile(`/api/ai-settings/profiles/${encodeURIComponent(existingImgTarget.id)}/activate`, {
+                method: 'POST'
+            });
+        } else {
+            imgRes = await requestAiProfile('/api/ai-settings/profiles', {
+                method: 'POST',
+                body: JSON.stringify({ ...imagePayload, activate: true })
+            });
+            const createdImgId = imgRes?.createdProfileId
+                || (imgRes?.profiles || []).find(p => !p.locked && p.category === 'image' && p.name === imagePayload.name)?.id;
+            if (createdImgId && imgRes?.activeImageProfileId !== createdImgId) {
+                imgRes = await requestAiProfile(`/api/ai-settings/profiles/${encodeURIComponent(createdImgId)}/activate`, {
+                    method: 'POST'
+                });
+            }
+        }
+
+        navState.aiSettings = imgRes || chatRes;
+        navState.currentEditingModels = null;
+        navState.aiSelectedProfileId = navState.aiCategory === 'image'
+            ? (navState.aiSettings?.activeImageProfileId || imgRes?.createdProfileId)
+            : (navState.aiSettings?.activeProfileId || existingChatTarget?.id || chatRes?.createdProfileId);
+        navState.aiQuickForceOpen = false;
+        navState.aiQuickDraftToken = '';
+        navState.aiQuickLastStatus = {
+            tone: 'ok',
+            text: navLocaleText('连接成功 · 已保存并激活全局文字（qwen3.8-27b）与生图（qwen-image-2.1）模型配置', 'Saved & activated global text (qwen3.8-27b) and image (qwen-image-2.1) models')
+        };
+        if (indicator) indicator.textContent = navT('nav.ai.saved');
+        await renderAiSettings(document.getElementById('navSettingsContent'));
+    } catch (e) {
+        renderZeroOneQuickStatus('fail', `${navLocaleText('保存失败：', 'Save failed: ')}${e.message}`);
+    } finally {
+        if (saveBtn) saveBtn.disabled = false;
+    }
+};
+
+window.clearZeroOneQuickConfig = function () {
+    clearTimeout(navState.aiQuickTestTimer);
+    navState.aiQuickDraftToken = '';
+    navState.aiQuickVerified = null;
+    const input = document.getElementById('navAiQuickToken');
+    if (input) input.value = '';
+    renderZeroOneQuickStatus('', '');
 };
 
 async function saveAiSettingsNow(options = {}) {
@@ -5163,6 +5601,8 @@ const AUDIT_ACTION_LABELS = {
     password_change: ['修改本人密码', 'Change own password'],
     team_enter: ['进入团队', 'Enter team'],
     team_leave: ['返回本人空间', 'Back to own space'],
+    user_team_bind: ['账号绑定团队', 'Account bound to team'],
+    user_team_unbind: ['账号解绑团队', 'Account unbound from team'],
     admins_update: ['修改管理员名单', 'Admin list changed'],
     vault_reveal: ['查看密钥明文', 'Secret viewed']
 };
@@ -5399,6 +5839,7 @@ async function renderAccountSettings(content) {
         ]);
         const teamToolRows = (teamTools.items || []).map(tool => `<tr><td>${navEscape(tool.teamName || tool.tenantId)}</td><td>${navEscape(tool.icon || '🧩')} ${navEscape(tool.name || tool.slug)}</td><td>${navEscape(tool.updatedAt ? new Date(tool.updatedAt).toLocaleString() : '')}</td><td class="nav-account-actions"><a href="${navEscape(tool.href)}" target="_blank" rel="noopener">${navEscape(accountText('打开', 'Open'))}</a></td></tr>`).join('');
         const currentTenant = localStorage.getItem('tools_tenant_id') || 'default';
+        navState.accountUsers = users;
         const rows = users.map(raw => {
             // 旧后端（尚未重启）的账号列表没有 isSuper / tenantId：管理员按超级管理员显示，不出现「进入团队」
             const u = { ...raw, isSuper: typeof raw.isSuper === 'boolean' ? raw.isSuper : raw.role === 'admin' };
@@ -5408,13 +5849,19 @@ async function renderAccountSettings(content) {
             const name = encodeURIComponent(u.username);
             const enter = !u.isSuper && u.tenantId && u.tenantId !== currentTenant
                 ? `<button onclick="switchNavTeam('${navEscape(u.tenantId)}')">${navEscape(accountText('进入团队', 'Enter team'))}</button>` : '';
+            const bind = !u.isSuper && u.ownTenantId
+                ? `<button onclick="bindUserTeam(decodeURIComponent('${name}'))">${navEscape(u.bound ? accountText('更换 / 解绑团队', 'Change / unbind team') : accountText('绑定团队', 'Bind team'))}</button>` : '';
+            const members = (u.teamMembers || []).filter(m => m !== u.username);
+            const teammatesHtml = renderAccountTeammatesSummary(u.username, members);
+            const teamCell = `${navEscape(u.teamName || u.username)}${u.bound ? ` <span class="nav-account-role readonly">${navEscape(accountText('已绑定', 'Bound'))}</span>` : ''}${teammatesHtml}`;
             return `
                 <tr>
                     <td>${navEscape(u.username)}</td>
-                    <td>${navEscape(u.teamName || u.username)}</td>
+                    <td>${teamCell}</td>
                     <td>${roleBadge}</td>
                     <td class="nav-account-actions">
                         ${enter}
+                        ${bind}
                         <button onclick="resetPwd(decodeURIComponent('${name}'))">${navEscape(navT('nav.acc.btnReset'))}</button>
                         ${u.isSuper ? '' : `<button onclick="deleteUser(decodeURIComponent('${name}'))">${navEscape(navT('nav.acc.btnDel'))}</button>`}
                     </td>
@@ -5496,6 +5943,102 @@ window.deleteUser = async function (u) {
     });
     try {
         await API.delete('/api/auth/users/' + encodeURIComponent(u) + (purge ? '?purge=1' : ''));
+        renderNavSettingsContent();
+    } catch (e) {
+        await showPlatformNotice({ title: navT('nav.dialog.error'), message: e.message, tone: 'error' });
+    }
+};
+
+function renderAccountTeammatesSummary(username, members) {
+    if (!Array.isArray(members) || !members.length) return '';
+    const fullList = members.join('、');
+    if (members.length <= 2) {
+        return `<br><small class="nav-account-teammates" title="${navEscape(fullList)}">${navEscape(accountText('同队：', 'Shared with: '))}${navEscape(fullList)}</small>`;
+    }
+    const preview = members.slice(0, 2).join('、');
+    const encodedUser = encodeURIComponent(username);
+    return `<br><small class="nav-account-teammates" title="${navEscape(fullList)}">${navEscape(accountText('同队：', 'Shared with: '))}${navEscape(preview)} <button type="button" class="nav-account-teammates-more" onclick="showTeamMembersNotice(decodeURIComponent('${encodedUser}'))">${navEscape(accountText(`等 ${members.length} 名同队成员`, `+${members.length - 2} (${members.length})` ))}</button></small>`;
+}
+
+window.showTeamMembersNotice = async function (u) {
+    const users = Array.isArray(navState.accountUsers) ? navState.accountUsers : [];
+    const me = users.find(x => x.username === u);
+    if (!me) return;
+    const allMembers = (me.teamMembers || []).length ? me.teamMembers : [u];
+    await showPlatformNotice({
+        title: accountText(`团队「${me.teamName || u}」成员（共 ${allMembers.length} 人）`, `Team "${me.teamName || u}" members (${allMembers.length})`),
+        message: allMembers.join('、'),
+        tone: 'info'
+    });
+};
+
+// 账号绑定团队：绑到另一个账号的团队后，共用那个团队的抓取脚本、数据导入、报表看板、月报等工具页面数据；
+// 若账号原团队仅有本人 1 名成员，绑定或换绑后原团队数据将丢失并自动清理；该账号会被要求重新登录
+window.bindUserTeam = async function (u) {
+    const users = Array.isArray(navState.accountUsers) ? navState.accountUsers : [];
+    const me = users.find(x => x.username === u);
+    if (!me) return;
+    const teams = [];
+    const seenTeams = new Set();
+    for (const x of users) {
+        if (x.isSuper) continue;
+        const candidates = [
+            x.tenantId && x.tenantId !== 'default' && x.tenantId !== me.ownTenantId
+                ? { id: x.tenantId, name: x.teamName || x.displayName || x.username, members: (x.teamMembers || []) }
+                : null,
+            x.ownTenantId && x.ownTenantId !== me.ownTenantId && x.ownTenantActive !== false
+                ? { id: x.ownTenantId, name: x.displayName || x.username, members: users.filter(y => y.tenantId === x.ownTenantId).map(y => y.username) }
+                : null
+        ].filter(Boolean);
+        for (const item of candidates) {
+            if (seenTeams.has(item.id)) continue;
+            seenTeams.add(item.id);
+            const sample = item.members.slice(0, 2).join('、');
+            const memberHint = item.members.length > 2
+                ? accountText(`${sample} 等 ${item.members.length} 人`, `${sample} +${item.members.length - 2}`)
+                : (sample || item.id);
+            teams.push({ value: item.id, label: `${item.name}（${memberHint}）` });
+        }
+    }
+    const currentTeamMembers = users.filter(x => x.tenantId === me.tenantId);
+    const isSoloCurrentTeam = currentTeamMembers.length <= 1 && Boolean(me.tenantId) && me.tenantId !== 'default';
+    const options = [{ value: '', label: accountText('不绑定：使用自己的团队', 'None: use own team') }, ...teams];
+    const baseMsg = accountText(
+        '绑定后该账号进入所选团队，和团队成员共用抓取脚本、数据导入、报表看板、月报等所有工具页面数据和模型配置；AI 对话仍各自私有。该账号会被要求重新登录。',
+        'The account joins the selected team and shares all tool data (scraping scripts, data imports, reports, monthly reports) and models with it; AI chats stay private. The account must sign in again.'
+    );
+    const soloHint = isSoloCurrentTeam
+        ? accountText(
+            `\n注意：账号“${u}”当前所在的团队「${me.teamName || me.tenantId}」仅有其本人 1 人，绑定或换绑后该原团队无人使用，原团队数据会丢失并被自动清理。`,
+            `\nWarning: "${u}" is the only member in "${me.teamName || me.tenantId}". Rebinding leaves that team empty so its data will be lost and cleaned up.`
+        )
+        : '';
+    const values = await showPlatformFormDialog({
+        title: accountText(`账号“${u}”绑定团队`, `Bind “${u}” to a team`),
+        message: `${baseMsg}${soloHint}`,
+        fields: [{ name: 'tenantId', label: accountText('团队', 'Team'), options, value: me.bound ? me.tenantId : '' }],
+        icon: '⇄',
+        confirmText: accountText('确定', 'Confirm')
+    });
+    if (!values) return;
+    const requestedTenantId = values.tenantId || '';
+    const nextEffectiveTenant = requestedTenantId || me.ownTenantId;
+    if (nextEffectiveTenant === me.tenantId) return;
+    if (isSoloCurrentTeam) {
+        const currentTeamName = me.teamName || me.tenantId;
+        const confirmed = await showPlatformConfirm({
+            title: accountText('原团队数据将丢失并清理', 'Original team data will be lost'),
+            message: accountText(
+                `账号“${u}”当前所在的团队「${currentTeamName}」只有其本人 1 位成员。绑定 / 换绑后将清理该无人使用的团队，自己原来的团队数据会永久丢失！\n\n确定继续吗？`,
+                `Account "${u}" is the sole member of team "${currentTeamName}". Rebinding will permanently delete that unused team and all of its original team data will be lost!\n\nContinue?`
+            ),
+            tone: 'danger',
+            confirmText: accountText('确认并清理原团队', 'Confirm & clean up')
+        });
+        if (!confirmed) return;
+    }
+    try {
+        await API.put('/api/auth/users/' + encodeURIComponent(u) + '/team', { tenantId: requestedTenantId });
         renderNavSettingsContent();
     } catch (e) {
         await showPlatformNotice({ title: navT('nav.dialog.error'), message: e.message, tone: 'error' });
