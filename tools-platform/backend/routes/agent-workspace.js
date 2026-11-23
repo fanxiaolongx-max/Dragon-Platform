@@ -338,7 +338,11 @@ router.get('/suggest', async (req, res) => {
 
 router.get('/prefs', async (req, res) => {
     try {
-        res.json(await prefsRepo.getPrefs(req.user.username));
+        const tenantId = getTenantId();
+        const isAllowed = boundary.isConfined(req.user)
+            ? dir => boundary.isAllowedPath(tenantId, dir)
+            : null;
+        res.json(await prefsRepo.getExistingPrefs(req.user.username, { isAllowed }));
     } catch (error) {
         res.status(500).json({ error: error.message || '读取工作区偏好失败' });
     }
@@ -410,6 +414,9 @@ router.post('/create', workspaceMutation(req => workspaceGit.createDirectory(use
 router.post('/select', async (req, res) => {
     try {
         const root = guard.normalizeRoot(userPath(req, req.body && req.body.path, '所选目录'));
+        if (prefsRepo.isScratchDirectory(root)) {
+            return res.status(400).json({ code: 'AGENT_ROOT_NOT_FOUND', error: '临时会话目录不可作为工作空间' });
+        }
         boundary.assertAllowed(req.user, getTenantId(), root, '所选目录');
         const prefs = await prefsRepo.rememberDirectory(req.user.username, root);
         // 最近一次在该目录的会话 id：新标签页（sessionStorage 为空）重选同一目录时沿用，服务端转录才能接上

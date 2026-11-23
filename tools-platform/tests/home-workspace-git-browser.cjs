@@ -22,6 +22,9 @@ async function capture(name) { await wait(220); fs.writeFileSync(path.join(temp,
 setTimeout(() => app.exit(1), 60000).unref();
 app.whenReady().then(async () => {
     for(let index=0;index<7;index++){const directory=path.join(workspaceRoot,'past-'+String(index).padStart(2,'0'));fs.mkdirSync(directory);await runWithTenant('default',()=>workspacePrefs.rememberDirectory('fixture',directory));}
+    const staleMissingDir=path.join(workspaceRoot,'deleted-on-disk');fs.mkdirSync(staleMissingDir);
+    await runWithTenant('default',async()=>{const {writeKV}=require('../backend/models/kv-store');await workspacePrefs.rememberDirectory('fixture',staleMissingDir);await writeKV('dragon-claw-workspace','fixture',{...(await workspacePrefs.getPrefs('fixture')),recentDirectories:[staleMissingDir,path.join(workspaceRoot,'dragon-claw-scratch','5926f323fced0775'),...(await workspacePrefs.getPrefs('fixture')).recentDirectories]});});
+    fs.rmSync(staleMissingDir,{recursive:true,force:true});
     await runWithTenant('default',()=>workspacePrefs.rememberDirectory('fixture',project));
     const web = express(); web.use(express.json());
     web.use('/api/agent-workspace',(req,res,next)=>{req.user={username:'fixture',role:'admin'};runWithTenant('default',next);},workspaceRouter);
@@ -58,6 +61,7 @@ app.whenReady().then(async () => {
     assert.equal(await evaluate('DragonClawWorkspace.isPanelOpen()'),false,'new chat closes a manually opened workspace');
 
     await evaluate('document.querySelector(".dc-directory-picker summary").click()');
+    assert.ok(await evaluate('![...document.querySelectorAll(".dc-context-recents [data-wsp-select]")].some(b=>b.title.includes("deleted-on-disk")||b.title.includes("5926f323fced0775"))'),'startup /prefs hides deleted and scratch directories');
     assert.ok(await evaluate('document.querySelector("[data-wsp-action=create-workspace]").textContent.includes("新建工作空间")'));
     await evaluate(`DragonClawWorkspace.selectDirectory(${JSON.stringify(project)})`);
     await until('document.querySelector(".dc-branch-picker summary").textContent.includes("main")');
@@ -115,6 +119,10 @@ app.whenReady().then(async () => {
     const toolbarRows=await evaluate('[...document.querySelectorAll("#dcWorkspaceChip details > summary")].map(node=>Math.round(node.getBoundingClientRect().top))');assert.equal(new Set(toolbarRows).size,1,'selected worktree controls share a single desktop row');
     await capture('worktree-selected-light');
     await evaluate('document.querySelector(".dc-worktree-picker summary").click()');
+    const wtRows=await evaluate('[...document.querySelectorAll(".dc-worktree-picker .dc-worktree-row")].map(row=>{const select=row.querySelector("[data-wsp-select]"),rm=row.querySelector(".dc-worktree-rm"),label=select?.querySelector("b");return {selectWidth:select?Math.round(select.getBoundingClientRect().width):0,labelWidth:label?Math.round(label.getBoundingClientRect().width):0,rmWidth:rm?Math.round(rm.getBoundingClientRect().width):null,labelText:label?.textContent||""}})');
+    assert.ok(wtRows.length>=2,'expected main repo and created worktree rows');
+    for(const row of wtRows){assert.ok(row.selectWidth>=180&&row.labelWidth>=40,'worktree select button should keep visible label width: '+JSON.stringify(row));if(row.rmWidth!==null)assert.ok(row.rmWidth>=24&&row.rmWidth<=32,'worktree remove button should stay compact ~26px: '+JSON.stringify(row));}
+    await capture('worktree-menu-with-items-light');
     await evaluate(`[...document.querySelectorAll('.dc-worktree-picker [data-wsp-select]')].find(button=>button.dataset.wspSelect===${JSON.stringify(project)}).click()`);
     await until(`DragonClawWorkspace.getRoot()===${JSON.stringify(project)}&&!document.querySelector('.dc-worktree-check.is-checked')`);
     const newDirectory=path.join(workspaceRoot,'new-workspace');
@@ -122,6 +130,9 @@ app.whenReady().then(async () => {
     await until(`DragonClawWorkspace.getRoot()===${JSON.stringify(newDirectory)}`);assert.equal(fs.statSync(newDirectory).isDirectory(),true);assert.equal(await evaluate('!!document.querySelector(".dc-branch-picker")'),false);
     await evaluate('document.querySelector("[data-wsp-action=clear]").click()');assert.equal(await evaluate('DragonClawWorkspace.getWorkspacePayload()'),null);
     await evaluate(`DragonClawWorkspace.selectDirectory(${JSON.stringify(project)})`);await until('!!document.querySelector(".dc-branch-picker")');
+    fs.rmSync(newDirectory,{recursive:true,force:true});
+    await evaluate('document.querySelector(".dc-directory-picker summary").click();[...document.querySelectorAll(".dc-context-recents [data-wsp-select]")].find(b=>b.title.includes("new-workspace")).click()');
+    await until('![...document.querySelectorAll(".dc-context-recents [data-wsp-select]")].some(b=>b.title.includes("new-workspace"))');
     for(const [width,theme,language] of [[1440,'dark','zh-CN'],[390,'light','en-US']]){
         win.setContentSize(width,1000);await wait(100);if(width===390)await evaluate('document.getElementById("v2SideToggle").click()');await evaluate(`document.documentElement.dataset.theme='${theme}';ToolsI18n.setLanguage('${language}')`);
         for(const selector of ['.dc-directory-picker','.dc-branch-picker','.dc-worktree-picker','.dc-permission-picker']){

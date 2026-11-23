@@ -335,10 +335,10 @@ html[data-theme="dark"] .dc-context-picker.is-full summary { color: #fb8c9d; }
 
 .dc-context-menu { bottom: calc(100% + 10px); left: 0; max-height: min(440px, 65vh); overflow: auto; }
 
-.dc-context-menu button,
+.dc-context-menu button:not(.dc-worktree-rm),
 .dc-composer-menu button { display: flex; align-items: center; gap: 9px; width: 100%; min-height: 36px; padding: 8px 9px; border: 0; border-radius: 8px; background: transparent; color: inherit; font: inherit; font-size: 12px; text-align: left; cursor: pointer; }
 
-.dc-context-menu button:hover,
+.dc-context-menu button:not(.dc-worktree-rm):hover,
 .dc-composer-menu button:hover,
 .dc-composer-menu button:focus-visible { background: var(--v2-hover); }
 

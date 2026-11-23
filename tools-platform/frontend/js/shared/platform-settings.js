@@ -5852,7 +5852,8 @@ async function renderAccountSettings(content) {
             const bind = !u.isSuper && u.ownTenantId
                 ? `<button onclick="bindUserTeam(decodeURIComponent('${name}'))">${navEscape(u.bound ? accountText('更换 / 解绑团队', 'Change / unbind team') : accountText('绑定团队', 'Bind team'))}</button>` : '';
             const members = (u.teamMembers || []).filter(m => m !== u.username);
-            const teamCell = `${navEscape(u.teamName || u.username)}${u.bound ? ` <span class="nav-account-role readonly">${navEscape(accountText('已绑定', 'Bound'))}</span>` : ''}${members.length ? `<br><small>${navEscape(accountText('同队：', 'Shared with: '))}${navEscape(members.join('、'))}</small>` : ''}`;
+            const teammatesHtml = renderAccountTeammatesSummary(u.username, members);
+            const teamCell = `${navEscape(u.teamName || u.username)}${u.bound ? ` <span class="nav-account-role readonly">${navEscape(accountText('已绑定', 'Bound'))}</span>` : ''}${teammatesHtml}`;
             return `
                 <tr>
                     <td>${navEscape(u.username)}</td>
@@ -5948,31 +5949,96 @@ window.deleteUser = async function (u) {
     }
 };
 
+function renderAccountTeammatesSummary(username, members) {
+    if (!Array.isArray(members) || !members.length) return '';
+    const fullList = members.join('、');
+    if (members.length <= 2) {
+        return `<br><small class="nav-account-teammates" title="${navEscape(fullList)}">${navEscape(accountText('同队：', 'Shared with: '))}${navEscape(fullList)}</small>`;
+    }
+    const preview = members.slice(0, 2).join('、');
+    const encodedUser = encodeURIComponent(username);
+    return `<br><small class="nav-account-teammates" title="${navEscape(fullList)}">${navEscape(accountText('同队：', 'Shared with: '))}${navEscape(preview)} <button type="button" class="nav-account-teammates-more" onclick="showTeamMembersNotice(decodeURIComponent('${encodedUser}'))">${navEscape(accountText(`等 ${members.length} 名同队成员`, `+${members.length - 2} (${members.length})` ))}</button></small>`;
+}
+
+window.showTeamMembersNotice = async function (u) {
+    const users = Array.isArray(navState.accountUsers) ? navState.accountUsers : [];
+    const me = users.find(x => x.username === u);
+    if (!me) return;
+    const allMembers = (me.teamMembers || []).length ? me.teamMembers : [u];
+    await showPlatformNotice({
+        title: accountText(`团队「${me.teamName || u}」成员（共 ${allMembers.length} 人）`, `Team "${me.teamName || u}" members (${allMembers.length})`),
+        message: allMembers.join('、'),
+        tone: 'info'
+    });
+};
+
 // 账号绑定团队：绑到另一个账号的团队后，共用那个团队的抓取脚本、数据导入、报表看板、月报等工具页面数据；
-// 只改归属不搬数据，账号自己原来的数据保留，解绑后恢复；该账号会被要求重新登录
+// 若账号原团队仅有本人 1 名成员，绑定或换绑后原团队数据将丢失并自动清理；该账号会被要求重新登录
 window.bindUserTeam = async function (u) {
     const users = Array.isArray(navState.accountUsers) ? navState.accountUsers : [];
     const me = users.find(x => x.username === u);
     if (!me) return;
     const teams = [];
+    const seenTeams = new Set();
     for (const x of users) {
-        if (x.isSuper || !x.ownTenantId || x.ownTenantId === me.ownTenantId || teams.some(t => t.value === x.ownTenantId)) continue;
-        const owners = users.filter(y => y.ownTenantId === x.ownTenantId).map(y => y.username);
-        teams.push({ value: x.ownTenantId, label: `${x.displayName || x.username}（${accountText('账号', 'account')} ${owners.join('、')}）` });
+        if (x.isSuper) continue;
+        const candidates = [
+            x.tenantId && x.tenantId !== 'default' && x.tenantId !== me.ownTenantId
+                ? { id: x.tenantId, name: x.teamName || x.displayName || x.username, members: (x.teamMembers || []) }
+                : null,
+            x.ownTenantId && x.ownTenantId !== me.ownTenantId && x.ownTenantActive !== false
+                ? { id: x.ownTenantId, name: x.displayName || x.username, members: users.filter(y => y.tenantId === x.ownTenantId).map(y => y.username) }
+                : null
+        ].filter(Boolean);
+        for (const item of candidates) {
+            if (seenTeams.has(item.id)) continue;
+            seenTeams.add(item.id);
+            const sample = item.members.slice(0, 2).join('、');
+            const memberHint = item.members.length > 2
+                ? accountText(`${sample} 等 ${item.members.length} 人`, `${sample} +${item.members.length - 2}`)
+                : (sample || item.id);
+            teams.push({ value: item.id, label: `${item.name}（${memberHint}）` });
+        }
     }
+    const currentTeamMembers = users.filter(x => x.tenantId === me.tenantId);
+    const isSoloCurrentTeam = currentTeamMembers.length <= 1 && Boolean(me.tenantId) && me.tenantId !== 'default';
     const options = [{ value: '', label: accountText('不绑定：使用自己的团队', 'None: use own team') }, ...teams];
+    const baseMsg = accountText(
+        '绑定后该账号进入所选团队，和团队成员共用抓取脚本、数据导入、报表看板、月报等所有工具页面数据和模型配置；AI 对话仍各自私有。该账号会被要求重新登录。',
+        'The account joins the selected team and shares all tool data (scraping scripts, data imports, reports, monthly reports) and models with it; AI chats stay private. The account must sign in again.'
+    );
+    const soloHint = isSoloCurrentTeam
+        ? accountText(
+            `\n注意：账号“${u}”当前所在的团队「${me.teamName || me.tenantId}」仅有其本人 1 人，绑定或换绑后该原团队无人使用，原团队数据会丢失并被自动清理。`,
+            `\nWarning: "${u}" is the only member in "${me.teamName || me.tenantId}". Rebinding leaves that team empty so its data will be lost and cleaned up.`
+        )
+        : '';
     const values = await showPlatformFormDialog({
         title: accountText(`账号“${u}”绑定团队`, `Bind “${u}” to a team`),
-        message: accountText(
-            '绑定后该账号进入所选团队，和团队成员共用抓取脚本、数据导入、报表看板、月报等所有工具页面数据和模型配置；AI 对话仍各自私有。账号自己原来的数据不删除，解绑后恢复。该账号会被要求重新登录。',
-            'The account joins the selected team and shares all tool data (scraping scripts, data imports, reports, monthly reports) and models with it; AI chats stay private. Its own data is kept and comes back after unbinding. The account must sign in again.'),
+        message: `${baseMsg}${soloHint}`,
         fields: [{ name: 'tenantId', label: accountText('团队', 'Team'), options, value: me.bound ? me.tenantId : '' }],
         icon: '⇄',
         confirmText: accountText('确定', 'Confirm')
     });
     if (!values) return;
+    const requestedTenantId = values.tenantId || '';
+    const nextEffectiveTenant = requestedTenantId || me.ownTenantId;
+    if (nextEffectiveTenant === me.tenantId) return;
+    if (isSoloCurrentTeam) {
+        const currentTeamName = me.teamName || me.tenantId;
+        const confirmed = await showPlatformConfirm({
+            title: accountText('原团队数据将丢失并清理', 'Original team data will be lost'),
+            message: accountText(
+                `账号“${u}”当前所在的团队「${currentTeamName}」只有其本人 1 位成员。绑定 / 换绑后将清理该无人使用的团队，自己原来的团队数据会永久丢失！\n\n确定继续吗？`,
+                `Account "${u}" is the sole member of team "${currentTeamName}". Rebinding will permanently delete that unused team and all of its original team data will be lost!\n\nContinue?`
+            ),
+            tone: 'danger',
+            confirmText: accountText('确认并清理原团队', 'Confirm & clean up')
+        });
+        if (!confirmed) return;
+    }
     try {
-        await API.put('/api/auth/users/' + encodeURIComponent(u) + '/team', { tenantId: values.tenantId || '' });
+        await API.put('/api/auth/users/' + encodeURIComponent(u) + '/team', { tenantId: requestedTenantId });
         renderNavSettingsContent();
     } catch (e) {
         await showPlatformNotice({ title: navT('nav.dialog.error'), message: e.message, tone: 'error' });

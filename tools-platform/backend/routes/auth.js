@@ -223,6 +223,7 @@ router.get('/users', checkAuth, requireSuperAdmin, async (req, res) => {
             isSuper: user.isSuper,
             tenantId: user.tenantId,
             ownTenantId: user.ownTenantId,
+            ownTenantActive: user.ownTenantId === tenantsRepo.DEFAULT_TENANT_ID || tenants.get(user.ownTenantId)?.status === 'active',
             // 绑定到别的账号的团队：和那个团队共用工具页面数据（抓取脚本、数据导入、报表、月报等）
             bound: user.tenantId !== user.ownTenantId,
             teamName: teamName(user.tenantId),
@@ -265,6 +266,20 @@ router.post('/users', checkAuth, requireSuperAdmin, async (req, res) => {
     }
 });
 
+/** 某个团队空间已没有任何账号在用（无任何账号处于该团队）时彻底清理 */
+async function cleanupUnusedTeam(tenantId) {
+    if (!tenantId || tenantId === tenantsRepo.DEFAULT_TENANT_ID) return false;
+    const inUse = Object.values((await authUsersRepo.listUsers()).items).some(other => other.tenantId === tenantId);
+    if (inUse) return false;
+    const tenant = await tenantsRepo.getTenantById(tenantId).catch(() => null);
+    if (!tenant) return false;
+    if (tenant.status === 'active') {
+        await tenantsRepo.archiveTenant(tenantId).catch(error => { if (error.statusCode !== 404) throw error; });
+    }
+    await tenantsRepo.deleteTenantPermanently(tenantId).catch(error => { if (error.statusCode !== 404 && error.statusCode !== 409) throw error; });
+    return true;
+}
+
 /** 某个团队空间已经没有任何账号在用（既不是谁自己的团队，也没人绑定在上面）就归档；数据保留 */
 async function archiveTeamIfOrphaned(tenantId) {
     if (!tenantId || tenantId === tenantsRepo.DEFAULT_TENANT_ID) return false;
@@ -275,7 +290,7 @@ async function archiveTeamIfOrphaned(tenantId) {
 }
 
 // PUT /api/auth/users/:username/team：把账号绑定到另一个账号的团队（共用该团队的工具页面数据），tenantId 为空则解绑回自己的团队。
-// 只改归属不搬数据：账号自己团队里原有的数据原样保留，解绑后重新可见。超级管理员空间不能绑定进去（那里有平台级权限）。
+// 若原团队仅剩该账号 1 人，切换/绑定后原团队将无人使用并自动清理；解绑回自己团队若原空间已被清理则新建空白团队空间。超级管理员空间不能绑定进去。
 router.put('/users/:username/team', checkAuth, requireSuperAdmin, async (req, res) => {
     const username = req.params.username;
     const requested = String(req.body?.tenantId || '').trim().toLowerCase();
@@ -288,14 +303,24 @@ router.put('/users/:username/team', checkAuth, requireSuperAdmin, async (req, re
         if (target !== user.ownTenantId) {
             const tenant = await tenantsRepo.getTenantById(target).catch(() => null);
             if (!tenant || tenant.status !== 'active') return res.status(404).json({ error: '团队不存在或已归档' });
+        } else {
+            const ownTenant = await tenantsRepo.getTenantById(target).catch(() => null);
+            if (!ownTenant) {
+                await tenantsRepo.createTenant({ id: target, name: user.displayName || user.username, description: `账号 ${username} 的团队空间` });
+                ensureUserSpaceDirs(target);
+            } else if (ownTenant.status === 'archived') {
+                ensureUserSpaceDirs(target);
+                await tenantsRepo.restoreTenant(target).catch(() => {});
+            }
         }
         if (target === user.tenantId) return res.json({ success: true, unchanged: true, tenantId: target });
+        const previousTenantId = user.tenantId;
         await authUsersRepo.setUserTeam(username, target === user.ownTenantId ? '' : target);
-        if (user.tenantId !== user.ownTenantId) await archiveTeamIfOrphaned(user.tenantId);
+        const cleaned = await cleanupUnusedTeam(previousTenantId);
         // 重新登录后按新团队加载，避免页面里还缓存着原团队的数据
         await authSessionsRepo.deleteSessionsForUser(username);
-        auditLog.record(req, { action: target === user.ownTenantId ? 'user_team_unbind' : 'user_team_bind', target: username, tenantId: target, detail: { from: user.tenantId, to: target } });
-        res.json({ success: true, tenantId: target, bound: target !== user.ownTenantId });
+        auditLog.record(req, { action: target === user.ownTenantId ? 'user_team_unbind' : 'user_team_bind', target: username, tenantId: target, detail: { from: previousTenantId, to: target, ...(cleaned ? { cleanedTeamId: previousTenantId } : {}) } });
+        res.json({ success: true, tenantId: target, bound: target !== user.ownTenantId, ...(cleaned ? { cleanedTeamId: previousTenantId } : {}) });
     } catch (err) {
         console.error('[auth] bind team failed:', err);
         res.status(err.statusCode || 500).json({ error: err.message || '绑定团队失败' });

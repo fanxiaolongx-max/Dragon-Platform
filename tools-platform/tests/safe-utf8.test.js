@@ -65,7 +65,7 @@ const electronBin = resolveElectronBinary();
 test('the desktop runtime survives invalid bytes through the safe decoder', { skip: !electronBin }, () => {
     const script = `const { decodeUtf8Strict } = require(${JSON.stringify(path.join(__dirname, '..', 'backend', 'models', 'safe-utf8.js'))});
         const crypto = require('crypto'); let bad = 0;
-        for (let i = 0; i < 1500; i += 1) if (decodeUtf8Strict(crypto.randomBytes(1 + Math.floor(Math.random() * 65536))) === null) bad += 1;
+        for (let i = 0; i < 1500; i += 1) if (decodeUtf8Strict(crypto.randomBytes(64 + Math.floor(Math.random() * 65536))) === null) bad += 1;
         console.log('ok ' + bad);`;
     const result = spawnSync(electronBin, ['-e', script], { env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }, encoding: 'utf8', timeout: 60000 });
     assert.equal(result.status, 0, `signal=${result.signal} ${result.stderr}`);

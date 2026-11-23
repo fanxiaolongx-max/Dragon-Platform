@@ -309,3 +309,11 @@ test('subagent cards, continue-after-crash and per-turn rewind are wired into th
     assert.match(css, /\.dc-sub \{[\s\S]*--sub:/);
     assert.match(css, /prefers-reduced-motion[\s\S]*\.dc-sub\.is-running \.dc-sub-avatar/);
 });
+
+test('worktree dropdown remove button keeps fixed icon size and never squeezes worktree labels to 0px', () => {
+    const themeCss = read('frontend/css/home-theme.css');
+    const panelCss = read('frontend/css/workspace-panel.css');
+    assert.match(themeCss, /\.dc-context-menu button:not\(\.dc-worktree-rm\)/, 'home-theme.css must exclude .dc-worktree-rm from 100%-width menu button rule');
+    assert.match(panelCss, /\.dc-context-menu \.dc-worktree-row > button:first-child \{[\s\S]*flex:\s*1 1 0%;[\s\S]*width:\s*auto;/);
+    assert.match(panelCss, /\.dc-context-menu \.dc-worktree-row > \.dc-worktree-rm \{[\s\S]*width:\s*26px;/);
+});

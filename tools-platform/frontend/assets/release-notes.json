@@ -1,10 +1,10 @@
 {
   "zh": [
-    "「01平台接入」只在公司内网出现（与首页 WeLink 内网识别一致）；外网不显示，也不能新建、修改或测试指向 01 平台的模型配置。",
-    "账号管理新增「绑定团队」（仅超级管理员）：把账号绑到另一个账号的团队后，共用该团队的抓取脚本、数据导入、报表看板、月报等工具页面数据和模型配置，AI 对话仍各自私有；账号原来的数据保留，解绑后恢复。不能绑进超级管理员空间。"
+    "修复 Worktree 下拉菜单中删除按钮挤压名称与分支导致无法显示的问题，并自动清理最近工作空间列表中已失效/不存在或过期的临时沙箱目录。",
+    "账号管理优化：同队成员超过 2 人时折叠展示并支持弹窗查看全部成员；单人团队绑定或换绑团队前提示原团队数据将丢失，切换后自动清理无人使用的团队空间。"
   ],
   "en": [
-    "01 Platform quick connect only appears on the company intranet (same check as the home WeLink intranet detection); off the intranet it is hidden and model profiles pointing at 01 Platform cannot be created, changed or tested.",
-    "Account management adds Bind team (super admin only): an account bound to another account's team shares that team's scraping scripts, data imports, reports, monthly reports and other tool data and models, while AI chats stay private; its own data is kept and returns after unbinding. Accounts cannot be bound into the super admin space."
+    "Fixed the Worktree menu delete button squeezing directory and branch labels to zero width, and automatically prune missing or expired scratch directories from recent workspaces.",
+    "Account management improvements: collapse long teammate lists after 2 names with a view-all popover, warn before rebinding sole-member teams that original data will be lost, and clean up unused team spaces after rebinding."
   ]
 }

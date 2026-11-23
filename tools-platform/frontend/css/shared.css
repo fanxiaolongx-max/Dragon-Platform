@@ -4094,6 +4094,36 @@ from { opacity: 0; transform: translateX(-5px); }
     color: #64748b;
 }
 
+.nav-account-teammates {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+    max-width: 260px;
+    margin-top: 3px;
+    color: #64748b;
+    font-size: 11.5px;
+    line-height: 1.45;
+}
+
+.nav-account-teammates-more {
+    padding: 1px 6px;
+    border: 1px solid #cbd5e1;
+    border-radius: 999px;
+    background: #f8fafc;
+    color: #4f46e5;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.nav-account-teammates-more:hover {
+    border-color: #6366f1;
+    background: #eef2ff;
+}
+
 @media (max-width: 780px) {
 
 .nav-settings-window {
@@ -7961,6 +7991,14 @@ html[data-theme="dark"] .builtin-sync-error-card p { color: #fca5a5; }
     background: var(--nsw-chip) !important;
     color: var(--nsw-ink2) !important;
     border-color: var(--nsw-line-strong) !important;
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-account-teammates {
+    color: var(--nsw-ink3);
+}
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-account-teammates-more {
+    background: var(--nsw-chip);
+    border-color: var(--nsw-line-strong);
+    color: #a5b4fc;
 }
 /* 14. 安全策略 (security) */
 :is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-security-grid {

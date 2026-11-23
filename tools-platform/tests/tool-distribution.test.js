@@ -5,7 +5,7 @@ const path = require('node:path');
 const os = require('node:os');
 const vm = require('node:vm');
 const express = require('express');
-const request = require('supertest');
+const supertest = require('supertest');
 
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'tool-distribution-'));
 process.env.TOOLS_DATA_DIR = path.join(temp, 'data');
@@ -32,8 +32,19 @@ app.use('/api/python-updater', require('../backend/routes/python-updater'));
 app.use('/api/uiv', require('../backend/routes/uiv'));
 app.use('/api/requirements', require('../backend/routes/requirements'));
 const asAdmin = req => req.set('x-admin', '1');
+let server;
+const request = target => supertest(target === app ? server : target);
+
+test.before(async () => {
+    server = app.listen(0, '127.0.0.1');
+    await new Promise(resolve => server.once('listening', resolve));
+});
 
 test.after(async () => {
+    if (server) {
+        server.closeAllConnections?.();
+        await new Promise(resolve => server.close(resolve));
+    }
     await require('../backend/models/app-db').closeDatabase();
     await require('../backend/models/tenant-sqlite-pool').closeAll();
     fs.rmSync(temp, { recursive: true, force: true });
@@ -48,17 +59,24 @@ test('standalone HTML access honors both sharing and password-free access with a
     vm.runInNewContext(source.slice(start, end), { app: standalone, checkHtmlAuth, redirectHtmlLogin, toolDistribution: distribution });
     standalone.get('/custom-tools/:slug/index.html', (req, res) => res.json({ slug: req.distributedTool.tool.slug }));
 
-    const tool = await repo.createTool({ slug: 'standalone-access-fixture', name: 'Access fixture', htmlContent: '<html><body>fixture</body></html>' });
-    const url = `/custom-tools/${tool.slug}/index.html?standalone=1`;
-    const guest = () => request(standalone).get(url).set('Cookie', 'tools_token=stale-test-session');
+    const sSrv = standalone.listen(0, '127.0.0.1');
+    await new Promise(resolve => sSrv.once('listening', resolve));
+    try {
+        const tool = await repo.createTool({ slug: 'standalone-access-fixture', name: 'Access fixture', htmlContent: '<html><body>fixture</body></html>' });
+        const url = `/custom-tools/${tool.slug}/index.html?standalone=1`;
+        const guest = () => supertest(sSrv).get(url).set('Cookie', 'tools_token=stale-test-session');
 
-    await distribution.setSharedAccess(tool.slug, true);
-    await guest().expect(302).expect('Location', '/login.html');
-    await repo.updateToolAccess(tool.slug, true);
-    await guest().expect(200, { slug: tool.slug });
-    await request(standalone).get(url).expect(200, { slug: tool.slug });
-    await distribution.setSharedAccess(tool.slug, false);
-    await guest().expect(302).expect('Location', '/login.html');
+        await distribution.setSharedAccess(tool.slug, true);
+        await guest().expect(302).expect('Location', '/login.html');
+        await repo.updateToolAccess(tool.slug, true);
+        await guest().expect(200, { slug: tool.slug });
+        await supertest(sSrv).get(url).expect(200, { slug: tool.slug });
+        await distribution.setSharedAccess(tool.slug, false);
+        await guest().expect(302).expect('Location', '/login.html');
+    } finally {
+        sSrv.closeAllConnections?.();
+        await new Promise(resolve => sSrv.close(resolve));
+    }
 });
 
 test('HTML tools are opt-in, update from the platform, and keep tenant data separate', async () => {

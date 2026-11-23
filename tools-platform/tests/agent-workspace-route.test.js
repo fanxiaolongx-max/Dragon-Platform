@@ -313,3 +313,34 @@ test('file view reads text files inside the root and refuses escapes, secrets an
     assert.equal((await call('GET', url('missing.html'), { headers: viewerLocal })).status, 404);
     assert.equal((await call('GET', url('hello.html'), { headers: viewerRemote })).status, 403, 'same access gate as the rest of the workspace API');
 });
+
+test('GET /prefs prunes nonexistent and scratch directories and POST /select rejects scratch folders', async () => {
+    const ephemeral = fs.mkdtempSync(path.join(sandbox, 'ephemeral-'));
+    const scratchDir = path.join(sandbox, 'dragon-claw-scratch', '5926f323fced0775');
+    fs.mkdirSync(scratchDir, { recursive: true });
+    const alphaRoot = fs.realpathSync(path.join(projects, 'alpha'));
+
+    await runWithTenant('default', async () => {
+        const { writeKV } = require('../backend/models/kv-store');
+        await writeKV('dragon-claw-workspace', 'viewer', {
+            lastDirectory: scratchDir,
+            recentDirectories: [ephemeral, scratchDir, alphaRoot, '/nonexistent/path/5926f323fced0775'],
+            permissionMode: 'ask'
+        });
+    });
+
+    // Simulate external deletion of the ephemeral workspace
+    fs.rmSync(ephemeral, { recursive: true, force: true });
+
+    const prefsRes = await call('GET', '/prefs', { headers: viewerLocal });
+    assert.equal(prefsRes.status, 200);
+    const cleaned = await prefsRes.json();
+    assert.equal(cleaned.lastDirectory, '');
+    assert.deepEqual(cleaned.recentDirectories, [alphaRoot]);
+
+    const storedAfter = await runWithTenant('default', () => prefsRepo.getPrefs('viewer'));
+    assert.deepEqual(storedAfter.recentDirectories, [alphaRoot]);
+
+    const selectScratch = await call('POST', '/select', { headers: viewerLocal, body: { path: scratchDir } });
+    assert.equal(selectScratch.status, 400);
+});
