@@ -7,17 +7,18 @@ const MAX_ROOMS_PER_USER = 8;
 const ROOM_ID = /^[a-f0-9]{32}$/;
 const PARTICIPANTS = new Set(['we-ai', 'ai-en']);
 
-function createSummitSlideSyncRouter({ canShare, canCaption, sendDeck, nowMs = Date.now } = {}) {
+function createSummitSlideSyncRouter({ canShare, canCaption, sendDeck, sendDemoPrompter, nowMs = Date.now } = {}) {
     const router = express.Router();
     const rooms = new Map();
     const defaultRooms = new Map();
 
     const publicViewer = express.Router();
-    publicViewer.get(['/', '/deck'], (req, res, next) => {
+    publicViewer.get(['/', '/deck', '/demo-prompter'], (req, res, next) => {
         res.set({ 'Cache-Control': 'private, no-store', 'Referrer-Policy': 'no-referrer' });
         const key = req.get('X-Summit-Sync-Room');
         const room = ROOM_ID.test(key || '') && [...rooms.values()].find(item => item.viewer === key);
         if (!room || room.expiresAt <= nowMs()) return res.status(404).json({ code: 'ROOM_NOT_FOUND' });
+        if (req.path === '/demo-prompter') return sendDemoPrompter(req, res, next);
         if (req.path === '/deck') return sendDeck(req, res, next);
         return res.json(viewerState(room.state));
     });
@@ -39,7 +40,7 @@ function createSummitSlideSyncRouter({ canShare, canCaption, sendDeck, nowMs = D
 
     function parseSlide(body) {
         const { slideIndex, from, language, focus, hideBrands, theme, screenCue, captions } = body || {};
-        if (!Number.isInteger(slideIndex) || slideIndex < 0 || slideIndex >= 10 || !PARTICIPANTS.has(from)) {
+        if (!Number.isInteger(slideIndex) || slideIndex < 0 || slideIndex >= (from === 'ai-en' ? 12 : 11) || !PARTICIPANTS.has(from)) {
             return null;
         }
         if (focus !== undefined && (from !== 'we-ai' || !Number.isInteger(focus) || focus < -1 || focus > 31)) return null;

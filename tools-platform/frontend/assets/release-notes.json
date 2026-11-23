@@ -1,10 +1,10 @@
 {
   "zh": [
-    "更新「WE✖️AI / 提词器（we-ai）」演讲与幻灯片深色主题配色，同步演讲文稿、开场词与逐句时间轴。",
-    "新增 12 路峰会版多语种配音（*-summit.mp3，we-ai-narration-20261123-1）并更新内置工具说明文档。"
+    "升级《AI 最后一公里 / The Last Mile of AI》演示文稿（ai-en）与提词器（we-ai），新增 Live Demo 与 Agent 主页展示幻灯片并优化同步翻页上限。",
+    "扩展峰会同步只读视图支持演示提词器分栏（summit-view?pane=prompter / /api/public/summit-view/demo-prompter），并新增 20 路收尾及 Last Mile 多语种配音（we-ai-narration-20261123-2/3）。"
   ],
   "en": [
-    "Updated dark-theme palettes across the WE×AI slides (ai-en) and teleprompter (we-ai), along with refreshed talk scripts, opening cues, and sentence timelines.",
-    "Added 12 summit multilingual narration audio tracks (*-summit.mp3 via we-ai-narration-20261123-1) and updated built-in tool guides."
+    "Upgraded The Last Mile of AI slides (ai-en) and teleprompter (we-ai) with new Live Demo and Agent Home showcase slides and expanded slide sync bounds.",
+    "Added read-only demo prompter pane support for summit viewers (summit-view?pane=prompter / /api/public/summit-view/demo-prompter) along with 20 closing and Last Mile multilingual narration tracks (we-ai-narration-20261123-2/3)."
   ]
 }

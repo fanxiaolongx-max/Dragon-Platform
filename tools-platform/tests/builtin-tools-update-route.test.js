@@ -4,7 +4,18 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const express = require('express');
-const request = require('supertest');
+const supertest = require('supertest');
+
+async function withBoundApp(app, run) {
+    const server = app.listen(0, '127.0.0.1');
+    await new Promise(resolve => server.once('listening', resolve));
+    try {
+        return await run(target => supertest(target === app ? server : target));
+    } finally {
+        server.closeAllConnections?.();
+        await new Promise(resolve => server.close(resolve));
+    }
+}
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'builtin-update-route-'));
 process.env.TOOLS_DATA_DIR = path.join(root, 'data');
@@ -49,6 +60,7 @@ test('manual comparison exposes market differences without automatic prompts; on
     app.use(express.json());
     app.use((req, _res, next) => runWithTenant('manual', () => { req.user = { role: req.headers['x-test-role'] || 'admin', isSuper: true }; next(); }));
     app.use('/api/custom-tools', router);
+    await withBoundApp(app, async request => {
     const url = '/api/custom-tools/builtin-sync';
     await request(app).get(url + '/preview?manual=1').set('x-test-role', 'viewer').expect(403);
     const automatic = await request(app).get(url + '/preview').expect(200);
@@ -73,6 +85,7 @@ test('manual comparison exposes market differences without automatic prompts; on
     assert.equal(fs.readFileSync(path.join(installedDir, 'user-note.txt'), 'utf8'), 'keep me');
     assert.equal(fs.readFileSync(path.join(result.backups[0].path, 'index.html'), 'utf8'), '<p>market version</p>');
     assert.deepEqual((await request(app).get(url + '/preview').expect(200)).body.pending, []);
+    });
 });
 
 test('stream endpoint keeps admin checks, tenant paths and result/error contracts', async () => {
@@ -88,6 +101,7 @@ test('stream endpoint keeps admin checks, tenant paths and result/error contract
         req.user = { role: req.headers['x-test-role'] || 'admin', isSuper: true }; next();
     }));
     app.use('/api/custom-tools', router);
+    await withBoundApp(app, async request => {
     const endpoint = '/api/custom-tools/builtin-sync/apply-stream';
     const body = { applySlugs: ['sample'], expectedFingerprints: { sample: fingerprint } };
     await request(app).post(endpoint).set('x-test-role', 'viewer').send(body).expect(403);
@@ -114,6 +128,7 @@ test('stream endpoint keeps admin checks, tenant paths and result/error contract
     const legacy = await request(app).post('/api/custom-tools/builtin-sync/apply').set('x-test-tenant', 'beta').send(body).expect(200);
     assert.deepEqual(legacy.body.installed, ['sample']);
     assert.equal(legacy.body.preview.pending.length, 0);
+    });
 });
 
 test('preview-stream endpoint checks admin role and streams progress and preview result', async () => {
@@ -128,6 +143,7 @@ test('preview-stream endpoint checks admin role and streams progress and preview
         req.user = { role: req.headers['x-test-role'] || 'admin', isSuper: true }; next();
     }));
     app.use('/api/custom-tools', router);
+    await withBoundApp(app, async request => {
     const endpoint = '/api/custom-tools/builtin-sync/preview-stream?manual=1';
     await request(app).get(endpoint).set('x-test-role', 'viewer').expect(403);
     const response = await request(app).get(endpoint).expect(200);
@@ -140,4 +156,5 @@ test('preview-stream endpoint checks admin role and streams progress and preview
     assert.ok(resultEvent);
     assert.equal(resultEvent.data.manual, true);
     assert.ok(Array.isArray(resultEvent.data.tools));
+    });
 });

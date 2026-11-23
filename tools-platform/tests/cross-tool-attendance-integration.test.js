@@ -190,7 +190,7 @@ test('Cross-tool attendance check & roster extraction integration test', async (
         app.use('/api/operation-incentive-snapshots', incentiveRoutes);
 
         const server = http.createServer(app);
-        await new Promise(resolve => server.listen(0, resolve));
+        await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
         const port = server.address().port;
         const meetingBase = `http://127.0.0.1:${port}/api/meeting-snapshots`;
         const incBase = `http://127.0.0.1:${port}/api/operation-incentive-snapshots`;
@@ -295,7 +295,7 @@ test('Cross-tool attendance check & roster extraction integration test', async (
         app.use('/api/department-reward-penalty', deptRoutes);
 
         const server = http.createServer(app);
-        await new Promise(resolve => server.listen(0, resolve));
+        await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
         const port = server.address().port;
         const deptBase = `http://127.0.0.1:${port}/api/department-reward-penalty`;
 

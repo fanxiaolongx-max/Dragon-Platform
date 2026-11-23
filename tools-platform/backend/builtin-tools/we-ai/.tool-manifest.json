@@ -2,8 +2,8 @@
   "version": 1,
   "tool": {
     "slug": "we-ai",
-    "name": "WE✖️AI提词器",
-    "nameEn": "Summit Speech Teleprompter",
+    "name": "AI 最后一公里 · 提词器",
+    "nameEn": "The Last Mile of AI · Teleprompter",
     "icon": "🧩",
     "description": "专为峰会演讲设计的网页提词器，支持中英双语对照、语速调节、镜像显示及生词标注。帮助演讲者在演示过程中精准把控节奏、查看提示信息并流畅完成演讲。",
     "descriptionEn": "A web-based teleprompter designed for summit speeches, featuring bilingual support, adjustable speech rates, mirror mode, and vocabulary annotations. It helps speakers manage their pace, view cues, and deliver presentations smoothly.",
@@ -18,7 +18,7 @@
     "filePath": "/custom-tools/we-ai/index.html",
     "publicAccess": false,
     "createdAt": "2026-11-20T22:02:18.354Z",
-    "updatedAt": "2026-11-23T14:06:36.520Z"
+    "updatedAt": "2026-11-23T18:54:51.986Z"
   },
   "history": null
 }

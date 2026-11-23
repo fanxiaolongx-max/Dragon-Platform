@@ -3,7 +3,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="referrer" content="no-referrer">
-<title>TE × AI · Summit</title>
+<title>The Last Mile of AI</title>
 <body><p id="status" role="status"></p>
 <script>
 (async () => {
@@ -14,7 +14,9 @@
     if (!/^[a-f0-9]{32}$/.test(key || '')) { message.textContent = expired; return; }
     message.textContent = en ? 'Opening presentation…' : '正在打开演示…';
     try {
-        const result = await fetch('/api/public/summit-view/deck', {
+        const pane = new URLSearchParams(location.search).get('pane');
+        const resource = pane === 'prompter' ? 'demo-prompter' : 'deck';
+        const result = await fetch('/api/public/summit-view/' + resource, {
             headers: { 'X-Summit-Sync-Room': key }, credentials: 'omit', cache: 'no-store'
         });
         if (result.status === 404) { message.textContent = expired; return; }

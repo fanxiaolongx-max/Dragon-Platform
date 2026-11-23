@@ -15,7 +15,7 @@ test('summit rooms share the slide and prompter language within the team and clo
         next();
     });
     let clock = Date.now();
-    const router = createSummitSlideSyncRouter({ nowMs: () => clock, sendDeck: (_req, res) => res.send('slide deck') });
+    const router = createSummitSlideSyncRouter({ nowMs: () => clock, sendDeck: (_req, res) => res.send('slide deck'), sendDemoPrompter: (_req, res) => res.send('demo prompter') });
     app.use('/api/public/summit-view', router.publicViewer);
     app.use('/api/summit-slide-sync', router);
     const server = app.listen(0, '127.0.0.1');
@@ -48,6 +48,8 @@ test('summit rooms share the slide and prompter language within the team and clo
     assert.notEqual(viewer, room);
     assert.equal((await watch(room)).status, 404);
     assert.equal((await watch(viewer, null, '/deck')).status, 200);
+    assert.equal(await (await watch(viewer, null, '/demo-prompter')).text(), 'demo prompter');
+    assert.equal((await watch(room, null, '/demo-prompter')).status, 404);
     assert.deepEqual(await (await watch(viewer, 'outsider')).json(), { from: 'we-ai', slideIndex: 4, revision: 1 });
     assert.equal((await request('PUT', 'host', viewer, { from: 'we-ai', slideIndex: 1 })).status, 404);
     assert.match(room, /^[a-f0-9]{32}$/);
@@ -68,16 +70,16 @@ test('summit rooms share the slide and prompter language within the team and clo
     const initial = await request('GET', 'projector', room);
     assert.equal(initial.headers.get('cache-control'), 'private, no-store');
     assert.deepEqual(await initial.json(), { from: 'we-ai', slideIndex: 4, revision: 1 });
-    assert.equal((await request('PUT', 'projector', room, { from: 'ai-en', slideIndex: 10 })).status, 400);
+    assert.equal((await request('PUT', 'projector', room, { from: 'ai-en', slideIndex: 12 })).status, 400);
     assert.equal((await request('PUT', 'host', room, { from: 'we-ai', slideIndex: 4, language: 'bi' })).status, 400);
     assert.equal((await request('PUT', 'projector', room, { from: 'ai-en', slideIndex: 4, language: 'zh' })).status, 400);
     assert.equal((await request('PUT', 'host', room, { from: 'we-ai', slideIndex: 4, language: 'en' })).status, 200);
     assert.deepEqual(await (await request('GET', 'projector', room)).json(),
         { from: 'we-ai', slideIndex: 4, language: 'en', revision: 2 });
-    assert.equal((await request('PUT', 'projector', room, { from: 'ai-en', slideIndex: 6 })).status, 200);
+    assert.equal((await request('PUT', 'projector', room, { from: 'ai-en', slideIndex: 11 })).status, 200);
     assert.deepEqual(await (await request('GET', 'host', room)).json(),
-        { from: 'ai-en', slideIndex: 6, language: 'en', revision: 3, viewer, expiresAt });
-    assert.deepEqual(await (await watch(viewer)).json(), { from: 'ai-en', slideIndex: 6, language: 'en', revision: 3 });
+        { from: 'ai-en', slideIndex: 11, language: 'en', revision: 3, viewer, expiresAt });
+    assert.deepEqual(await (await watch(viewer)).json(), { from: 'ai-en', slideIndex: 11, language: 'en', revision: 3 });
 
     const focused = await (await request('PUT', 'host', room,
         { from: 'we-ai', slideIndex: 6, language: 'en', focus: 3, theme: 'dark' })).json();

@@ -411,6 +411,8 @@ app.get('/api/platform-identity', async (req, res) => {
 const summitSyncRouter = require('./routes/summit-slide-sync').createSummitSlideSyncRouter({
     canCaption: async user => Boolean(await toolDistribution.resolveTool('we-ai', user)),
     canShare: async user => (await toolDistribution.resolveTool('ai-en', user))?.sourceTenant === DEFAULT_TENANT_ID,
+    // Room viewers see only the bundled demo prompter, never a tenant's private notes.
+    sendDemoPrompter: (_req, res, next) => res.sendFile(path.join(__dirname, 'builtin-tools/we-ai/index.html'), err => { if (err) next(err); }),
     sendDeck: (_req, res, next) => runWithTenant(DEFAULT_TENANT_ID, () => {
         const file = customToolsRepo.getToolAssetPath('ai-en', 'index.html');
         if (!file) return res.sendStatus(404);
