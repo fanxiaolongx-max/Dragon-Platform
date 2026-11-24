@@ -4,6 +4,7 @@ const crypto=require('node:crypto');
 const hash=value=>crypto.createHash('sha256').update(String(value).replace(/\r\n/g,'\n').trim()).digest('hex');
 const memo=new Map();
 async function read(id){
+ if(process.env.TOOLS_CODEX_PREFER_LEGACY!=='1'&&require('./codex-daemon').exists())return []; // daemon 不提供逐条消息时间戳
  const previous=memo.get(id);if(previous&&Date.now()-previous.at<15000)return previous.promise;
  const promise=(async()=>{const ipc=new DesktopIPC(undefined,1500);let owner;try{await ipc.initialize();owner=await ipc.owner(id);const state=await ipc.snapshot(id,owner);const rows=[];
   for(const turn of Object.values(state.turnHistory?.history?.entitiesByKey||{}))for(const item of turn.items||[]){

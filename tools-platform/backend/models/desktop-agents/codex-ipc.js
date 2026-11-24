@@ -173,4 +173,19 @@ async function steer(id, text, requestId, cwd) {
         return ipc.request('thread-follower-steer-turn', 1, { conversationId: id, clientUserMessageId: requestId, input, attachments: [], restoreMessage: { id: requestId, text, cwd: cwd || null, context: { workspaceRoots: cwd ? [cwd] : [], collaborationMode: null, commentAttachments: [] } } }, owner);
     });
 }
-module.exports = { DesktopIPC, socketPath, read, send, steer };
+// 新版 ChatGPT.app 内置 Codex 去掉了上面的旧 IPC 路由：daemon socket 在就走 daemon，否则回退旧版 Codex.app 的 IPC。
+const daemon = require('./codex-daemon');
+const viaDaemon = () => process.env.TOOLS_CODEX_PREFER_LEGACY !== '1' && daemon.exists();
+module.exports = {
+    DesktopIPC, socketPath,
+    read: id => viaDaemon() ? daemon.read(id) : read(id),
+    send: (...args) => viaDaemon() ? daemon.send(...args) : send(...args),
+    steer: (...args) => viaDaemon() ? daemon.steer(...args) : steer(...args),
+    async available(timeout = 1500) {
+        if (await daemon.available(timeout)) return { canSend: true, mode: 'daemon', desktopOnDaemon: await daemon.desktopOnDaemon() };
+        let ipc;
+        try { ipc = new module.exports.DesktopIPC(undefined, timeout); await ipc.initialize(); return { canSend: true, mode: 'ipc' }; }
+        catch { return { canSend: false, mode: '' }; }
+        finally { ipc?.close(); }
+    },
+};

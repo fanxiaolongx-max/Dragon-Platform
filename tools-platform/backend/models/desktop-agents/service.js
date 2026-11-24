@@ -42,17 +42,12 @@ async function scan(owner, cfg) {
             rows.push(...items);
             let canSend = false, reason = '';
             if (provider === 'codex') {
-                let ipc;
-                try {
-                    ipc = new codex.DesktopIPC(undefined, 1500);
-                    await ipc.initialize();
-                    canSend = true;
-                }
-                catch { }
-                finally {
-                    ipc?.close();
-                }
-                reason = canSend ? '原生桌面会话连接' : 'Codex 桌面未运行，可查看已保存记录';
+                const link = await codex.available(1500);
+                canSend = link.canSend;
+                reason = !canSend ? 'Codex 桌面与 app-server daemon 均未运行，可查看已保存记录'
+                    : link.mode === 'ipc' ? '原生桌面 IPC 连接'
+                        : link.desktopOnDaemon === false ? 'app-server daemon 已连接；桌面未接入 daemon，网页发送不会实时显示在桌面'
+                            : 'app-server daemon 连接 · 与桌面共享会话';
             }
             if (provider === 'claudecode') {
                 const state = await claude.status(cfg);

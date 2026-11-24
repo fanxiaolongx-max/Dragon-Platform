@@ -21,6 +21,7 @@ test.before(() => {
         return [{ id: '00000000-0000-0000-0000-000000000001', provider: 'codex', title: current, updatedAt: 1 }];
     };
     codex.DesktopIPC = class { async initialize() { throw new Error('not running'); } close() {} };
+    codex.available = async () => ({ canSend: false, mode: '' });
 });
 
 test('expired list reads return the previous rows at once and share one background scan', async () => {

@@ -1,10 +1,10 @@
 {
   "zh": [
-    "修复首页「全部工具」按最新排序时 AI BI 等页面因复用跨页脚本或安装包重置修改时间而误排到最前的问题；桌面打包构建期同步生成内置页面真实更新时间清单（page-updates.json）。",
-    "峰会演示文稿（ai-en）、提词器（we-ai）与字幕组件新增主/副字幕字号（小/中/大）独立调节及同步校验，并更新对应演讲配音音轨。"
+    "桌面 Agent 接入：适配新版 ChatGPT.app 内置 Codex，新增 app-server daemon 连接方式（codex-daemon）并保留旧版桌面 IPC 回退，恢复发送消息、状态读取与插队（steer）同步。",
+    "同步更新内置工具使用指南与桌面 Agent 连接状态提示。"
   ],
   "en": [
-    "Fixed newest-first tool sorting in Home Workspace where pages reusing cross-page assets (such as AI BI) or packaged builds with reset file mtimes appeared at the top; desktop builds now bundle git-based page-updates.json.",
-    "Added independent primary/secondary caption size controls (small/medium/large) with sync validation to the summit slides (ai-en), teleprompter (we-ai), and caption module, along with updated narration tracks."
+    "Desktop Agents: Added app-server daemon support (codex-daemon) for newer ChatGPT.app built-in Codex with legacy desktop IPC fallback, restoring message sending, live status, and turn steering.",
+    "Updated built-in tool guides and Desktop Agent connection status descriptions."
   ]
 }
