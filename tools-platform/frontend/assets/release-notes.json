@@ -1,10 +1,10 @@
 {
   "zh": [
-    "修复测试会把模拟生成的工具使用说明写回内置说明文件的问题：测试改用临时副本，内置说明不再被「测试特性」等占位内容覆盖。",
-    "「需求管理」的内置使用说明按新的附件功能重新生成；新增 2026 服务峰会邀请函图片。"
+    "账号与权限：账号列表新增分页、搜索、角色筛选及注册总数、今日登录与活跃人数等实时统计。",
+    "NetCare 数据探索：补齐运营商与代表处编码映射表元数据，查出原始编码时自动提示并映射为可读中英文名称。"
   ],
   "en": [
-    "Fixed tests writing mock tool guides back into the bundled guide file: tests now use a temporary copy, so placeholder text no longer overwrites real guides.",
-    "Regenerated the bundled Requests guide for the new attachment feature; added the 2026 service summit invitation image."
+    "Accounts & Permissions: Added pagination, search, role filtering, and inline stats for total accounts, daily logins, and active users.",
+    "NetCare Data Exploration: Enriched operator and rep-office code mapping catalog to automatically hint and resolve raw codes into readable names."
   ]
 }

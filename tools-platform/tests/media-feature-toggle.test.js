@@ -15,9 +15,9 @@ test('媒体资源总开关功能测试：控制公开接口可用性与影视�
     const app = express();
     app.use(express.json());
 
-    // 模拟 admin session
+    // 模拟 admin session（CI 下媒体目录扫描偶发接近 60s，放宽至 10 分钟避免用例中途过期）
     const adminToken = 'admin-media-test-' + Date.now();
-    await authSessionsRepo.saveSession(adminToken, 'admin', 'admin', Date.now() + 60000);
+    await authSessionsRepo.saveSession(adminToken, 'admin', 'admin', Date.now() + 10 * 60000);
 
     // 挂载路由
     app.use('/api/media', mediaRoutes);
