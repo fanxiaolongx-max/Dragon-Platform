@@ -16,7 +16,8 @@ const FILE_CHARS = 12000;
 const GUIDE_OUTPUT_TOKENS = 1800;
 const PAGE_ALIASES = { monthly: 'ai-report' };
 const SKIP_FILE = /(?:^|\/)(?:vendor|node_modules|dist|build|backups?|data)(?:\/|$)|\.min\.js$|(?:^|\/)(?:THIRD_PARTY[^/]*|LICENSE[^/]*|CHANGELOG[^/]*|AGENTS\.md|CLAUDE\.md)$/i;
-const BUILTIN_STORE_FILE = path.join(__dirname, 'builtin-tool-guides.json');
+// 测试可用 TOOLS_BUILTIN_GUIDES_FILE 指向临时副本，避免模拟生成的说明写回仓库里的预置文件
+const BUILTIN_STORE_FILE = process.env.TOOLS_BUILTIN_GUIDES_FILE || path.join(__dirname, 'builtin-tool-guides.json');
 
 function readBuiltinStore() {
     if (!fs.existsSync(BUILTIN_STORE_FILE)) return {};

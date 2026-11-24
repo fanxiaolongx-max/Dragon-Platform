@@ -9,6 +9,11 @@ process.env.TOOLS_DATA_DIR = path.join(sandbox, 'data');
 process.env.TOOLS_REPORT_DATA_DIR = path.join(sandbox, 'report-data');
 process.env.TOOLS_AGENT_BROWSER = 'off';
 process.env.TOOLS_DISABLE_BUILTIN_GUIDES_SEED = '1';
+// 预置说明文件用临时副本：自动更新测试会把模拟生成的说明落盘，不能写回仓库
+const REAL_BUILTIN_GUIDES = path.join(__dirname, '../backend/models/builtin-tool-guides.json');
+process.env.TOOLS_BUILTIN_GUIDES_FILE = path.join(sandbox, 'builtin-tool-guides.json');
+fs.copyFileSync(REAL_BUILTIN_GUIDES, process.env.TOOLS_BUILTIN_GUIDES_FILE);
+const realGuidesBefore = fs.readFileSync(REAL_BUILTIN_GUIDES, 'utf8');
 
 const guides = require('../backend/models/platform-tool-guides');
 const extraTools = require('../backend/models/agent-extra-tools');
@@ -132,4 +137,5 @@ test('builtin store seeds pre-bundled guides and syncs updates to disk', async (
     const autoStatus = guides.getAutoUpdateStatus();
     assert.ok(['completed', 'running', 'skipped'].includes(autoStatus.status));
     assert.ok(Array.isArray(autoStatus.logs));
+    assert.equal(fs.readFileSync(REAL_BUILTIN_GUIDES, 'utf8'), realGuidesBefore, '仓库里的预置说明文件不被测试改写');
 });

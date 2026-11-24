@@ -1,10 +1,10 @@
 {
   "zh": [
-    "DragonClaw 回复下方的复制按钮旁新增「问题反馈」按钮：点击后自动收集本对话的研发日志，打开意见反馈弹窗并附上日志，描述问题后提交，就会在需求广场生成一条「意见反馈」。",
-    "意见反馈支持上传任意格式的附件（最多 5 个，合计 20 MB）；附件只有提交人和超级管理员可以下载，需求详情里会列出附件。"
+    "修复测试会把模拟生成的工具使用说明写回内置说明文件的问题：测试改用临时副本，内置说明不再被「测试特性」等占位内容覆盖。",
+    "「需求管理」的内置使用说明按新的附件功能重新生成；新增 2026 服务峰会邀请函图片。"
   ],
   "en": [
-    "A \"Report a problem\" button now sits next to Copy under each DragonClaw reply: it collects this chat's developer log, opens the feedback dialog with the log attached, and posts your description to the requests board as feedback.",
-    "Feedback now accepts attachments of any type (up to 5 files, 20 MB in total); only the submitter and super admins can download them, and request details list them."
+    "Fixed tests writing mock tool guides back into the bundled guide file: tests now use a temporary copy, so placeholder text no longer overwrites real guides.",
+    "Regenerated the bundled Requests guide for the new attachment feature; added the 2026 service summit invitation image."
   ]
 }
