@@ -71,8 +71,8 @@
       "description": "用于维护部门负向事件与违规记录、扣罚规则、人员名册与操作审计日志，支持草稿发布、规则分类筛选和人员 CSV 导入导出。",
       "href": "./department-reward-penalty/index.html",
       "encrypted": false,
-      "fingerprint": "a5040d7e6366d34f52a614389ff9229538705954473be5f1ad7d425eb03a5c98",
-      "updatedAt": "2026-11-23T20:29:39.404Z"
+      "fingerprint": "b373318f81b64317171759fba7e74395331ed8c5a735773e337350172683a64c",
+      "updatedAt": "2026-11-24T06:29:39.006Z"
     },
     {
       "slug": "reward-program",
@@ -426,8 +426,8 @@
       "description": "平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data",
       "href": "./uivf12/index.html",
       "encrypted": false,
-      "fingerprint": "64212f9a53e1eccd5d935dcd342acfad6d9721a4bdba4f85c34d8a75d07ff909",
-      "updatedAt": "2026-11-23T20:29:30.160Z"
+      "fingerprint": "e775071e8d96038e44eea227b7139798ef7cdf19e9b426f9272974c3cd45c346",
+      "updatedAt": "2026-11-24T06:29:31.160Z"
     },
     {
       "slug": "sla",
@@ -436,8 +436,8 @@
       "description": "平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data",
       "href": "./sla/index.html",
       "encrypted": false,
-      "fingerprint": "68e720b6d2e5c617e3a0a007e7ddb4d38db68ada8eb0081c01c6927d9e055fb5",
-      "updatedAt": "2026-11-23T20:29:30.979Z"
+      "fingerprint": "ea29f73c5fa3ce42e8c07786b66a2cb2a7979130246e26792a00e53c61e7028c",
+      "updatedAt": "2026-11-24T06:29:32.037Z"
     },
     {
       "slug": "report",
@@ -446,8 +446,8 @@
       "description": "平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data",
       "href": "./report/index.html",
       "encrypted": false,
-      "fingerprint": "9f49a51278251b017ab01a3a47dab7482550f9022ff7a21ccb6223c130d94c8f",
-      "updatedAt": "2026-11-23T20:29:31.209Z"
+      "fingerprint": "dee00d170c69089c3331d9fb45b25dc51fe5d928d5d0a74c9ea4ea2124abc9cb",
+      "updatedAt": "2026-11-24T06:29:32.285Z"
     },
     {
       "slug": "expedite",
@@ -456,8 +456,8 @@
       "description": "平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data",
       "href": "./expedite/index.html",
       "encrypted": false,
-      "fingerprint": "ad004b520f5578c0ebebf7f6344688c3d9f9465efb700974400550f775b1d4c4",
-      "updatedAt": "2026-11-23T20:29:31.339Z"
+      "fingerprint": "4b88da1d613719a542266c6f7df01fef07069ad27ccb62b6d5cf7a46028d4ef9",
+      "updatedAt": "2026-11-24T06:29:32.411Z"
     },
     {
       "slug": "monthly",

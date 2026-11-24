@@ -860,11 +860,13 @@ body:not(.dc-chatting) .shc-cap-bar{display:none}
         requestAnimationFrame(() => requestAnimationFrame(() => overlay.classList.add('show')));
         setTimeout(() => d.input.focus({ preventScroll: true }), 60);
         bindDialog(d);
+        loadPinyin().then(() => {
+            if (state.dialog === d && d.query.trim()) renderList(d, true);
+        });
         const [accounts, groups, recent, current] = await Promise.allSettled([
             state.accounts ? Promise.resolve({ items: state.accounts }) : api('GET', '/accounts'),
             api('GET', '/groups'), api('GET', '/recent'),
-            api('GET', `/session/${encodeURIComponent(sessionId)}`),
-            loadPinyin()
+            api('GET', `/session/${encodeURIComponent(sessionId)}`)
         ]);
         if (state.dialog !== d) return;
         if (accounts.status === 'fulfilled') state.accounts = accounts.value.items || [];
@@ -876,13 +878,9 @@ body:not(.dc-chatting) .shc-cap-bar{display:none}
             d.prepareError = '';
         } else {
             d.prepareError = current.reason?.message || L('读取共享状态失败', 'Could not load sharing status');
-            const linkBox = overlay.querySelector('.shc-link');
-            const link = linkBox?.querySelector('input');
-            linkBox?.classList.add('is-error');
-            if (link) link.value = d.prepareError;
         }
-        if (accounts.status === 'rejected') d.list.innerHTML = `<div class="shc-empty">${esc(accounts.reason?.message || L('账号列表加载失败', 'Could not load accounts'))}</div>`;
         renderDialog(d);
+        if (accounts.status === 'rejected') d.list.innerHTML = `<div class="shc-empty">${esc(accounts.reason?.message || L('账号列表加载失败', 'Could not load accounts'))}</div>`;
     }
 
     function memberStatus(username, d) { return d.share?.members?.find(member => member.username === username && ['accepted', 'pending'].includes(member.status))?.status || ''; }
@@ -892,18 +890,25 @@ body:not(.dc-chatting) .shc-cap-bar{display:none}
         renderSuggest(d);
         renderList(d);
         renderMembers(d);
-        const linkBox = d.overlay.querySelector('.shc-link');
-        const link = linkBox.querySelector('input');
-        const copy = d.overlay.querySelector('[data-shc-copy]');
-        if (d.share?.link) { linkBox.classList.remove('is-error'); link.value = new URL(appBase() + d.share.link, location.origin).href; copy.disabled = false; }
-        else if (d.ready) {
-            link.value = L('生成链接后即可分享', 'Create a link to share this chat');
-            copy.textContent = L('生成并复制链接', 'Create & copy link');
-            copy.disabled = false;
-        } else if (d.prepareError) { linkBox.classList.add('is-error'); }
+        renderLink(d);
         const leave = d.overlay.querySelector('.shc-leave');
         leave.innerHTML = d.share ? `<button type="button" class="shc-btn danger sm" data-shc-leave>${esc(d.share.isOwner ? L('停止共享', 'Stop sharing') : L('退出共享', 'Leave'))}</button>` : '';
         updateSend(d);
+    }
+    function renderLink(d) {
+        const linkBox = d.overlay.querySelector('.shc-link');
+        const input = linkBox.querySelector('input');
+        const button = linkBox.querySelector('[data-shc-copy]');
+        const link = d.share?.link;
+        const error = link || d.creatingLink ? '' : d.prepareError;
+        linkBox.classList.toggle('is-error', Boolean(error));
+        if (link) input.value = new URL(appBase() + link, location.origin).href;
+        else if (d.creatingLink) input.value = L('正在生成共享链接…', 'Generating link…');
+        else input.value = error || L('尚未生成共享链接', 'No share link yet');
+        clearTimeout(d.copyTimer);
+        button.classList.remove('is-done');
+        button.textContent = link ? L('复制链接', 'Copy link') : L('生成链接', 'Generate link');
+        button.disabled = !d.ready || d.creatingLink || (!link && d.busy);
     }
     function updateSend(d) {
         const button = d.overlay.querySelector('[data-shc-send]');
@@ -1025,7 +1030,8 @@ body:not(.dc-chatting) .shc-cap-bar{display:none}
             }
             if (target.closest('[data-shc-cancelgroup]')) { d.creatingGroup = false; return renderSuggest(d); }
             if (target.closest('[data-shc-savegroup]')) return saveGroup(d);
-            if (target.closest('[data-shc-copy]')) return copyLink(d, target.closest('[data-shc-copy]'));
+            const linkButton = target.closest('[data-shc-copy]');
+            if (linkButton) return handleLinkAction(d, linkButton);
             if (target.closest('[data-shc-send]')) return send(d);
             const remove = target.closest('[data-shc-remove]');
             if (remove) {
@@ -1082,26 +1088,26 @@ body:not(.dc-chatting) .shc-cap-bar{display:none}
         } catch (error) { toast(error.message); }
     }
 
-    async function copyLink(d, button) {
+    async function handleLinkAction(d, button) {
+        if (!d.ready || d.creatingLink) return;
         if (!d.share?.link) {
-            if (d.busy || d.creatingLink) return;
+            if (d.busy) return;
             d.creatingLink = true;
-            button.disabled = true;
+            renderLink(d);
             updateSend(d);
             try {
                 const result = await api('POST', `/session/${encodeURIComponent(d.sessionId)}/prepare`, { title: d.title });
+                if (!result.share?.link) throw new Error(L('无法生成共享链接', 'Could not create a link'));
                 state.closedLocally.delete(d.sessionId);
-                if (state.dialog !== d) return;
                 d.share = result.share;
-                renderDialog(d);
+                d.prepareError = '';
             } catch (error) {
-                button.disabled = false;
-                toast(error.message);
-                return;
+                d.prepareError = error.message;
             } finally {
                 d.creatingLink = false;
-                updateSend(d);
+                if (state.dialog === d) renderDialog(d);
             }
+            return;
         }
         const value = d.overlay.querySelector('.shc-link input').value;
         try { await navigator.clipboard.writeText(value); }
@@ -1114,13 +1120,14 @@ body:not(.dc-chatting) .shc-cap-bar{display:none}
 
     async function send(d) {
         if (!d.selected.size || d.busy || d.creatingLink || !d.ready) return;
-        d.busy = true; updateSend(d);
+        d.busy = true; renderLink(d); updateSend(d);
         try {
             const result = await api('POST', `/session/${encodeURIComponent(d.sessionId)}/invite`, { title: d.title, usernames: [...d.selected.keys()], groupIds: [...(d.groupIds || [])], linkBase: location.origin + appBase() });
             state.closedLocally.delete(d.sessionId);
             const names = result.invited.map(name => accountOf(name)?.name || name);
             toast(names.length ? L(`已邀请 ${names.slice(0, 3).join('、')}${names.length > 3 ? ` 等 ${names.length} 人` : ''}，对方登录后会收到通知`, `Invited ${names.length} people`) : L('所选成员都已在共享中', 'Everyone selected is already in this conversation'));
             d.share = result.share;
+            d.prepareError = '';
             d.selected.clear();
             d.groupIds = new Set();
             api('GET', '/recent').then(recent => { state.recent = recent; if (state.dialog === d) renderSuggest(d); }).catch(() => {});
@@ -1129,7 +1136,7 @@ body:not(.dc-chatting) .shc-cap-bar{display:none}
             renderDialog(d);
             setTimeout(() => { if (state.dialog === d && !d.selected.size) closeDialog(); }, 650);
         } catch (error) {
-            d.busy = false; updateSend(d);
+            d.busy = false; renderLink(d); updateSend(d);
             window.AppDialog?.alert ? window.AppDialog.alert(error.message, { title: L('邀请失败', 'Could not invite'), tone: 'error' }) : toast(error.message);
         }
     }
