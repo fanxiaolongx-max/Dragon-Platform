@@ -5,6 +5,10 @@ window.createSummitCaptions = function ({ dialog, button, store, speechLanguage,
     const saved = store.get('captionLanguages', defaultLanguages);
     let languages = (Array.isArray(saved) ? [...new Set(saved)] : []).filter(key => names[key]).slice(0, 2);
     if (!languages.length) languages = defaultLanguages;
+    const sizes = ['small', 'medium', 'large'];
+    const sizeControls = ['ccMainSize', 'ccSecondSize'];
+    const savedSizes = store.get('captionSizes', []);
+    const captionSizes = sizeControls.map((_, i) => sizes.includes(savedSizes?.[i]) ? savedSizes[i] : 'medium');
     let source = store.get('captionSource', 'script') === 'mic' ? 'mic' : 'script';
     let active = source === 'script' && store.get('scriptCaptionsEnabled', true);
     let session = null, transcript = {}, idleTimer, languageAtStart;
@@ -13,7 +17,7 @@ window.createSummitCaptions = function ({ dialog, button, store, speechLanguage,
     function refresh() {
         if (session && languageAtStart !== speechLanguage()) { stop(); return; }
         const values = !active ? {} : source === 'mic' ? transcript : currentLine();
-        publish(active ? languages.map(lang => ({ lang, text: values[lang] || '' })) : []);
+        publish(active ? languages.map((lang, i) => ({ lang, text: values[lang] || '', size: captionSizes[i] })) : []);
     }
     function render() {
         button.classList.toggle('on', active);
@@ -22,6 +26,16 @@ window.createSummitCaptions = function ({ dialog, button, store, speechLanguage,
         get('ccFromLabel').textContent=label('字幕来源','Source');
         get('ccLanguagesLabel').textContent=label('显示语言 · 最多两种','Languages · choose up to two');
         get('ccPrimaryLabel').textContent=label('主字幕','Primary language');
+        get('ccSizeTitle').textContent = label('字幕字号', 'Caption size');
+        get('ccMainSizeLabel').textContent = label('主字幕', 'Primary');
+        get('ccSecondSizeLabel').textContent = label('副字幕', 'Secondary');
+        const sizeNames = [label('小', 'Small'), label('中', 'Medium'), label('大', 'Large')];
+        sizeControls.forEach((id, i) => {
+            const select = get(id);
+            select.replaceChildren(...sizes.map((size, j) => new Option(sizeNames[j], size)));
+            select.value = captionSizes[i];
+            select.disabled = languages.length <= i;
+        });
         get('ccSource').options[0].textContent=label('跟随讲稿与配音','Script and narration');
         get('ccSource').options[1].textContent=label('现场麦克风翻译','Live microphone translation');
         get('ccSource').value = source;
@@ -189,6 +203,13 @@ window.createSummitCaptions = function ({ dialog, button, store, speechLanguage,
     // Save the new selection before stop() re-renders the controls.
     get('ccSource').onchange = e => { const value=e.target.value; stop(); source=value; store.set('captionSource',source); render(); };
     dialog.onchange = e => {
+        const role = sizeControls.indexOf(e.target.id);
+        if (role >= 0 && sizes.includes(e.target.value)) {
+            captionSizes[role] = e.target.value;
+            store.set('captionSizes', captionSizes);
+            refresh();
+            return;
+        }
         if (e.target.type === 'checkbox') languages = e.target.checked ? [...languages, e.target.value].slice(0,2) : languages.filter(lang=>lang!==e.target.value);
         else if (e.target.id === 'ccPrimary') languages = [e.target.value,...languages.filter(lang=>lang!==e.target.value)];
         else return;

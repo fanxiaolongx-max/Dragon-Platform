@@ -1,10 +1,10 @@
 {
   "zh": [
-    "NetCare 数据探索：服务端自动实时解析运营商与地区部/代表处编码（直查 cs_nc_comm_customer_d_list.hq_cust_category_code / common_data_rep.dept_code），免去大表 JOIN 与反复试探列名。",
-    "历史对话检索优化：按关键词搜索默认排除当前对话，新增单轮搜索次数上限并收紧触发边界，避免 AI 无故反复翻查历史对话。"
+    "修复首页「全部工具」按最新排序时 AI BI 等页面因复用跨页脚本或安装包重置修改时间而误排到最前的问题；桌面打包构建期同步生成内置页面真实更新时间清单（page-updates.json）。",
+    "峰会演示文稿（ai-en）、提词器（we-ai）与字幕组件新增主/副字幕字号（小/中/大）独立调节及同步校验，并更新对应演讲配音音轨。"
   ],
   "en": [
-    "NetCare Data Exploration: Added real-time server-side code resolution for operator and rep-office codes via cs_nc_comm_customer_d_list.hq_cust_category_code and common_data_rep.dept_code.",
-    "Conversation History Guardrails: Keyword search now excludes the active conversation by default with a per-turn search cap and stricter trigger boundaries."
+    "Fixed newest-first tool sorting in Home Workspace where pages reusing cross-page assets (such as AI BI) or packaged builds with reset file mtimes appeared at the top; desktop builds now bundle git-based page-updates.json.",
+    "Added independent primary/secondary caption size controls (small/medium/large) with sync validation to the summit slides (ai-en), teleprompter (we-ai), and caption module, along with updated narration tracks."
   ]
 }

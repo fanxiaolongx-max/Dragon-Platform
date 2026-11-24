@@ -40,7 +40,7 @@ function createSummitSlideSyncRouter({ canShare, canCaption, sendDeck, sendDemoP
 
     function parseSlide(body) {
         const { slideIndex, from, language, focus, hideBrands, theme, screenCue, captions } = body || {};
-        if (!Number.isInteger(slideIndex) || slideIndex < 0 || slideIndex >= (from === 'ai-en' ? 12 : 11) || !PARTICIPANTS.has(from)) {
+        if (!Number.isInteger(slideIndex) || slideIndex < 0 || slideIndex >= 11 || !PARTICIPANTS.has(from)) {
             return null;
         }
         if (focus !== undefined && (from !== 'we-ai' || !Number.isInteger(focus) || focus < -1 || focus > 31)) return null;
@@ -49,9 +49,10 @@ function createSummitSlideSyncRouter({ canShare, canCaption, sendDeck, sendDemoP
         const appearance = theme === undefined ? {} : { theme };
         if (captions !== undefined) {
             if (from !== 'we-ai' || !Array.isArray(captions) || captions.length > 2
-                || captions.some(line => !line || !['zh', 'en', 'ar'].includes(line.lang) || typeof line.text !== 'string' || line.text.length > 1000)
+                || captions.some(line => !line || !['zh', 'en', 'ar'].includes(line.lang) || typeof line.text !== 'string' || line.text.length > 1000
+                    || (line.size !== undefined && !['small', 'medium', 'large'].includes(line.size)))
                 || new Set(captions.map(line => line.lang)).size !== captions.length) return null;
-            appearance.captions = captions.map(({ lang, text }) => ({ lang, text }));
+            appearance.captions = captions.map(({ lang, text, size }) => size === undefined ? { lang, text } : { lang, text, size });
         }
         if (screenCue != null) {
             const { start, end } = screenCue;

@@ -1,9 +1,10 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 
-const { getPageUpdateTimes, isSharedChurnOnly, PAGE_FILES } = require('../backend/models/page-update-times');
+const { getPageUpdateTimes, collectPageFiles, clearCache, isSharedChurnOnly, PAGE_FILES } = require('../backend/models/page-update-times');
 
 const root = path.join(__dirname, '..');
 const frontendDir = path.join(root, 'frontend');
@@ -56,4 +57,40 @@ test('home page wires the workspace sidebar, grid and update-time API', () => {
     assert.match(sidebar, /id="friendLinksManageBtn"/);
     // 更新时间 API 位于鉴权之后
     assert.ok(server.indexOf("app.get('/api/home/page-updates'") > server.indexOf("app.use('/api', checkAuth)"));
+});
+
+test('cross-page reused assets stay scoped to their owning page and startup-screen.css is treated as shared', () => {
+    const owned = collectPageFiles(frontendDir);
+    const rel = files => files.map(f => path.relative(frontendDir, f).replace(/\\/g, '/'));
+    const aiBiFiles = rel(owned['/ai-bi'] || []);
+    const monthlyFiles = rel(owned['/monthly'] || []);
+    assert.ok(aiBiFiles.includes('pages/ai-bi.html'));
+    assert.ok(aiBiFiles.includes('css/ai-bi.css'));
+    assert.ok(!aiBiFiles.some(f => f.startsWith('js/ai-report/') || f === 'css/ai-report.css'),
+        `ai-bi should not inherit ai-report assets: ${aiBiFiles.join(', ')}`);
+    assert.ok(monthlyFiles.some(f => f === 'js/ai-report/query.js'));
+    for (const [href, files] of Object.entries(owned)) {
+        assert.ok(!rel(files).includes('css/startup-screen.css'), `${href} should not count shared startup-screen.css`);
+    }
+});
+
+test('packaged non-git environments prefer bundled assets/page-updates.json over file mtime', async () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dragon-page-updates-'));
+    try {
+        fs.mkdirSync(path.join(tempDir, 'pages'), { recursive: true });
+        fs.mkdirSync(path.join(tempDir, 'assets'), { recursive: true });
+        fs.writeFileSync(path.join(tempDir, 'pages/ai-bi.html'), '<html></html>');
+        fs.writeFileSync(path.join(tempDir, 'pages/uivf12.html'), '<html></html>');
+        const fixedIso = '2026-10-01T08:00:00.000Z';
+        fs.writeFileSync(path.join(tempDir, 'assets/page-updates.json'), JSON.stringify({
+            '/ai-bi': fixedIso
+        }));
+        clearCache();
+        const times = await getPageUpdateTimes(tempDir);
+        assert.equal(times['/ai-bi'], fixedIso);
+        assert.ok(Date.parse(times['/uivf12']) > Date.parse(fixedIso));
+    } finally {
+        clearCache();
+        fs.rmSync(tempDir, { recursive: true, force: true });
+    }
 });

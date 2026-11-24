@@ -70,16 +70,16 @@ test('summit rooms share the slide and prompter language within the team and clo
     const initial = await request('GET', 'projector', room);
     assert.equal(initial.headers.get('cache-control'), 'private, no-store');
     assert.deepEqual(await initial.json(), { from: 'we-ai', slideIndex: 4, revision: 1 });
-    assert.equal((await request('PUT', 'projector', room, { from: 'ai-en', slideIndex: 12 })).status, 400);
+    assert.equal((await request('PUT', 'projector', room, { from: 'ai-en', slideIndex: 11 })).status, 400);
     assert.equal((await request('PUT', 'host', room, { from: 'we-ai', slideIndex: 4, language: 'bi' })).status, 400);
     assert.equal((await request('PUT', 'projector', room, { from: 'ai-en', slideIndex: 4, language: 'zh' })).status, 400);
     assert.equal((await request('PUT', 'host', room, { from: 'we-ai', slideIndex: 4, language: 'en' })).status, 200);
     assert.deepEqual(await (await request('GET', 'projector', room)).json(),
         { from: 'we-ai', slideIndex: 4, language: 'en', revision: 2 });
-    assert.equal((await request('PUT', 'projector', room, { from: 'ai-en', slideIndex: 11 })).status, 200);
+    assert.equal((await request('PUT', 'projector', room, { from: 'ai-en', slideIndex: 10 })).status, 200);
     assert.deepEqual(await (await request('GET', 'host', room)).json(),
-        { from: 'ai-en', slideIndex: 11, language: 'en', revision: 3, viewer, expiresAt });
-    assert.deepEqual(await (await watch(viewer)).json(), { from: 'ai-en', slideIndex: 11, language: 'en', revision: 3 });
+        { from: 'ai-en', slideIndex: 10, language: 'en', revision: 3, viewer, expiresAt });
+    assert.deepEqual(await (await watch(viewer)).json(), { from: 'ai-en', slideIndex: 10, language: 'en', revision: 3 });
 
     const focused = await (await request('PUT', 'host', room,
         { from: 'we-ai', slideIndex: 6, language: 'en', focus: 3, theme: 'dark' })).json();
@@ -109,7 +109,10 @@ test('summit rooms share the slide and prompter language within the team and clo
     const captionWrite = { from: 'we-ai', language: 'zh', slideIndex: 7, captions };
     assert.equal((await request('PUT', 'host', room, captionWrite)).status, 200);
     assert.deepEqual((await (await watch(viewer)).json()).captions, captions);
-    for (const invalid of [[...captions, { lang: 'zh', text: '好' }], [captions[0], captions[0]], [{lang:'en',text:'a'.repeat(1001)}]]) {
+    const sizedCaptions = captions.map((line, i) => ({ ...line, size: i ? 'small' : 'large' }));
+    assert.equal((await request('PUT', 'host', room, { ...captionWrite, captions: sizedCaptions })).status, 200);
+    assert.deepEqual((await (await watch(viewer)).json()).captions, sizedCaptions);
+    for (const invalid of [[{ ...captions[0], size: 'huge' }], [...captions, { lang: 'zh', text: '好' }], [captions[0], captions[0]], [{lang:'en',text:'a'.repeat(1001)}]]) {
         assert.equal((await request('PUT', 'host', room, { ...captionWrite, captions:invalid })).status, 400);
     }
     assert.equal((await request('PUT', 'projector', room, { from:'ai-en', slideIndex:7, captions })).status, 400);
