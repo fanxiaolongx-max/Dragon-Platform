@@ -217,8 +217,66 @@ const ROLE_RULES = {
     time: /^(period_month|period_date|period_ym|archive_ym|month|date|stat_date|create_time|createtime|create_date|update_time|close_time|closed_time|release_date|report_date|act_close_date|complete_time|change_time|[a-z_]*_(date|time|month))$/i,
     region: /^(region_code|customer_region|sub_region_id|regional_department|region_id)$/i,
     office: /^(repoffice_code|rep_office_code|office_code|customer_office|rep_office_id|representative_office|repoffice_id)$/i,
+    operator: /^(t[12]_?operator(?:_code|_id)?|operator_code|carrier_code|hq_cust_category_code|t[12]_?cust(?:_code)?)$/i,
+    customer: /^(customer_number|cust_account_num|customer_code|acctcust_branch_code)$/i,
     bg: /^(bg|belongs_to_bg|bg_type_name)$/i
 };
+
+const OPERATOR_MAP_TABLES = ['cs_nc_comm_customer_d_list', 'cs_nc_comm_customer_d_list_dim', 'common_data_customer_dlvy_org'];
+const REP_MAP_TABLES = ['common_data_rep'];
+const COUNTRY_MAP_TABLES = ['common_data_customer_rel_country_relation'];
+const OPERATOR_NAME_COL_RE = /(?:operator|carrier|hq_cust_category|mergered_cust|cust_category).*name|^operator_cn$|^operator_en$/i;
+const REP_NAME_COL_RE = /(?:region|rep_?office|office|rep).*name/i;
+const OPAQUE_CODE_RE = /^(?:\d{3,}|[a-z]{0,3}\d{4,})$/i;
+
+/** 检查当前业务库实际存在且非空的公共编码映射表（复用表目录缓存；在线时只认库里真实存在的表） */
+async function availableMappingTables(scope = 'business') {
+    if (scope !== 'business') return { operator: [], rep: [], country: [] };
+    try {
+        const result = await listTables({ scope });
+        const usable = new Set(
+            (result.tables || [])
+                .filter(t => !t.hidden && !t.empty && (result.live ? t.status === 'live' : t.status !== 'missing'))
+                .map(t => String(t.name || '').toLowerCase())
+        );
+        return {
+            operator: OPERATOR_MAP_TABLES.filter(t => usable.has(t)),
+            rep: REP_MAP_TABLES.filter(t => usable.has(t)),
+            country: COUNTRY_MAP_TABLES.filter(t => usable.has(t)),
+        };
+    } catch {
+        return { operator: [], rep: [], country: [] };
+    }
+}
+
+/** 查询结果里出现纯运营商/地代编码列但缺名称列时，仅在对应映射表确实存在时给出自动提示 */
+function codeMappingHintForRows(rows, mapTables) {
+    if (!Array.isArray(rows) || !rows.length || !mapTables) return '';
+    const sample = rows.slice(0, 20);
+    const cols = Object.keys(sample[0] || {});
+    if (!cols.length) return '';
+    const hints = [];
+
+    const hasOpaqueValue = (colName) => sample.some((row) => {
+        const v = String(row?.[colName] ?? '').trim();
+        return Boolean(v) && !/^(?:others|unknown|snull|null|源为空)$/i.test(v) && OPAQUE_CODE_RE.test(v);
+    });
+
+    const opCodeCols = cols.filter((c) => ROLE_RULES.operator.test(c) && hasOpaqueValue(c));
+    const hasOpNameCol = cols.some((c) => OPERATOR_NAME_COL_RE.test(c) || /^(?:operator_name|carrier_name|cust_name|customer_name|name_cn|name_en)$/i.test(c));
+    if (opCodeCols.length && !hasOpNameCol && Array.isArray(mapTables.operator) && mapTables.operator.length) {
+        const primary = mapTables.operator[0];
+        const fallback = mapTables.operator.slice(1);
+        hints.push(`提示：结果中的 ${opCodeCols.join('、')} 是纯运营商编码，用户不易辨认；当前库存在运营商/客户映射表 ${primary}${fallback.length ? `（备选 ${fallback.join('、')}）` : ''}，请先查询该映射表（如通过 customer_number = cust_account_num 或运营商编码列，核对其中英文名称字段如 hq_cust_category_cn_name / 英文名列）把编码翻译成可读名称再展示（例如「名称（编码）」），不要只输出纯编码。`);
+    }
+
+    const repCodeCols = cols.filter((c) => (ROLE_RULES.region.test(c) || ROLE_RULES.office.test(c)) && hasOpaqueValue(c));
+    const hasRepNameCol = cols.some((c) => REP_NAME_COL_RE.test(c));
+    if (repCodeCols.length && !hasRepNameCol && Array.isArray(mapTables.rep) && mapTables.rep.length) {
+        hints.push(`提示：结果中的 ${repCodeCols.join('、')} 是地区部/代表处编码；当前库存在 ${mapTables.rep[0]}（dept_code 映射 rep_name_cn / rep_short_name_cn / 英文名），请补全可读名称后再展示。`);
+    }
+    return hints.join('\n');
+}
 
 function valueKind(value) {
     if (value === null || value === undefined || value === '') return 'empty';
@@ -265,18 +323,20 @@ async function describeTable(scope, name, { sampleRows = SAMPLE_ROWS } = {}) {
     const fields = profile(columns, sample.rows);
     const note = await getNote(scope, name);
     const base = scope === 'business' ? seed.tables[name] || null : null;
+    const mapTables = scope === 'business' ? await availableMappingTables('business') : null;
     const suggest = role => fields.find(field => field.role === role)?.name || '';
     return {
         scope, schema, name, note, seed: base,
         columns: fields,
         sample: sample.rows,
-        suggestions: { timeField: suggest('time'), regionField: suggest('region'), officeField: suggest('office') },
-        hints: hintsOf(name, fields, base)
+        suggestions: { timeField: suggest('time'), regionField: suggest('region'), officeField: suggest('office'), operatorField: suggest('operator') },
+        hints: hintsOf(name, fields, base, mapTables)
     };
 }
 
-function hintsOf(name, fields, base) {
+function hintsOf(name, fields, base, mapTables = null) {
     const hints = [];
+    const lowerName = String(name || '').toLowerCase();
     if (/_\d{1,2}$/.test(name)) hints.push('分区表：同族 _0/_1（或 _01~_12）可能是轮换表或分区，合并取数前先确认哪张是当前有效数据，避免重复计数。');
     const epoch = fields.filter(field => field.kinds.includes('epoch-ms')).map(field => field.name);
     if (epoch.length) hints.push(`毫秒时间戳字段：${epoch.slice(0, 6).join('、')}，取数时需换算成日期。`);
@@ -285,7 +345,26 @@ function hintsOf(name, fields, base) {
     if (iso && plain) hints.push('同表同时存在 “T” 分隔与空格分隔两种日期格式，按时间过滤时注意格式。');
     const sentinels = fields.filter(field => field.sentinels.length);
     if (sentinels.length) hints.push(`占位值：${sentinels.slice(0, 5).map(field => `${field.name}=${field.sentinels.join('/')}`).join('，')}，统计时通常要排除。`);
-    if (fields.some(field => field.role === 'region' || field.role === 'office')) hints.push('区域 / 代表处字段是编码，名称需关联 common_data_rep 等公共表。');
+    const repFields = fields.filter(field => field.role === 'region' || field.role === 'office').map(field => field.name);
+    const hasRepName = fields.some(field => REP_NAME_COL_RE.test(field.name));
+    if (repFields.length && !hasRepName && !REP_MAP_TABLES.includes(lowerName)) {
+        const repTable = mapTables?.rep?.[0] || (mapTables === null ? 'common_data_rep' : '');
+        if (repTable) hints.push(`区域 / 代表处字段（${repFields.join('、')}）是编码，展示前请关联 ${repTable}（dept_code 映射中英文名称）。`);
+    }
+    const opFields = fields.filter(field => field.role === 'operator').map(field => field.name);
+    const custFields = fields.filter(field => field.role === 'customer').map(field => field.name);
+    const hasOpName = fields.some(field => OPERATOR_NAME_COL_RE.test(field.name));
+    if (opFields.length && !hasOpName && !OPERATOR_MAP_TABLES.includes(lowerName)) {
+        const availOp = mapTables ? (mapTables.operator || []) : OPERATOR_MAP_TABLES;
+        if (availOp.length) {
+            const primary = availOp[0];
+            const fallback = availOp.slice(1);
+            const joinHint = custFields.length
+                ? `可通过 ${custFields[0]} = cust_account_num 或运营商编码列关联`
+                : '可先 netcare_describe 核对编码与中英文名称字段';
+            hints.push(`运营商字段（${opFields.join('、')}）是纯编码，用户看不懂数字代码；按运营商维度统计或展示前，请优先查当前库已有的公共客户/运营商映射表 ${primary}${fallback.length ? `（备选 ${fallback.join('、')}）` : ''}（${joinHint}，取中英文运营商/系统部名称如 hq_cust_category_cn_name 及对应英文列），以“名称（编码）”展示；为防大表 JOIN 超时，建议先聚合出涉及的编码/客户号再查维表映射。`);
+        }
+    }
     if (base?.review) hints.push(base.review);
     return hints;
 }
@@ -392,4 +471,4 @@ async function countRows(scope, table, filters = []) {
     return { sql: result.sql, count: Number(Object.values(result.rows[0] || {})[0]) || 0, durationMs: result.durationMs };
 }
 
-module.exports = { listTables, describeTable, queryTable, countRows, buildSelect, saveNote, getNote, listNotes, invalidate, inferGrain, inferCategory, familyOf, profile, SEED_COUNT: seed.count };
+module.exports = { listTables, describeTable, queryTable, countRows, buildSelect, saveNote, getNote, listNotes, invalidate, inferGrain, inferCategory, familyOf, profile, hintsOf, availableMappingTables, codeMappingHintForRows, SEED_COUNT: seed.count };

@@ -24,6 +24,16 @@ function passwordProblem(password) {
 }
 
 const DEFAULT_SESSION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const dailySeenAt = new Map();
+function touchUserActivity(username) {
+    const key = String(username || '').trim().toLowerCase();
+    if (!key) return;
+    dailySeenAt.set(key, Date.now());
+    if (dailySeenAt.size > 5000) {
+        const cutoff = Date.now() - 8 * 86400_000;
+        for (const [k, ts] of dailySeenAt) if (ts < cutoff) dailySeenAt.delete(k);
+    }
+}
 
 async function getSessionMaxAgeMs() {
     try {
@@ -98,6 +108,7 @@ router.post('/login', async (req, res) => {
             reason: 'success'
         });
         authSecurityMonitor.clearSuccessfulLoginState(req, username);
+        touchUserActivity(username);
         auditLog.record(req, { actor: username, action: 'login', tenantId });
 
         res.cookie('tools_token', token, getAuthCookieOptions(req, { maxAge: sessionMaxAgeMs }));
@@ -123,6 +134,7 @@ router.post('/logout', checkAuth, async (req, res) => {
 // GET /api/auth/me
 router.get('/me', checkAuth, async (req, res) => {
     const me = { ...req.user };
+    touchUserActivity(me.username);
     if (me.isSuper && me.tenantId !== me.homeTenantId) {
         const tenant = await tenantsRepo.getTenantById(me.tenantId).catch(() => null);
         me.viewingTeam = { id: me.tenantId, name: tenant?.name || me.tenantId };
@@ -209,6 +221,46 @@ router.get('/audit', checkAuth, requireSuperAdmin, async (req, res) => {
 });
 
 // --- Account Management (Super Admin Only)：一个账号 = 一个团队 ---
+
+// GET /api/auth/users/stats：账号活跃与登录统计（超级管理员）
+router.get('/users/stats', checkAuth, requireSuperAdmin, async (req, res) => {
+    try {
+        const [usersData, sessionsData, auditStats] = await Promise.all([
+            authUsersRepo.listUsers(),
+            authSessionsRepo.listSessions().catch(() => ({ items: {} })),
+            auditLog.getLoginStats().catch(() => null),
+        ]);
+        const list = Object.values(usersData.items || {});
+        const now = new Date();
+        const todayStartMs = auditStats?.todayStartMs || new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        const weekStartMs = auditStats?.weekStartMs || (todayStartMs - 6 * 86400_000);
+        const nowMs = Date.now();
+        const activeSessionUsers = new Set();
+        for (const sess of Object.values(sessionsData.items || {})) {
+            if (sess?.user?.username && Number(sess.expiresAt) > nowMs) {
+                activeSessionUsers.add(String(sess.user.username).toLowerCase());
+            }
+        }
+        const todayActiveSet = new Set(auditStats?.todayActiveActors || []);
+        const weekActiveSet = new Set(auditStats?.weekActiveActors || []);
+        for (const [uname, ts] of dailySeenAt.entries()) {
+            if (ts >= todayStartMs) todayActiveSet.add(uname);
+            if (ts >= weekStartMs) weekActiveSet.add(uname);
+        }
+        res.json({
+            totalUsers: list.length,
+            superAdmins: list.filter(u => u.isSuper).length,
+            activeSessions: activeSessionUsers.size,
+            todayLogins: auditStats?.todayLogins || 0,
+            todayActiveUsers: todayActiveSet.size,
+            weekActiveUsers: weekActiveSet.size,
+            totalLogins: auditStats?.totalLogins || 0
+        });
+    } catch (err) {
+        console.error('[auth] 获取账号统计失败：', err);
+        res.status(500).json({ error: '获取账号统计失败' });
+    }
+});
 
 // GET /api/auth/users
 router.get('/users', checkAuth, requireSuperAdmin, async (req, res) => {

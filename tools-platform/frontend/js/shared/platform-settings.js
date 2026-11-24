@@ -5826,6 +5826,94 @@ window.changeMyPassword = async function () {
     }
 };
 
+function renderAccountStatsHtml(stats, fallbackTotal = 0) {
+    const s = stats && typeof stats === 'object' ? stats : {};
+    const total = Number.isFinite(Number(s.totalUsers)) ? Number(s.totalUsers) : Number(fallbackTotal || 0);
+    const todayActive = Number(s.todayActiveUsers || 0);
+    const todayLogins = Number(s.todayLogins || 0);
+    const weekActive = Number(s.weekActiveUsers || 0);
+    const superAdmins = Number.isFinite(Number(s.superAdmins)) ? Number(s.superAdmins) : null;
+    const totalLogins = Number.isFinite(Number(s.totalLogins)) ? Number(s.totalLogins) : null;
+    const activeSessions = Number.isFinite(Number(s.activeSessions)) ? Number(s.activeSessions) : null;
+    const tipParts = [];
+    if (superAdmins !== null) tipParts.push(accountText(`超级管理员 ${superAdmins} 人`, `${superAdmins} super admins`));
+    if (activeSessions !== null) tipParts.push(accountText(`当前有效会话 ${activeSessions} 人`, `${activeSessions} active sessions`));
+    if (totalLogins !== null) tipParts.push(accountText(`累计记录登录 ${totalLogins} 次`, `${totalLogins} logged sign-ins`));
+    const tipAttr = tipParts.length ? ` title="${navEscape(tipParts.join(' · '))}"` : '';
+    const dot = '<span class="nav-account-stats-dot" aria-hidden="true">·</span>';
+    const items = [
+        `<span class="nav-account-stats-item">${navEscape(accountText('注册总数', 'Registered'))} <strong>${total}</strong></span>`,
+        `<span class="nav-account-stats-item">${navEscape(accountText('今日活跃', 'Active today'))} <strong>${todayActive}</strong></span>`,
+        `<span class="nav-account-stats-item">${navEscape(accountText('今日登录', 'Logins today'))} <strong>${todayLogins}</strong>${navEscape(accountText(' 次', ''))}</span>`,
+        `<span class="nav-account-stats-item">${navEscape(accountText('7日活跃', '7d active'))} <strong>${weekActive}</strong></span>`,
+    ];
+    return `<span class="nav-account-stats-inner"${tipAttr}>${items.join(dot)}</span>`;
+}
+
+function renderAccountPaginationHtml({ page = 1, pageSize = 20, total = 0, totalAll = total } = {}) {
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const safePage = Math.min(Math.max(1, page), totalPages);
+    const summaryText = total !== totalAll
+        ? accountText(`筛选 ${total} / 共 ${totalAll} 条 · 第 ${safePage} / ${totalPages} 页`, `${total} of ${totalAll} · Page ${safePage} / ${totalPages}`)
+        : accountText(`共 ${total} 条 · 第 ${safePage} / ${totalPages} 页`, `${total} accounts · Page ${safePage} / ${totalPages}`);
+    const sizeOptions = [10, 20, 50, 100].map(size => (
+        `<option value="${size}"${pageSize === size ? ' selected' : ''}>${navEscape(accountText(`每页 ${size} 条`, `${size} / page`))}</option>`
+    )).join('');
+    const jumpHtml = totalPages > 2
+        ? `<input type="number" class="nav-account-page-input" data-acc-page-jump min="1" max="${totalPages}" value="${safePage}" aria-label="${navEscape(accountText('页码', 'Page'))}"><button type="button" class="nav-account-page-btn" data-acc-page-go>${navEscape(accountText('跳转', 'Go'))}</button>`
+        : '';
+    return `
+        <div class="nav-account-pagination">
+            <span class="nav-account-pagination-info">${navEscape(summaryText)}</span>
+            <div class="nav-account-pagination-ctrl">
+                <select class="nav-account-page-select" data-acc-page-size aria-label="${navEscape(accountText('每页条数', 'Rows per page'))}">${sizeOptions}</select>
+                <button type="button" class="nav-account-page-btn" data-acc-page="${safePage - 1}"${safePage <= 1 ? ' disabled' : ''}>${navEscape(accountText('上一页', 'Prev'))}</button>
+                <span class="nav-account-page-current">${safePage} / ${totalPages}</span>
+                <button type="button" class="nav-account-page-btn" data-acc-page="${safePage + 1}"${safePage >= totalPages ? ' disabled' : ''}>${navEscape(accountText('下一页', 'Next'))}</button>
+                ${jumpHtml}
+            </div>
+        </div>
+    `;
+}
+
+function bindAccountPagination(container, state, onChange) {
+    if (!container) return;
+    const applyJump = () => {
+        const input = container.querySelector('[data-acc-page-jump]');
+        if (!input) return;
+        const target = parseInt(input.value, 10);
+        if (Number.isFinite(target) && target >= 1) {
+            state.page = target;
+            onChange();
+        }
+    };
+    container.addEventListener('click', event => {
+        const pageBtn = event.target.closest('[data-acc-page]');
+        if (pageBtn && !pageBtn.disabled) {
+            const target = parseInt(pageBtn.dataset.accPage, 10);
+            if (Number.isFinite(target) && target >= 1) {
+                state.page = target;
+                onChange();
+            }
+            return;
+        }
+        if (event.target.closest('[data-acc-page-go]')) applyJump();
+    });
+    container.addEventListener('change', event => {
+        const sizeSelect = event.target.closest('[data-acc-page-size]');
+        if (!sizeSelect) return;
+        state.pageSize = Math.max(1, parseInt(sizeSelect.value, 10) || 20);
+        state.page = 1;
+        onChange();
+    });
+    container.addEventListener('keydown', event => {
+        if (event.key === 'Enter' && event.target.matches('[data-acc-page-jump]')) {
+            event.preventDefault();
+            applyJump();
+        }
+    });
+}
+
 async function renderAccountSettings(content) {
     if (!isNavSuperAdmin()) {
         content.innerHTML = renderMyAccountCard();
@@ -5833,40 +5921,70 @@ async function renderAccountSettings(content) {
     }
     content.innerHTML = `<div class="nav-settings-empty">${navEscape(navT('nav.acc.empty'))}</div>`;
     try {
-        const [users, teamTools] = await Promise.all([
+        const [users, teamTools, userStats] = await Promise.all([
             API.get('/api/auth/users'),
-            API.get('/api/custom-tools/team-tools').catch(() => ({ items: [] }))
+            API.get('/api/custom-tools/team-tools').catch(() => ({ items: [] })),
+            API.get('/api/auth/users/stats').catch(() => null)
         ]);
         const teamToolRows = (teamTools.items || []).map(tool => `<tr><td>${navEscape(tool.teamName || tool.tenantId)}</td><td>${navEscape(tool.icon || '🧩')} ${navEscape(tool.name || tool.slug)}</td><td>${navEscape(tool.updatedAt ? new Date(tool.updatedAt).toLocaleString() : '')}</td><td class="nav-account-actions"><a href="${navEscape(tool.href)}" target="_blank" rel="noopener">${navEscape(accountText('打开', 'Open'))}</a></td></tr>`).join('');
         const currentTenant = localStorage.getItem('tools_tenant_id') || 'default';
-        navState.accountUsers = users;
-        const rows = users.map(raw => {
-            // 旧后端（尚未重启）的账号列表没有 isSuper / tenantId：管理员按超级管理员显示，不出现「进入团队」
-            const u = { ...raw, isSuper: typeof raw.isSuper === 'boolean' ? raw.isSuper : raw.role === 'admin' };
-            const roleBadge = u.isSuper
-                ? `<span class="nav-account-role admin">${navEscape(accountText('超级管理员', 'Super admin'))}</span>`
-                : `<span class="nav-account-role readonly">${navEscape(accountText('团队管理员', 'Team admin'))}</span>`;
-            const name = encodeURIComponent(u.username);
-            const enter = !u.isSuper && u.tenantId && u.tenantId !== currentTenant
-                ? `<button onclick="switchNavTeam('${navEscape(u.tenantId)}')">${navEscape(accountText('进入团队', 'Enter team'))}</button>` : '';
-            const bind = !u.isSuper && u.ownTenantId
-                ? `<button onclick="bindUserTeam(decodeURIComponent('${name}'))">${navEscape(u.bound ? accountText('更换 / 解绑团队', 'Change / unbind team') : accountText('绑定团队', 'Bind team'))}</button>` : '';
-            const members = (u.teamMembers || []).filter(m => m !== u.username);
-            const teammatesHtml = renderAccountTeammatesSummary(u.username, members);
-            const teamCell = `${navEscape(u.teamName || u.username)}${u.bound ? ` <span class="nav-account-role readonly">${navEscape(accountText('已绑定', 'Bound'))}</span>` : ''}${teammatesHtml}`;
-            return `
-                <tr>
-                    <td>${navEscape(u.username)}</td>
-                    <td>${teamCell}</td>
-                    <td>${roleBadge}</td>
-                    <td class="nav-account-actions">
-                        ${enter}
-                        ${bind}
-                        <button onclick="resetPwd(decodeURIComponent('${name}'))">${navEscape(navT('nav.acc.btnReset'))}</button>
-                        ${u.isSuper ? '' : `<button onclick="deleteUser(decodeURIComponent('${name}'))">${navEscape(navT('nav.acc.btnDel'))}</button>`}
-                    </td>
-                </tr>`;
-        }).join('');
+        const allUsers = Array.isArray(users) ? users : [];
+        navState.accountUsers = allUsers;
+        const listState = { query: '', role: 'all', page: 1, pageSize: 20 };
+        const buildAccountRows = () => {
+            const q = listState.query.trim().toLowerCase();
+            const filtered = allUsers.filter(raw => {
+                const isSuper = typeof raw.isSuper === 'boolean' ? raw.isSuper : raw.role === 'admin';
+                if (listState.role === 'super' && !isSuper) return false;
+                if (listState.role === 'user' && isSuper) return false;
+                if (!q) return true;
+                return String(raw.username || '').toLowerCase().includes(q)
+                    || String(raw.displayName || '').toLowerCase().includes(q)
+                    || String(raw.teamName || '').toLowerCase().includes(q)
+                    || (Array.isArray(raw.teamMembers) && raw.teamMembers.some(m => String(m || '').toLowerCase().includes(q)));
+            });
+            const totalPages = Math.max(1, Math.ceil(filtered.length / listState.pageSize));
+            if (listState.page > totalPages) listState.page = totalPages;
+            if (listState.page < 1) listState.page = 1;
+            const start = (listState.page - 1) * listState.pageSize;
+            const pageItems = filtered.slice(start, start + listState.pageSize);
+            const html = pageItems.map(raw => {
+                // 旧后端（尚未重启）的账号列表没有 isSuper / tenantId：管理员按超级管理员显示，不出现「进入团队」
+                const u = { ...raw, isSuper: typeof raw.isSuper === 'boolean' ? raw.isSuper : raw.role === 'admin' };
+                const roleBadge = u.isSuper
+                    ? `<span class="nav-account-role admin">${navEscape(accountText('超级管理员', 'Super admin'))}</span>`
+                    : `<span class="nav-account-role readonly">${navEscape(accountText('团队管理员', 'Team admin'))}</span>`;
+                const name = encodeURIComponent(u.username);
+                const enter = !u.isSuper && u.tenantId && u.tenantId !== currentTenant
+                    ? `<button onclick="switchNavTeam('${navEscape(u.tenantId)}')">${navEscape(accountText('进入团队', 'Enter team'))}</button>` : '';
+                const bind = !u.isSuper && u.ownTenantId
+                    ? `<button onclick="bindUserTeam(decodeURIComponent('${name}'))">${navEscape(u.bound ? accountText('更换 / 解绑团队', 'Change / unbind team') : accountText('绑定团队', 'Bind team'))}</button>` : '';
+                const members = (u.teamMembers || []).filter(m => m !== u.username);
+                const teammatesHtml = renderAccountTeammatesSummary(u.username, members);
+                const teamCell = `${navEscape(u.teamName || u.username)}${u.bound ? ` <span class="nav-account-role readonly">${navEscape(accountText('已绑定', 'Bound'))}</span>` : ''}${teammatesHtml}`;
+                return `
+                    <tr>
+                        <td>${navEscape(u.username)}</td>
+                        <td>${teamCell}</td>
+                        <td>${roleBadge}</td>
+                        <td class="nav-account-actions">
+                            ${enter}
+                            ${bind}
+                            <button onclick="resetPwd(decodeURIComponent('${name}'))">${navEscape(navT('nav.acc.btnReset'))}</button>
+                            ${u.isSuper ? '' : `<button onclick="deleteUser(decodeURIComponent('${name}'))">${navEscape(navT('nav.acc.btnDel'))}</button>`}
+                        </td>
+                    </tr>`;
+            }).join('') || `<tr><td colspan="4">${navEscape(navT('nav.acc.noData'))}</td></tr>`;
+            const paginationHtml = renderAccountPaginationHtml({
+                page: listState.page,
+                pageSize: listState.pageSize,
+                total: filtered.length,
+                totalAll: allUsers.length
+            });
+            return { html, paginationHtml };
+        };
+        const initial = buildAccountRows();
+        const statsHtml = renderAccountStatsHtml(userStats, allUsers.length);
 
         content.innerHTML = `
             ${renderMyAccountCard()}
@@ -5877,14 +5995,26 @@ async function renderAccountSettings(content) {
                 <input id="nu_pwd" autocomplete="new-password" placeholder="${navEscape(accountText('初始密码（至少 8 位）', 'Initial password (8+ characters)'))}" type="password">
                 <button onclick="addUser()">${navEscape(navT('nav.acc.btnAdd'))}</button>
             </div>
+            <div class="nav-account-list-bar">
+                <div class="nav-account-list-filters">
+                    <input id="mainAccountSearch" autocomplete="off" placeholder="${navEscape(accountText('搜索账号或团队…', 'Search account or team…'))}">
+                    <select id="mainAccountRoleFilter" aria-label="${navEscape(accountText('按角色筛选', 'Filter by role'))}">
+                        <option value="all">${navEscape(accountText('全部角色', 'All roles'))}</option>
+                        <option value="super">${navEscape(accountText('超级管理员', 'Super admin'))}</option>
+                        <option value="user">${navEscape(accountText('团队管理员', 'Team admin'))}</option>
+                    </select>
+                </div>
+                <div id="mainAccountStats" class="nav-account-stats">${statsHtml}</div>
+            </div>
             <div class="nav-account-table-wrap">
                 <table class="nav-account-table">
                     <thead>
                         <tr><th>${navEscape(navT('nav.acc.thUser'))}</th><th>${navEscape(accountText('团队', 'Team'))}</th><th>${navEscape(navT('nav.acc.thRole'))}</th><th>${navEscape(navT('nav.acc.thAction'))}</th></tr>
                     </thead>
-                    <tbody>${rows || `<tr><td colspan="4">${navEscape(navT('nav.acc.noData'))}</td></tr>`}</tbody>
+                    <tbody id="mainAccountRows">${initial.html}</tbody>
                 </table>
             </div>
+            <div id="mainAccountPagination">${initial.paginationHtml}</div>
             <div class="nav-settings-help" style="margin-top:18px">${navEscape(accountText('各团队自己上传的 HTML 工具（不含平台内置工具）。在沙箱中打开，工具里的脚本拿不到你的登录状态，所以依赖平台接口的功能可能无法使用。', 'HTML tools uploaded by each team (built-in tools excluded). They open in a sandbox without your sign-in, so features that call platform APIs may not work.'))}</div>
             <div class="nav-account-table-wrap">
                 <table class="nav-account-table">
@@ -5894,6 +6024,24 @@ async function renderAccountSettings(content) {
             </div>
             ${renderAuditLogSection()}
         `;
+        const rowsHost = content.querySelector('#mainAccountRows');
+        const paginationHost = content.querySelector('#mainAccountPagination');
+        const refreshMainList = () => {
+            const next = buildAccountRows();
+            if (rowsHost) rowsHost.innerHTML = next.html;
+            if (paginationHost) paginationHost.innerHTML = next.paginationHtml;
+        };
+        content.querySelector('#mainAccountSearch')?.addEventListener('input', event => {
+            listState.query = event.target.value || '';
+            listState.page = 1;
+            refreshMainList();
+        });
+        content.querySelector('#mainAccountRoleFilter')?.addEventListener('change', event => {
+            listState.role = event.target.value || 'all';
+            listState.page = 1;
+            refreshMainList();
+        });
+        bindAccountPagination(paginationHost, listState, refreshMainList);
         window.reloadAuditLogTable();
     } catch (e) {
         content.innerHTML = `<div class="nav-settings-empty">${navEscape(navT('nav.acc.fail'))}${navEscape(e.message)}</div>`;

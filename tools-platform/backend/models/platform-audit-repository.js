@@ -239,4 +239,51 @@ async function list({ page = 1, limit = 20, before = null, actor = '', action = 
     };
 }
 
-module.exports = { ensureReady, list, record, clientIp, parseClientInfo };
+/** 汇总今日登录次数、今日/近 7 日活跃账号与累计登录次数 */
+async function getLoginStats() {
+    await ensureReady();
+    const now = new Date();
+    const todayStartMs = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const weekStartMs = todayStartMs - 6 * 86400_000;
+    const todayIso = new Date(todayStartMs).toISOString();
+    const weekIso = new Date(weekStartMs).toISOString();
+
+    const agg = await get(`
+        SELECT
+            COALESCE(SUM(CASE WHEN action = 'login' AND at >= ? THEN 1 ELSE 0 END), 0) AS todayLogins,
+            COALESCE(SUM(CASE WHEN action = 'login' THEN 1 ELSE 0 END), 0) AS totalLogins
+        FROM platform_audit_log
+    `, [todayIso]);
+    const todayRows = await all(`
+        SELECT DISTINCT LOWER(actor) AS actor
+        FROM platform_audit_log
+        WHERE action <> 'login_failed' AND actor <> '' AND at >= ?
+    `, [todayIso]);
+    const weekRows = await all(`
+        SELECT DISTINCT LOWER(actor) AS actor
+        FROM platform_audit_log
+        WHERE action <> 'login_failed' AND actor <> '' AND at >= ?
+    `, [weekIso]);
+    const lastRows = await all(`
+        SELECT LOWER(actor) AS actor, MAX(at) AS lastAt
+        FROM platform_audit_log
+        WHERE action <> 'login_failed' AND actor <> ''
+        GROUP BY LOWER(actor)
+    `);
+    const lastSeenByActor = new Map();
+    for (const row of lastRows) {
+        const ts = row.lastAt ? Date.parse(row.lastAt) : 0;
+        if (row.actor && Number.isFinite(ts) && ts > 0) lastSeenByActor.set(row.actor, ts);
+    }
+    return {
+        todayStartMs,
+        weekStartMs,
+        todayLogins: Number(agg?.todayLogins || 0),
+        totalLogins: Number(agg?.totalLogins || 0),
+        todayActiveActors: new Set(todayRows.map(r => r.actor).filter(Boolean)),
+        weekActiveActors: new Set(weekRows.map(r => r.actor).filter(Boolean)),
+        lastSeenByActor
+    };
+}
+
+module.exports = { ensureReady, list, record, getLoginStats, clientIp, parseClientInfo };

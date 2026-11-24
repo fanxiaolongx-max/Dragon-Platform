@@ -167,10 +167,18 @@ async function describe(args) {
     return { content, summary: `${detail.name}：${detail.columns.length} 个字段` };
 }
 
+async function appendCodeMappingHint(scope, content, rows) {
+    if (scope !== 'business' || !Array.isArray(rows) || !rows.length) return content;
+    const mapTables = await catalog.availableMappingTables('business').catch(() => null);
+    const hint = catalog.codeMappingHintForRows(rows, mapTables);
+    return hint ? `${content}\n${hint}` : content;
+}
+
 async function query(args) {
     const scope = scopeOf(args.scope);
     const result = await catalog.queryTable(scope, { ...args, limit: clampInt(args.limit, 1, MAX_MODEL_ROWS, 100) });
-    return { content: rowsText(result.rows, result), summary: `${args.table}：${result.rows.length} 行` };
+    const content = await appendCodeMappingHint(scope, rowsText(result.rows, result), result.rows);
+    return { content, summary: `${args.table}：${result.rows.length} 行` };
 }
 
 async function sql(args) {
@@ -184,7 +192,8 @@ async function sql(args) {
         };
     }
     const result = await client.queryAll(args.sql, { scope, maxRows: clampInt(args.maxRows, 1, MAX_MODEL_ROWS, 200) });
-    return { content: rowsText(result.rows, { sql: String(args.sql).slice(0, 600), truncated: result.truncated }), summary: `SQL：${result.rows.length} 行` };
+    const content = await appendCodeMappingHint(scope, rowsText(result.rows, { sql: String(args.sql).slice(0, 600), truncated: result.truncated }), result.rows);
+    return { content, summary: `SQL：${result.rows.length} 行` };
 }
 
 const HANDLERS = { netcare_tables: findTables, netcare_describe: describe, netcare_query: query, netcare_sql: sql };
@@ -218,6 +227,7 @@ async function buildPrompt() {
         `用 netcare_tables / netcare_describe / netcare_query / netcare_sql 经数字人基座查询 NetCare 业务库（${config.businessSchema}，只读）${configRepo.appReady(config) ? '与本应用 schema（scope=app，支持查询及 INSERT/UPDATE/DELETE 写操作，修改必须带 WHERE 条件）' : ''}。结果以工具返回为准，不要编造表名、字段或数字。`,
         `今天是 ${new Date().toLocaleDateString('sv-SE')}（平台服务器本地时间）。`,
         '先找表、看字段再查询；统计用聚合在库里算；回答时说明所用表、条件、时间范围和是否全量，并附 SQL 摘要。',
+        '遇到运营商编码（如 t1_operator_code、t2_operator_code、operator_code）或地区部/代表处编码（region_code、repoffice_code）时，只要业务库存在对应映射维表（运营商/客户优先查 cs_nc_comm_customer_d_list，备选 cs_nc_comm_customer_d_list_dim / common_data_customer_dlvy_org；地代查 common_data_rep），必须主动翻译成中英文可读名称（如「名称（编码）」）再呈现给用户，不要只输出纯数字代码；为防大表 JOIN 超时，建议先聚合出涉及的编码/客户号再查维表映射。',
         '需要查询或操作时在本轮直接调用工具，不要只回复「请稍等 / 正在查询」就结束。'
     );
     return lines.join('\n');

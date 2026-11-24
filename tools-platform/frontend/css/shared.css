@@ -4050,6 +4050,132 @@ from { opacity: 0; transform: translateX(-5px); }
     background: #fff;
 }
 
+.nav-account-list-bar {
+    margin-top: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.nav-account-list-filters {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.nav-account-list-filters input,
+.nav-account-list-filters select {
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid #cbd5e1;
+    background: #f8fafc;
+    color: #172033;
+    padding: 0 10px;
+    font-size: 12.5px;
+}
+
+.nav-account-stats {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 5px;
+    font-size: 12px;
+    color: #64748b;
+    line-height: 1.4;
+    font-variant-numeric: tabular-nums;
+}
+
+.nav-account-stats-inner {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.nav-account-stats-item {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 3px;
+    white-space: nowrap;
+}
+
+.nav-account-stats-item strong {
+    color: #0f172a;
+    font-weight: 700;
+}
+
+.nav-account-stats-dot {
+    color: #cbd5e1;
+    user-select: none;
+}
+
+.nav-account-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 10px;
+    font-size: 12px;
+    color: #64748b;
+}
+
+.nav-account-pagination-info {
+    font-variant-numeric: tabular-nums;
+}
+
+.nav-account-pagination-ctrl {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.nav-account-page-btn,
+.nav-account-page-select,
+.nav-account-page-input {
+    height: 28px;
+    padding: 0 8px;
+    border-radius: 6px;
+    border: 1px solid #cbd5e1;
+    background: #fff;
+    color: #334155;
+    font-size: 12px;
+    font-family: inherit;
+}
+
+.nav-account-page-btn {
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.nav-account-page-btn:hover:not(:disabled) {
+    background: #f1f5f9;
+    border-color: #94a3b8;
+}
+
+.nav-account-page-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.nav-account-page-input {
+    width: 48px;
+    padding: 0 4px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.nav-account-page-current {
+    padding: 0 4px;
+    font-weight: 600;
+    color: #1e293b;
+    font-variant-numeric: tabular-nums;
+}
+
 .nav-account-table {
     width: 100%;
     border-collapse: collapse;
@@ -7953,6 +8079,34 @@ html[data-theme="dark"] .builtin-sync-error-card p { color: #fca5a5; }
 :is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-account-table-wrap {
     background: var(--nsw-side) !important;
     border-color: var(--nsw-line) !important;
+}
+
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-account-stats,
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-account-pagination {
+    color: var(--nsw-ink3);
+}
+
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-account-stats-item strong,
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-account-page-current {
+    color: var(--nsw-ink);
+}
+
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-account-stats-dot {
+    color: var(--nsw-line-strong);
+}
+
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-account-list-filters input,
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-account-list-filters select,
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-account-page-btn,
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-account-page-select,
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-account-page-input {
+    background: var(--nsw-chip);
+    border-color: var(--nsw-line-strong);
+    color: var(--nsw-ink);
+}
+
+:is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-account-page-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.12);
 }
 
 :is(html[data-theme="dark"], html[data-platform-theme="dark"]) .nav-account-table {
