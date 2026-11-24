@@ -149,6 +149,7 @@ test('feedback dialog auto-closes after successful submission', async () => {
     let toastShown = false;
     let timeoutFn = null;
     let submitHandler = null;
+    let submitted = null;
 
     const storage = {};
     const context = {
@@ -157,7 +158,7 @@ test('feedback dialog auto-closes after successful submission', async () => {
             location: { origin: 'http://localhost' },
             RequirementsClient: {
                 encodeImages: async () => [],
-                submitPayload: async () => ({ ok: true }),
+                submitPayload: async payload => { submitted = payload; return { ok: true }; },
                 validImages: () => true
             }
         },
@@ -174,7 +175,10 @@ test('feedback dialog auto-closes after successful submission', async () => {
                 append() {},
                 querySelector: sel => {
                     if (sel === 'textarea') return { value: 'Problem details', disabled: false, focus() {} };
-                    if (sel === '[type=file]') return { click() {}, addEventListener() {}, files: [] };
+                    if (sel === '[data-image-input]' || sel === '[data-file-input]') return { click() {}, addEventListener() {}, files: [] };
+                    if (sel === '.tools-feedback-files') return { innerHTML: '', onclick() {} };
+                    if (sel === '[data-file-count]') return { textContent: '0' };
+                    if (sel === '[data-files]') return { disabled: false, onclick() {} };
                     if (sel === '[data-submit]') return {
                         disabled: false,
                         set onclick(fn) { submitHandler = fn; },
@@ -182,7 +186,7 @@ test('feedback dialog auto-closes after successful submission', async () => {
                     };
                     if (sel === '.tools-feedback-previews') return { innerHTML: '', onclick() {} };
                     if (sel === '[data-count]' || sel === '[data-length]') return { textContent: '0' };
-                    if (sel === '[data-images]') return { disabled: false };
+                    if (sel === '[data-images]') return { disabled: false, onclick() {} };
                     if (sel === '[role="status"]') return { textContent: '' };
                     if (sel === '.tools-dialog-close') return { onclick() {}, addEventListener() {} };
                     if (sel === 'section') return { focus() {} };
@@ -214,11 +218,16 @@ test('feedback dialog auto-closes after successful submission', async () => {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '../frontend/js/shared/api.js'), 'utf8'), context);
 
     // Open feedback dialog
-    context.window.ToolsDialogs.feedback();
+    // 对话「问题反馈」会预置研发日志附件和来源说明
+    const log = { name: 'dragon-claw-log-abc.json', type: 'application/json', size: 4, arrayBuffer: async () => new TextEncoder().encode('{"a"').buffer };
+    context.btoa = globalThis.btoa;
+    context.window.ToolsDialogs.feedback({ files: [log], note: '—— 来自 DragonClaw 对话的问题反馈' });
     assert.ok(submitHandler, 'Submit button should have onclick handler');
 
     // Execute submit
     await submitHandler();
+    assert.equal(submitted.description, 'Problem details\n\n—— 来自 DragonClaw 对话的问题反馈');
+    assert.deepEqual(JSON.parse(JSON.stringify(submitted.files)), [{ name: 'dragon-claw-log-abc.json', type: 'application/json', data: Buffer.from('{"a"').toString('base64') }]);
     assert.ok(toastShown, 'Success toast should be shown');
     assert.ok(timeoutFn, 'setTimeout should be scheduled for closing');
 

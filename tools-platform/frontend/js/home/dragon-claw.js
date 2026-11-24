@@ -34,7 +34,7 @@
             askHow: '「{name}」（{href}）应该怎么上手使用？请给出具体操作步骤和注意事项。',
             promptLogic: '解释「{name}」的代码逻辑', promptMetrics: '本月哪些指标还没达标？',
             promptMail: '帮我写一封礼貌的催办提醒邮件', promptCode: '用 Python 写一个 Excel 去重脚本',
-            stopped: '已停止生成', copy: '复制', copied: '已复制', retry: '重新发送', skillPickDir: '选择工作目录', usageText: '输入 {input} · 输出 {output} tokens', speedTitle: '生成速度（每秒 token）：最低 {min} / 平均 {avg} / 最高 {max}，共 {rounds} 轮模型调用，首字 {ttft} 秒', speedEstimated: '（部分轮次的 token 数为估算）', speedRounds: '{n} 轮', usageTitle: '本次回复消耗：输入 {input} tokens，输出 {output} tokens', historyMore: '加载更早的消息', historyLoading: '正在加载更早的消息…', historyFailed: '加载失败，点击重试', unavailable: '智能体组件尚未加载，请稍后重试或刷新页面。',
+            stopped: '已停止生成', copy: '复制', copied: '已复制', feedback: '问题反馈', feedbackCollecting: '正在收集本对话的研发日志…', feedbackNoLog: '研发日志没有收集到（{error}），描述问题后仍可提交', feedbackUnavailable: '意见反馈组件还没加载好，请刷新页面后重试', feedbackPlaceholder: '描述你遇到的问题，例如哪里答错了、期望是什么（本对话的研发日志已自动附上）', retry: '重新发送', skillPickDir: '选择工作目录', usageText: '输入 {input} · 输出 {output} tokens', speedTitle: '生成速度（每秒 token）：最低 {min} / 平均 {avg} / 最高 {max}，共 {rounds} 轮模型调用，首字 {ttft} 秒', speedEstimated: '（部分轮次的 token 数为估算）', speedRounds: '{n} 轮', usageTitle: '本次回复消耗：输入 {input} tokens，输出 {output} tokens', historyMore: '加载更早的消息', historyLoading: '正在加载更早的消息…', historyFailed: '加载失败，点击重试', unavailable: '智能体组件尚未加载，请稍后重试或刷新页面。',
             modelLabel: '选择模型', modelMenuTitle: '模型', modelMenuHint: '切换后从下一条消息开始生效',
             modelDefault: '默认模型', modelNextMessage: '已切换到 {name}，从下一条消息开始生效',
             modelSwitched: '已切换到 {name}', modelCurrent: '当前模型：{name}',
@@ -108,7 +108,7 @@
             askHow: 'How do I get started with “{name}” ({href})? Give concrete steps and caveats.',
             promptLogic: 'Explain the code behind “{name}”', promptMetrics: 'Which metrics missed target this month?',
             promptMail: 'Draft a polite follow-up reminder email', promptCode: 'Write a Python script to dedupe an Excel file',
-            stopped: 'Generation stopped', copy: 'Copy', copied: 'Copied', retry: 'Send again', skillPickDir: 'Choose a folder', usageText: 'In {input} · Out {output} tokens', speedTitle: 'Generation speed (tokens/s): min {min} / avg {avg} / max {max} over {rounds} model calls; first token {ttft}s', speedEstimated: ' (some token counts are estimated)', speedRounds: '{n} calls', usageTitle: 'This reply used {input} input tokens and {output} output tokens', historyMore: 'Load earlier messages', historyLoading: 'Loading earlier messages…', historyFailed: 'Could not load. Click to retry', unavailable: 'The agent is still loading. Please retry in a moment or refresh the page.',
+            stopped: 'Generation stopped', copy: 'Copy', copied: 'Copied', feedback: 'Report a problem', feedbackCollecting: 'Collecting this chat\'s developer log…', feedbackNoLog: 'Could not collect the developer log ({error}); you can still describe the problem and submit', feedbackUnavailable: 'Feedback is still loading. Refresh the page and try again', feedbackPlaceholder: 'Describe the problem, e.g. what was wrong and what you expected (this chat\'s developer log is attached)', retry: 'Send again', skillPickDir: 'Choose a folder', usageText: 'In {input} · Out {output} tokens', speedTitle: 'Generation speed (tokens/s): min {min} / avg {avg} / max {max} over {rounds} model calls; first token {ttft}s', speedEstimated: ' (some token counts are estimated)', speedRounds: '{n} calls', usageTitle: 'This reply used {input} input tokens and {output} output tokens', historyMore: 'Load earlier messages', historyLoading: 'Loading earlier messages…', historyFailed: 'Could not load. Click to retry', unavailable: 'The agent is still loading. Please retry in a moment or refresh the page.',
             modelLabel: 'Choose model', modelMenuTitle: 'Model', modelMenuHint: 'Changes apply from your next message',
             modelDefault: 'Default model', modelNextMessage: 'Switched to {name}. Applies from your next message.',
             modelSwitched: 'Switched to {name}', modelCurrent: 'Current model: {name}',
@@ -431,6 +431,37 @@
         // 正在生成的回复不受影响；对话中提示从下一条消息起生效。
         const inConversation = Boolean(state.controller || state.messages.length);
         showToast(tx(inConversation ? 'modelNextMessage' : 'modelSwitched', { name: next.name }));
+    }
+
+    // 收集本对话的研发日志（与「导出日志 → 研发日志」同一份），打包成文件交给意见反馈弹窗；没有可导出的对话时返回 null
+    async function collectChatLog() {
+        const sessionId = state.sessionId;
+        const source = external.active ? external.exportSession : sessionId ? { id: sessionId, url: `/api/ai/sessions/${encodeURIComponent(sessionId)}/export` } : null;
+        if (!source) return null;
+        const res = await fetch(source.url, { headers: authHeaders() });
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `HTTP ${res.status}`);
+        const name = (res.headers.get('content-disposition') || '').match(/filename="([^"]+)"/)?.[1] || `dragon-claw-log-${source.id.replace(/[^A-Za-z0-9_-]/g, '_')}.json`;
+        const data = await res.json();
+        return { file: new File([JSON.stringify(data, null, 2)], name, { type: 'application/json' }), sessionId: source.id };
+    }
+
+    // 回复下方的「问题反馈」：自动收集本对话研发日志 → 打开意见反馈弹窗并带上日志 → 用户描述问题后提交到需求广场
+    async function reportProblem(button) {
+        if (!window.ToolsDialogs?.feedback) { showToast(tx('feedbackUnavailable')); return; }
+        if (state.controller) { showToast(tx('exportLogBusy')); return; }
+        if (button.disabled) return;
+        button.disabled = true;
+        showToast(tx('feedbackCollecting'));
+        let log = null, failure = '';
+        try { log = await collectChatLog(); } catch (error) { failure = error?.message || String(error); } finally { button.disabled = false; }
+        const reply = String(button.closest('.dc-msg-tools')?.querySelector('[data-dc-copy]')?.dataset.dcCopy || '').replace(/\s+/g, ' ').trim();
+        const en = typeof lang === 'function' ? lang() === 'en-US' : false;
+        const lines = [en ? '— Sent from a DragonClaw chat' : '—— 来自 DragonClaw 对话的问题反馈'];
+        if (log?.sessionId || state.sessionId) lines.push(`${en ? 'Session' : '会话'}：${log?.sessionId || state.sessionId}`);
+        if (reply) lines.push(`${en ? 'Reply' : '反馈的回复'}：${reply.slice(0, 120)}${reply.length > 120 ? '…' : ''}`);
+        if (log) lines.push(en ? 'Developer log attached' : '已附本对话研发日志');
+        window.ToolsDialogs.feedback({ files: log ? [log.file] : [], note: lines.join('\n'), placeholder: tx('feedbackPlaceholder') });
+        if (failure) showToast(tx('feedbackNoLog', { error: failure }));
     }
 
     // 导出对话日志（JSON）：消息、工具过程、工作区工具调用记录与模型配置，给研发定位问题；服务端已脱敏
@@ -1201,7 +1232,8 @@
     const ICONS = {
         copy: `<svg ${ICON_ATTRS}><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`,
         check: `<svg ${ICON_ATTRS}><path d="M20 6 9 17l-5-5"/></svg>`,
-        retry: `<svg ${ICON_ATTRS}><path d="M3 12a9 9 0 1 0 2.64-6.36L3 8"/><path d="M3 3v5h5"/></svg>`
+        retry: `<svg ${ICON_ATTRS}><path d="M3 12a9 9 0 1 0 2.64-6.36L3 8"/><path d="M3 3v5h5"/></svg>`,
+        feedback: `<svg ${ICON_ATTRS}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M12 7v4"/><path d="M12 14h.01"/></svg>`
     };
     const retryPayloads = new WeakMap();
 
@@ -1324,7 +1356,7 @@
             ...records.slice(-3).map((r,i) => `#${Math.max(0,records.length-3)+i+1} ${r.model || ''}: ${en?'in':'输入'} ${r.inputTokens ?? '—'} / ${en?'out':'输出'} ${r.outputTokens ?? '—'}; ${en?'cache read':'缓存读取'} ${r.cachedInputTokens ?? '—'}; TPS ${r.timingSource === 'native-metadata' && r.nativeStreamTps > 0 ? fmtTps(r.nativeStreamTps)+' ('+(en?'native':'原生流')+')' : (!r.timingEstimated && r.timingSource === 'request-stream' && r.tps > 0) || (r.timingEstimated && r.tps > 0) ? fmtTps(r.tps)+(r.timingEstimated ? (en?' (est.)':'（估）') : '') : '—'}; TTFT ${typeof r.ttftMs === 'number' ? (r.ttftMs/1000).toFixed(2)+' s'+(r.timingEstimated ? (en?' (est.)':'（估）') : '') : '—'}`)
         ];
         if (Array.isArray(rounds) && rounds.length) message.dcRounds = rounds;
-        bar.innerHTML = `${iconButton('copy', tx('copy'), 'data-dc-copy')}
+        bar.innerHTML = `${iconButton('copy', tx('copy'), 'data-dc-copy')}${iconButton('feedback', tx('feedback'), 'data-dc-feedback')}
             ${modelName ? `<span class="dc-msg-model" title="${escapeHtml(tx('modelCurrent', { name: modelName }))}">${escapeHtml(modelName)}</span>` : ''}`;
         if (records.length || modelName || input || output) {
             const disclosure = document.createElement('div');
@@ -4564,6 +4596,8 @@
                 if (ask.dataset.dcTool) state.focusedTool = tools().find(tool => tool.id === ask.dataset.dcTool) || state.focusedTool;
                 return send(ask.dataset.dcAsk, ask.dataset.dcDisplay || ask.dataset.dcAsk);
             }
+            const feedbackButton = target.closest('[data-dc-feedback]');
+            if (feedbackButton) return reportProblem(feedbackButton);
             const copy = target.closest('[data-dc-copy]');
             if (copy) {
                 if (!(await copyText(copy.dataset.dcCopy || ''))) return;

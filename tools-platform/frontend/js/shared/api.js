@@ -301,7 +301,7 @@ html[data-theme="dark"] .tools-dialog{--td-bg:#20242c;--td-ink:#f3f4f6;--td-mute
 .tools-dialog-section{margin-top:24px;padding-top:20px;border-top:1px solid var(--td-line)}.tools-dialog-label{font-size:12px;color:var(--td-muted)}
 .tools-dialog-notes{padding-left:18px;margin:12px 0 26px;max-height:220px;overflow:auto;overflow-wrap:anywhere}.tools-dialog-notes li{padding:5px 0}.tools-dialog-notes li::marker{color:var(--td-muted)}
 .tools-dialog-actions{display:flex;justify-content:flex-end;gap:12px;margin-top:20px}.tools-dialog button:focus-visible,.tools-dialog textarea:focus-visible{outline:2px solid #588cef;outline-offset:3px}.tools-dialog-btn{border:1px solid var(--td-line);background:var(--td-soft);color:var(--td-ink);padding:10px 20px;min-height:42px;border-radius:12px;cursor:pointer;font:inherit}.tools-dialog-btn.primary{background:var(--td-ink);color:var(--td-bg);border-color:transparent;flex:1}.tools-dialog-btn:disabled{opacity:.45;cursor:default}
-.tools-dialog-status{color:var(--td-muted);font-size:13px;margin-top:14px;overflow-wrap:anywhere}.tools-dialog-progress{height:6px;margin-top:16px;border-radius:999px;background:var(--td-soft);overflow:hidden}.tools-dialog-progress[hidden]{display:none}.tools-dialog-progress i{display:block;height:100%;width:0;border-radius:inherit;background:var(--td-ink);transition:width .3s ease}.tools-feedback{width:min(560px,100%);padding:24px}.tools-feedback h2{font-size:17px;margin:0 0 18px}.tools-feedback-editor{border:1px solid var(--td-line);border-radius:13px;padding:10px;transition:border-color .15s ease,box-shadow .15s ease}.tools-feedback-editor:focus-within{border-color:var(--td-muted);box-shadow:0 0 0 3px var(--td-soft)}.tools-feedback textarea{display:block;width:100%;height:190px;resize:vertical;max-height:35vh;background:transparent;color:var(--td-ink);border:0;border-radius:8px;padding:4px;outline:none;font:inherit}.tools-feedback textarea:is(:focus,:focus-visible){outline:none!important;border:0!important;box-shadow:none!important}.tools-feedback-toolbar{display:flex;justify-content:space-between;gap:12px;align-items:center;color:var(--td-muted);font-size:12px}.tools-feedback-toolbar button{min-height:32px;padding:4px 10px;border-radius:8px}.tools-feedback-previews{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}.tools-feedback-image{position:relative}.tools-feedback-image img{display:block;width:58px;height:58px;object-fit:cover;border-radius:8px}.tools-feedback-image button{position:absolute;right:-4px;top:-6px;border:0;border-radius:50%;cursor:pointer}.tools-feedback-privacy{display:flex;gap:8px;color:var(--td-muted);font-size:12px;margin-top:18px}.tools-feedback .primary{flex:0 1 auto}
+.tools-dialog-status{color:var(--td-muted);font-size:13px;margin-top:14px;overflow-wrap:anywhere}.tools-dialog-progress{height:6px;margin-top:16px;border-radius:999px;background:var(--td-soft);overflow:hidden}.tools-dialog-progress[hidden]{display:none}.tools-dialog-progress i{display:block;height:100%;width:0;border-radius:inherit;background:var(--td-ink);transition:width .3s ease}.tools-feedback{width:min(560px,100%);padding:24px}.tools-feedback h2{font-size:17px;margin:0 0 18px}.tools-feedback-editor{border:1px solid var(--td-line);border-radius:13px;padding:10px;transition:border-color .15s ease,box-shadow .15s ease}.tools-feedback-editor:focus-within{border-color:var(--td-muted);box-shadow:0 0 0 3px var(--td-soft)}.tools-feedback textarea{display:block;width:100%;height:190px;resize:vertical;max-height:35vh;background:transparent;color:var(--td-ink);border:0;border-radius:8px;padding:4px;outline:none;font:inherit}.tools-feedback textarea:is(:focus,:focus-visible){outline:none!important;border:0!important;box-shadow:none!important}.tools-feedback-toolbar{display:flex;justify-content:space-between;gap:12px;align-items:center;color:var(--td-muted);font-size:12px}.tools-feedback-toolbar button{min-height:32px;padding:4px 10px;border-radius:8px}.tools-feedback-previews{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}.tools-feedback-image{position:relative}.tools-feedback-image img{display:block;width:58px;height:58px;object-fit:cover;border-radius:8px}.tools-feedback-image button{position:absolute;right:-4px;top:-6px;border:0;border-radius:50%;cursor:pointer}.tools-feedback-pickers{display:flex;gap:6px;flex-wrap:wrap}.tools-feedback-files{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}.tools-feedback-files:empty{display:none}.tools-feedback-file{display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--td-line);border-radius:8px;font-size:13px;color:var(--td-ink)}.tools-feedback-file-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.tools-feedback-file small{color:var(--td-muted)}.tools-feedback-file button{border:0;background:transparent;color:var(--td-muted);cursor:pointer;font-size:16px;line-height:1;padding:0 2px}.tools-feedback-privacy{display:flex;gap:8px;color:var(--td-muted);font-size:12px;margin-top:18px}.tools-feedback .primary{flex:0 1 auto}
 @media(max-width:540px){.tools-dialog-overlay{padding:12px}.tools-dialog{padding:28px 22px;border-radius:20px}.tools-feedback{padding:22px}.tools-dialog h2{font-size:22px}}
 `;
         document.head.append(style);
@@ -386,20 +386,44 @@ html[data-theme="dark"] .tools-dialog{--td-bg:#20242c;--td-ink:#f3f4f6;--td-mute
         try { handleStatus(await window.ToolsUpdater.check(), true); }
         catch { manual = false; if (dialog.overlay.isConnected) dialog.overlay.querySelector('[role="status"]').textContent = tr('检查失败，请稍后重试。', 'Check failed. Please try again.'); }
     }
-    function feedback() {
-        const dialog = open(`<h2 id="tools-dialog-title">${tr('意见反馈', 'Feedback')}</h2><div class="tools-feedback-editor"><textarea maxlength="10000" aria-label="${tr('描述你遇到的问题', 'Describe the problem')}" placeholder="${tr('描述你遇到的问题', 'Describe the problem')}"></textarea><div class="tools-feedback-previews"></div><div class="tools-feedback-toolbar"><button class="tools-dialog-btn" data-images>${tr('上传图片', 'Add images')} (<span data-count>0</span>/6)</button><span><span data-length>0</span>/10000</span></div><input type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple hidden></div><p class="tools-feedback-privacy">${tr('反馈和图片将随你的用户名提交到需求广场，所有登录用户可见。', 'Your feedback and images will be posted under your username and visible to signed-in users.')}</p><div class="tools-dialog-status" role="status"></div><div class="tools-dialog-actions"><button class="tools-dialog-btn primary" data-submit disabled>${tr('提交反馈', 'Submit feedback')}</button></div>`, true);
+    // options.files：预置的附件（例如对话「问题反馈」自动带上的研发日志）；options.note：附在描述末尾的来源说明
+    function feedback(options = {}) {
+        const dialog = open(`<h2 id="tools-dialog-title">${tr('意见反馈', 'Feedback')}</h2><div class="tools-feedback-editor"><textarea maxlength="10000" aria-label="${tr('描述你遇到的问题', 'Describe the problem')}" placeholder="${escape(options.placeholder || tr('描述你遇到的问题', 'Describe the problem'))}"></textarea><div class="tools-feedback-previews"></div><div class="tools-feedback-files"></div><div class="tools-feedback-toolbar"><span class="tools-feedback-pickers"><button class="tools-dialog-btn" data-images>${tr('上传图片', 'Add images')} (<span data-count>0</span>/6)</button><button class="tools-dialog-btn" data-files>${tr('上传附件', 'Add files')} (<span data-file-count>0</span>/5)</button></span><span><span data-length>0</span>/10000</span></div><input type="file" data-image-input accept="image/png,image/jpeg,image/webp,image/gif" multiple hidden><input type="file" data-file-input multiple hidden></div><p class="tools-feedback-privacy">${tr('反馈和图片将随你的用户名提交到需求广场，所有登录用户可见；附件只有你和管理员可以下载。', 'Your feedback and images will be posted under your username and visible to signed-in users; attachments can only be downloaded by you and admins.')}</p><div class="tools-dialog-status" role="status"></div><div class="tools-dialog-actions"><button class="tools-dialog-btn primary" data-submit disabled>${tr('提交反馈', 'Submit feedback')}</button></div>`, true);
         dialog.kind = 'feedback';
-        const area = dialog.overlay.querySelector('textarea'), input = dialog.overlay.querySelector('[type=file]'), submit = dialog.overlay.querySelector('[data-submit]'), previews = dialog.overlay.querySelector('.tools-feedback-previews');
+        const area = dialog.overlay.querySelector('textarea'), input = dialog.overlay.querySelector('[data-image-input]'), fileInput = dialog.overlay.querySelector('[data-file-input]'), submit = dialog.overlay.querySelector('[data-submit]'), previews = dialog.overlay.querySelector('.tools-feedback-previews'), fileList = dialog.overlay.querySelector('.tools-feedback-files');
         let images = [];
+        let files = [...(options.files || [])].filter(file => file && typeof file.arrayBuffer === 'function').slice(0, FEEDBACK_MAX_FILES);
+        const sizeText = bytes => bytes >= 1048576 ? `${(bytes / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
         const render = () => {
             previews.innerHTML = images.map((item, i) => `<div class="tools-feedback-image"><img src="${item.url}" alt="${escape(item.name)}"><button data-remove="${i}" aria-label="${tr('移除图片', 'Remove image')}">×</button></div>`).join('');
+            fileList.innerHTML = files.map((file, i) => `<div class="tools-feedback-file"><span aria-hidden="true">📎</span><span class="tools-feedback-file-name" title="${escape(file.name)}">${escape(file.name)}</span><small>${sizeText(file.size)}</small><button data-remove-file="${i}" aria-label="${tr('移除附件', 'Remove file')}">×</button></div>`).join('');
             dialog.overlay.querySelector('[data-count]').textContent = images.length;
+            dialog.overlay.querySelector('[data-file-count]').textContent = files.length;
         };
+        render();
         // DOM removal also covers Escape, switching dialogs and the close button.
         const observer = new MutationObserver(() => { if (!dialog.overlay.isConnected) { images.forEach(i => URL.revokeObjectURL(i.url)); observer.disconnect(); } });
         observer.observe(document.body, { childList: true });
         area.oninput = () => { dialog.overlay.querySelector('[data-length]').textContent = area.value.length; submit.disabled = !area.value.trim(); };
         dialog.overlay.querySelector('[data-images]').onclick = () => input.click();
+        dialog.overlay.querySelector('[data-files]').onclick = () => fileInput.click();
+        fileInput.onchange = () => {
+            const picked = [...fileInput.files];
+            fileInput.value = '';
+            const next = [...files, ...picked];
+            const total = next.reduce((sum, file) => sum + file.size, 0);
+            if (next.length > FEEDBACK_MAX_FILES || next.some(file => file.size > FEEDBACK_MAX_FILE_BYTES) || total > FEEDBACK_MAX_FILE_BYTES) {
+                status.textContent = tr('最多 5 个附件，合计不超过 20 MB。', 'Up to 5 files, 20 MB in total.');
+                return;
+            }
+            status.textContent = '';
+            files = next;
+            render();
+        };
+        fileList.onclick = event => {
+            const button = event.target.closest('[data-remove-file]');
+            if (button && !area.disabled) { files.splice(Number(button.dataset.removeFile), 1); render(); }
+        };
         // 只有首页和需求页自带 requirements-client.js；其他页面打开反馈框时按需加载
         let client = window.RequirementsClient;
         const clientReady = client ? Promise.resolve() : new Promise((resolve, reject) => {
@@ -433,17 +457,19 @@ html[data-theme="dark"] .tools-dialog{--td-bg:#20242c;--td-ink:#f3f4f6;--td-mute
         submit.onclick = async () => {
             const description = area.value.trim();
             if (!description || submit.disabled) return;
-            const imageButton = dialog.overlay.querySelector('[data-images]');
-            submit.disabled = area.disabled = imageButton.disabled = true;
+            const imageButton = dialog.overlay.querySelector('[data-images]'), filesButton = dialog.overlay.querySelector('[data-files]');
+            submit.disabled = area.disabled = imageButton.disabled = filesButton.disabled = true;
             status.textContent = tr('正在提交…', 'Submitting…');
             try {
                 await clientReady;
-                await client.submitPayload({
+                const payload = {
                     title: description.split('\n')[0].slice(0, 80),
-                    description,
+                    description: options.note ? `${description}\n\n${options.note}` : description,
                     category: '意见反馈',
                     images: await client.encodeImages(images.map(item => item.file))
-                }, 'POST', '/api/requirements', message => { status.textContent = message; });
+                };
+                if (files.length) payload.files = await Promise.all(files.map(encodeFeedbackFile));
+                await client.submitPayload(payload, 'POST', '/api/requirements', message => { status.textContent = message; });
                 status.textContent = tr('已提交到需求广场。', 'Posted to the requests board.');
                 if (typeof showToast === 'function') {
                     showToast(tr('意见反馈提交成功', 'Feedback submitted successfully'), 'success');
@@ -457,10 +483,18 @@ html[data-theme="dark"] .tools-dialog{--td-bg:#20242c;--td-ink:#f3f4f6;--td-mute
             } catch (error) {
                 status.textContent = tr('提交失败：', 'Submission failed: ') + error.message;
                 submit.disabled = false;
-                area.disabled = imageButton.disabled = false;
+                area.disabled = imageButton.disabled = filesButton.disabled = false;
             }
         };
         area.focus();
+    }
+    const FEEDBACK_MAX_FILES = 5;
+    const FEEDBACK_MAX_FILE_BYTES = 20 * 1024 * 1024;
+    async function encodeFeedbackFile(file) {
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        let binary = '';
+        for (let offset = 0; offset < bytes.length; offset += 0x8000) binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+        return { name: file.name || 'file', type: file.type || 'application/octet-stream', data: btoa(binary) };
     }
     window.ToolsDialogs = { checkUpdate, feedback };
     async function init() {

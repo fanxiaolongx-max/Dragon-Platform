@@ -437,3 +437,32 @@ test('a readonly account can submit a chunked catalog update through the encrypt
     assert.equal((await call('get', url, undefined, 'readonly', 'reader').set('x-test-tenant', 'another')).status, 404);
     assert.equal((await call('get', url, undefined, 'readonly', 'other-reader')).status, 404);
 });
+
+test('feedback with arbitrary attachments: chunked upload, owner/admin-only download, list stays light, delete cleans up', async () => {
+    const api = Object.fromEntries(['get', 'post', 'delete'].map(method => [method, async (url, body) => {
+        const response = await call(method, url, body, 'admin', 'bob');
+        assert.equal(response.status, 200, response.text);
+        return response.body;
+    }]));
+    const client = browser(undefined, { API: api });
+    const log = Buffer.from(JSON.stringify({ session: 'abc', events: 'x'.repeat(900000) }));
+    const zip = Buffer.from([0x50, 0x4b, 0x03, 0x04, 1, 2, 3]);
+    const result = await client.submitPayload({
+        title: '回答错了', description: '回答错了\n\n—— 来自 DragonClaw 对话的问题反馈', category: '意见反馈', images: [],
+        files: [{ name: 'dragon-claw-log-abc.json', type: 'application/json', data: log.toString('base64') }, { name: '../evil/x.zip', type: 'bad type', data: zip.toString('base64') }]
+    }, 'POST', '/api/requirements');
+    const detail = (await call('get', `/api/requirements/${result.id}`, undefined, 'admin', 'bob')).body;
+    assert.deepEqual(detail.files.map(f => [f.name, f.size]), [['dragon-claw-log-abc.json', log.length], ['.._evil_x.zip', zip.length]]);
+    const owner = await call('get', detail.files[0].href, undefined, 'admin', 'bob').buffer(true).parse((res, done) => { const parts = []; res.on('data', c => parts.push(c)); res.on('end', () => done(null, Buffer.concat(parts))); });
+    assert.equal(owner.status, 200);
+    assert.equal(owner.headers['content-type'].split(';')[0], 'application/octet-stream');
+    assert.deepEqual(owner.body, log);
+    assert.equal((await call('get', detail.files[1].href, undefined, 'admin', 'admin')).status, 200, '超级管理员能下载');
+    const other = (await call('get', `/api/requirements/${result.id}`, undefined, 'admin', 'carol')).body;
+    assert.equal(other.files[0].href, undefined, '其他人看得到附件名但拿不到下载地址');
+    assert.equal((await call('get', `/api/requirements/${result.id}/files/0`, undefined, 'admin', 'carol')).status, 403);
+    assert.equal((await call('get', `/api/requirements/${result.id}/files/9`, undefined, 'admin', 'bob')).status, 404);
+    assert.equal((await call('post', '/api/requirements', { title: 't', category: 'c', files: Array.from({ length: 6 }, () => ({ name: 'a', data: 'AA==' })) })).body.code, 'REQUIREMENT_FILE_INVALID');
+    assert.equal((await call('delete', `/api/requirements/${result.id}`, undefined, 'admin', 'bob')).status, 200);
+    assert.equal((await call('get', `/api/requirements/${result.id}/files/0`, undefined, 'admin', 'admin')).status, 404);
+});

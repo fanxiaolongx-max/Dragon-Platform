@@ -1320,3 +1320,11 @@ textarea.form-control {
 
 .req-publication [hidden] { display: none; }
 .req-publication pre { white-space: pre-wrap; overflow-wrap: anywhere; overflow: auto; max-height: 250px; padding: 10px; border: 1px solid var(--req-line, #cbd5e1); border-radius: 8px; }
+
+/* 需求 / 意见反馈附件（研发日志等） */
+.req-files-section[hidden] { display: none; }
+.req-file-list { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.req-file-list li { display: flex; align-items: center; gap: 6px; font-size: 13px; overflow-wrap: anywhere; }
+.req-file-list a { color: var(--primary, #2563eb); text-decoration: none; }
+.req-file-list a:hover { text-decoration: underline; }
+.req-file-list small { color: var(--text-secondary, #64748b); }

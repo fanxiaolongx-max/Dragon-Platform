@@ -1,14 +1,10 @@
 {
   "zh": [
-    "提词器（we-ai）新增 6 分钟与 8 分钟精简演讲版本切换（含自动配音、单页计时预估与逐句过滤联动），同步更新内置工具使用指南。",
-    "新增 12 路 6 分钟/8 分钟中英阿三语精简配音及对齐音轨（we-ai-narration-short-20261123 / we-ai-narration-aligned-20261123）。",
-    "对齐基座版能力：智能体新增只读页面配置查询工具（read_page_config，白名单与权限管控、密钥自动脱敏），save_skill 保存后自动回读校验确保落盘可靠。",
-    "共享会话链接弹窗支持内联状态与错误提示、非阻塞拼音搜索，并完善跨标签页账号切换时的会话列表刷新守卫。"
+    "DragonClaw 回复下方的复制按钮旁新增「问题反馈」按钮：点击后自动收集本对话的研发日志，打开意见反馈弹窗并附上日志，描述问题后提交，就会在需求广场生成一条「意见反馈」。",
+    "意见反馈支持上传任意格式的附件（最多 5 个，合计 20 MB）；附件只有提交人和超级管理员可以下载，需求详情里会列出附件。"
   ],
   "en": [
-    "Added 6-minute and 8-minute abridged speech editions to the teleprompter (we-ai) with narration switching, per-slide time estimates, and updated built-in tool guides.",
-    "Added 12 multilingual 6m/8m abridged and aligned narration tracks across Chinese, English, and Arabic (we-ai-narration-short-20261123 / we-ai-narration-aligned-20261123).",
-    "Aligned capabilities with Base Edition: added read-only read_page_config tool (allowlisted, permission-scoped, and secret-masked) and post-save readback verification for save_skill.",
-    "Enhanced shared-conversation link dialogs with inline status/error feedback and non-blocking pinyin loading, plus cross-tab account identity guards for conversation lists."
+    "A \"Report a problem\" button now sits next to Copy under each DragonClaw reply: it collects this chat's developer log, opens the feedback dialog with the log attached, and posts your description to the requests board as feedback.",
+    "Feedback now accepts attachments of any type (up to 5 files, 20 MB in total); only the submitter and super admins can download them, and request details list them."
   ]
 }

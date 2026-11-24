@@ -52,6 +52,8 @@ const REQ_I18N_DICT = {
     "保存中...": "Saving...",
     "需求已更新": "Request updated",
     "上传图片": "Add images",
+    "附件": "Attachments",
+    "附件只有提交人和管理员可以下载": "Only the submitter and admins can download attachments",
     "意见反馈": "Feedback",
     "技能发布申请": "Skill publication request",
     "工具更新申请": "Tool update request",
@@ -746,6 +748,25 @@ const ReqApp = {
         this.refreshImagesUI();
     },
 
+    renderFiles: function(files) {
+        const section = document.getElementById('reqFilesSection');
+        const list = document.getElementById('reqFilesList');
+        if (!section || !list) return;
+        section.hidden = !files.length;
+        list.replaceChildren(...files.map(file => {
+            const item = document.createElement('li');
+            const size = file.size >= 1048576 ? `${(file.size / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round((file.size || 0) / 1024))} KB`;
+            const link = document.createElement(file.href && /^\/api\/requirements\/\d+\/files\/\d+$/.test(file.href) ? 'a' : 'span');
+            link.textContent = file.name;
+            if (link.tagName === 'A') { link.href = file.href; link.download = file.name; }
+            else link.title = tText('附件只有提交人和管理员可以下载', 'Only the submitter and admins can download attachments');
+            const meta = document.createElement('small');
+            meta.textContent = size;
+            item.append('📎 ', link, ' ', meta);
+            return item;
+        }));
+    },
+
     renderPublication: function(publication, canManage = false) {
         const section = document.getElementById('reqSkillPublication');
         section.hidden = !publication;
@@ -902,6 +923,7 @@ const ReqApp = {
             document.getElementById('btnDeleteReq').style.display = canEdit ? 'block' : 'none';
             document.getElementById('btnSaveReq').style.display = canEdit ? 'block' : 'none';
             this.renderImages(req.images || [], canEdit);
+            this.renderFiles(req.files || []);
             this.renderPublication(req.skillPublication, this.canManageCurrent);
 
             document.getElementById('reqModal').style.display = 'flex';

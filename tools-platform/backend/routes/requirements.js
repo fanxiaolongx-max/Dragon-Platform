@@ -5,6 +5,7 @@ const uploads = require('../models/requirements-upload');
 const { board, transaction } = require('../models/requirements-board');
 const updates = require('../models/catalog-update-review');
 const { parseImages } = require('../models/requirements-images');
+const { parseFiles } = require('../models/requirements-files');
 const { isSuperAdmin } = require('../middleware/auth');
 const { DEFAULT_TENANT_ID, getTenantId, runWithTenant } = require('../models/tenant-context');
 
@@ -181,6 +182,18 @@ router.get('/:id/images/:index', endpoint(async (req, res) => {
     res.type(image.type).send(Buffer.from(image.data, 'base64'));
 }));
 
+// 附件可能是对话研发日志等私密内容：只给提交人和超级管理员下载
+router.get('/:id/files/:index', endpoint(async (req, res) => {
+    const query = await board();
+    const row = await query.get('SELECT creator FROM Requirements WHERE id = ?', [req.params.id]);
+    if (!row) throw requestError('附件不存在', 404);
+    if (!canEdit(row, req.user)) throw requestError('附件只有提交人和管理员可以下载', 403);
+    const file = /^\d+$/.test(req.params.index) && await query.get('SELECT name, data FROM RequirementFiles WHERE req_id = ? AND idx = ?', [req.params.id, Number(req.params.index)]);
+    if (!file) throw requestError('附件不存在', 404);
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.attachment(file.name).type('application/octet-stream').send(file.data);
+}));
+
 router.get('/:id', endpoint(async req => {
     const query = await board();
     const row = await query.get('SELECT * FROM Requirements WHERE id = ?', [req.params.id]);
@@ -201,17 +214,20 @@ router.get('/:id', endpoint(async req => {
             fileName: canReadPublication(row, publication, req.user) ? publication.fileName : undefined
         } : undefined,
         images: JSON.parse(row.images).map(({ name }, index) => ({ name, href: `/api/requirements/${row.id}/images/${index}` })),
+        files: (await query.all('SELECT idx, name, size FROM RequirementFiles WHERE req_id = ? ORDER BY idx', [row.id]))
+            .map(file => ({ name: file.name, size: file.size, href: canEdit(row, req.user) ? `/api/requirements/${row.id}/files/${file.idx}` : undefined })),
         canEdit: canEdit(row, req.user), canManage,
         logs: await query.all('SELECT * FROM RequirementLogs WHERE req_id = ? ORDER BY id ASC', [row.id])
     };
 }));
 
 async function createRequirement(req) {
-    const { title, description = '', category, urgent, images } = req.body || {};
+    const { title, description = '', category, urgent, images, files } = req.body || {};
     if (typeof title !== 'string' || !title.trim()) throw requestError('标题为必填项', 400);
     if (typeof category !== 'string' || !category.trim()) throw requestError('页面分类为必选项', 400);
     if (typeof description !== 'string') throw requestError('需求描述无效', 400);
     const attachments = JSON.stringify(parseImages(images));
+    const extraFiles = parseFiles(files);
     const creator = req.user.username;
     const status = statuses[0];
     return transaction(async query => {
@@ -221,6 +237,10 @@ async function createRequirement(req) {
         );
         await query.run('INSERT INTO RequirementLogs (req_id, old_status, new_status, remark, operator) VALUES (?, ?, ?, ?, ?)',
             [id, '', status, '创建需求', creator]);
+        for (const [idx, file] of extraFiles.entries()) {
+            await query.run('INSERT INTO RequirementFiles (req_id, idx, name, type, size, data) VALUES (?, ?, ?, ?, ?, ?)',
+                [id, idx, file.name, file.type, file.bytes.length, file.bytes]);
+        }
         return { success: true, id, message: '需求提交成功' };
     });
 }
@@ -278,6 +298,7 @@ router.delete('/:id', endpoint(req => transaction(async query => {
     if (!row) throw requestError('需求不存在', 404);
     if (!canEdit(row, req.user)) throw requestError('没有权限删除此需求', 403);
     await query.run('DELETE FROM RequirementUpdateFiles WHERE req_id = ?', [id]);
+    await query.run('DELETE FROM RequirementFiles WHERE req_id = ?', [id]);
     await query.run('DELETE FROM RequirementLogs WHERE req_id = ?', [id]);
     await query.run('DELETE FROM Requirements WHERE id = ?', [id]);
     return { success: true, message: '删除成功' };

@@ -38,6 +38,10 @@ async function board() {
             await query.run(`CREATE TABLE IF NOT EXISTS RequirementUpdateFiles (
                 req_id INTEGER PRIMARY KEY, name TEXT NOT NULL, data BLOB NOT NULL
             )`);
+            await query.run(`CREATE TABLE IF NOT EXISTS RequirementFiles (
+                req_id INTEGER NOT NULL, idx INTEGER NOT NULL, name TEXT NOT NULL, type TEXT, size INTEGER, data BLOB NOT NULL,
+                PRIMARY KEY (req_id, idx)
+            )`);
             await query.run('CREATE TABLE IF NOT EXISTS RequirementImports (tenant TEXT, legacy_id INTEGER, PRIMARY KEY (tenant, legacy_id))');
         })();
         ready.set(db, pending);
