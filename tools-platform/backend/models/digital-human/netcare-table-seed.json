@@ -5,7 +5,7 @@
 "common_data_customer_rel_country_relation":{"rows":297,"columns":49,"grain":"","category":"公共基础表（维表/关联关系）","note":"样20行；国家/地区编码中英文映射","module":"公共数据","nameCn":"国家与地区编码中英文映射维表"},
 "common_data_product":{"rows":70274,"columns":91,"grain":"","category":"公共基础表（维表/关联关系）","note":"样20行","module":"公共数据","nameCn":"公共产品维表"},
 "common_data_rep":{"rows":546,"columns":44,"grain":"","category":"公共基础表（维表/关联关系）","note":"样20行；dept_code 映射地区部与代表处中英文名称","module":"公共数据","nameCn":"地区部与代表处编码中英文映射维表"},
-"cs_nc_comm_customer_d_list":{"rows":37363,"columns":94,"grain":"","category":"公共基础表（维表/关联关系）","note":"样20行；cust_account_num / 运营商编码映射一级运营商(大T/系统部)与客户中英文名称（如 hq_cust_category_cn_name / 英文名列 / mergered_cust_name）","module":"公共数据","nameCn":"公共客户与运营商(大T/系统部)中英文映射维表"},
+"cs_nc_comm_customer_d_list":{"rows":37363,"columns":94,"grain":"","category":"公共基础表（维表/关联关系）","note":"样20行；hq_cust_category_code 直接对应 t1_operator_code（取 hq_cust_category_cn_name / hq_cust_category_en_name，毫秒级 IN 查询）；top/region/subsidiary/lv2_branch_custcatg_code 与 cust_account_num 映射客户中英文名称（mergered_cust_name）","module":"公共数据","nameCn":"公共客户与运营商(大T/系统部)中英文映射维表"},
 "cs_nc_comm_customer_d_list_dim":{"rows":742156,"columns":54,"grain":"","category":"网络","note":"样20行","module":"","nameCn":"大T-客户映射表"},
 "cs_nc_comm_customer_na_level_ods":{"rows":785574,"columns":5,"grain":"ODS源层","category":"网络","note":"样20行；insert_time 样例 2026-10-15 ~ 2026-10-15","module":"","nameCn":""},
 "cs_nc_network_all_dwd":{"rows":9731,"columns":9,"grain":"DWD明细","category":"网络","note":"样20行","module":"公共数据","nameCn":"全部网络信息包含运营商和政企"},

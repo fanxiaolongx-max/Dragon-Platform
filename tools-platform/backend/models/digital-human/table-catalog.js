@@ -17,6 +17,7 @@ const SENTINELS = new Set(['SNULL', '源为空', 'SOURCE IS NULL', '-999999', 'U
 const OPS = { '=': '=', '!=': '!=', '<>': '!=', '>': '>', '<': '<', '>=': '>=', '<=': '<=', like: 'LIKE', 'not like': 'NOT LIKE', in: 'IN', 'not in': 'NOT IN', 'is null': 'IS NULL', 'is not null': 'IS NOT NULL', between: 'BETWEEN' };
 const AGGS = { count: 'COUNT', count_distinct: 'COUNT', sum: 'SUM', avg: 'AVG', min: 'MIN', max: 'MAX' };
 const cache = new Map();
+const mappingColsCache = new Map();
 
 // ── 规则推断（种子里没有的新表用；与全表盘点 analyze_full_db.py 同口径）──
 const GRAIN_RULES = [
@@ -121,6 +122,7 @@ function cacheKey(config, scope) {
 
 function invalidate() {
     cache.clear();
+    mappingColsCache.clear();
 }
 
 async function fetchLiveTables(config, scope) {
@@ -217,17 +219,40 @@ const ROLE_RULES = {
     time: /^(period_month|period_date|period_ym|archive_ym|month|date|stat_date|create_time|createtime|create_date|update_time|close_time|closed_time|release_date|report_date|act_close_date|complete_time|change_time|[a-z_]*_(date|time|month))$/i,
     region: /^(region_code|customer_region|sub_region_id|regional_department|region_id)$/i,
     office: /^(repoffice_code|rep_office_code|office_code|customer_office|rep_office_id|representative_office|repoffice_id)$/i,
-    operator: /^(t[12]_?operator(?:_code|_id)?|operator_code|carrier_code|hq_cust_category_code|t[12]_?cust(?:_code)?)$/i,
-    customer: /^(customer_number|cust_account_num|customer_code|acctcust_branch_code)$/i,
+    operator: /^(t[12]_?operator(?:_code|_id)?|operator_code|carrier_code|hq_cust_category_code|top_cust_category_code|acctcust_hq_code|acctcust_branch_code|region_custcatg_code|subsidiary_custcatg_code|lv2_branch_custcatg_code|t[12]_?cust(?:_code)?)$/i,
+    customer: /^(customer_number|cust_account_num|customer_code)$/i,
     bg: /^(bg|belongs_to_bg|bg_type_name)$/i
 };
 
 const OPERATOR_MAP_TABLES = ['cs_nc_comm_customer_d_list', 'cs_nc_comm_customer_d_list_dim', 'common_data_customer_dlvy_org'];
 const REP_MAP_TABLES = ['common_data_rep'];
 const COUNTRY_MAP_TABLES = ['common_data_customer_rel_country_relation'];
-const OPERATOR_NAME_COL_RE = /(?:operator|carrier|hq_cust_category|mergered_cust|cust_category).*name|^operator_cn$|^operator_en$/i;
+const OPERATOR_NAME_COL_RE = /(?:operator|carrier|hq_cust_category|top_cust_category|acctcust_hq|acctcust_branch|region_custcatg|subsidiary_custcatg|lv2_branch_custcatg|mergered_cust|cust_category).*name|^operator_cn$|^operator_en$/i;
+const CUSTOMER_NAME_COL_RE = /(?:mergered_cust|customer|cust).*name/i;
 const REP_NAME_COL_RE = /(?:region|rep_?office|office|rep).*name/i;
 const OPAQUE_CODE_RE = /^(?:\d{3,}|[a-z]{0,3}\d{4,})$/i;
+const IGNORE_CODE_RE = /^(?:others|unknown|snull|null|源为空|source is null|n\/a|empty|-999999)$/i;
+const MAX_RESOLVE_CODES = 60;
+
+// 运营商 / 客户 / 地代维表候选字段映射（运行时按 information_schema.COLUMNS 真实列名动态过滤，不猜不存在的列）
+const OPERATOR_COL_SPECS = [
+    { code: 'hq_cust_category_code', cn: ['hq_cust_category_cn_name'], en: ['hq_cust_category_en_name'] },
+    { code: 'top_cust_category_code', cn: ['top_cust_category_cn_name'], en: ['top_cust_category_en_name'] },
+    { code: 'acctcust_hq_code', cn: ['acctcust_hq_cn_name'], en: ['acctcust_hq_en_name'] },
+    { code: 'acctcust_branch_code', cn: ['acctcust_branch_cn_name'], en: ['acctcust_branch_en_name'] },
+    { code: 'region_custcatg_code', cn: ['region_custcatg_cn_name'], en: ['region_custcatg_en_name'] },
+    { code: 'subsidiary_custcatg_code', cn: ['subsidiary_custcatg_cn_name'], en: ['subsidiary_custcatg_en_name'] },
+    { code: 'lv2_branch_custcatg_code', cn: ['lv2_branch_custcatg_cn_name'], en: ['lv2_branch_custcatg_en_name'] },
+];
+const CUSTOMER_COL_SPECS = [
+    { code: 'cust_account_num', cn: ['mergered_cust_name', 'cust_name', 'customer_name'], en: ['mergered_cust_en_name', 'cust_en_name', 'customer_en_name'], groupCn: ['hq_cust_category_cn_name'], groupEn: ['hq_cust_category_en_name'] },
+    { code: 'customer_number', cn: ['mergered_cust_name', 'customer_name', 'cust_name'], en: ['mergered_cust_en_name', 'customer_en_name'], groupCn: ['hq_cust_category_cn_name'], groupEn: ['hq_cust_category_en_name'] },
+];
+const REP_COL_SPECS = [
+    { code: 'dept_code', cn: ['rep_name_cn', 'rep_short_name_cn', 'dept_name_cn', 'region_name_cn', 'name_cn'], en: ['rep_name_en', 'rep_short_name_en', 'dept_name_en', 'region_name_en', 'name_en'] },
+    { code: 'repoffice_code', cn: ['rep_name_cn', 'repoffice_name_cn', 'rep_short_name_cn'], en: ['rep_name_en', 'repoffice_name_en'] },
+    { code: 'region_code', cn: ['region_name_cn', 'rep_name_cn'], en: ['region_name_en', 'rep_name_en'] },
+];
 
 /** 检查当前业务库实际存在且非空的公共编码映射表（复用表目录缓存；在线时只认库里真实存在的表） */
 async function availableMappingTables(scope = 'business') {
@@ -249,33 +274,233 @@ async function availableMappingTables(scope = 'business') {
     }
 }
 
+function collectOpaqueCodes(rows, colNames) {
+    const codes = [];
+    const seen = new Set();
+    const limitRows = Math.min(rows.length, 200);
+    for (let i = 0; i < limitRows && codes.length < MAX_RESOLVE_CODES; i += 1) {
+        const row = rows[i];
+        if (!row || typeof row !== 'object') continue;
+        for (const col of colNames) {
+            const v = String(row[col] ?? '').trim();
+            if (!v || IGNORE_CODE_RE.test(v) || !OPAQUE_CODE_RE.test(v) || seen.has(v)) continue;
+            seen.add(v);
+            codes.push(v);
+            if (codes.length >= MAX_RESOLVE_CODES) break;
+        }
+    }
+    return codes;
+}
+
+const cleanLabel = (v) => {
+    const s = String(v ?? '').trim();
+    return s && !SENTINELS.has(s) && !IGNORE_CODE_RE.test(s) ? s : '';
+};
+
+function formatResolvedLabel({ cn, en, groupCn, groupEn }) {
+    const main = cn && en && cn.toLowerCase() !== en.toLowerCase() ? `${cn} / ${en}` : (cn || en);
+    const group = groupCn && groupEn && groupCn.toLowerCase() !== groupEn.toLowerCase() ? `${groupCn} / ${groupEn}` : (groupCn || groupEn);
+    if (main && group && !main.includes(groupCn || group)) return `${main}（${group}）`;
+    return main || group || '';
+}
+
+async function getMappingTableColumns(config, scope, tableName) {
+    const key = `${cacheKey(config, scope)}|cols|${tableName}`;
+    const cached = mappingColsCache.get(key);
+    if (cached && Date.now() - cached.at <= CACHE_TTL_MS) return cached.cols;
+    const cols = await columnNames(config, scope, tableName);
+    mappingColsCache.set(key, { at: Date.now(), cols });
+    return cols;
+}
+
+function activeSpecsForTable(cols, specs, preferredCodeCols = []) {
+    const colMap = new Map(cols.map(c => [String(c).toLowerCase(), String(c)]));
+    const pickFirst = (list = []) => list.map(n => colMap.get(n.toLowerCase())).find(Boolean) || '';
+    const prefSet = new Set(preferredCodeCols.map(c => String(c).toLowerCase()));
+    const matched = [];
+    for (const spec of specs) {
+        const code = colMap.get(spec.code.toLowerCase());
+        if (!code) continue;
+        const cn = pickFirst(spec.cn);
+        const en = pickFirst(spec.en);
+        const groupCn = pickFirst(spec.groupCn);
+        const groupEn = pickFirst(spec.groupEn);
+        if (!cn && !en && !groupCn && !groupEn) continue;
+        matched.push({ code, cn, en, groupCn, groupEn, preferred: prefSet.has(spec.code.toLowerCase()) });
+    }
+    return matched.sort((a, b) => Number(b.preferred) - Number(a.preferred));
+}
+
+async function lookupCodesInTable({ tableName, codes, specs, preferredCodeCols, getCols, runQuery, tableSqlRef }) {
+    const cols = await getCols(tableName).catch(() => []);
+    if (!cols.length) return { resolved: new Map(), matchedCol: '', verifiedCols: [] };
+    const active = activeSpecsForTable(cols, specs, preferredCodeCols);
+    const verifiedCols = [...new Set(active.flatMap(s => [s.code, s.cn, s.en, s.groupCn, s.groupEn].filter(Boolean)))].slice(0, 10);
+    if (!active.length) return { resolved: new Map(), matchedCol: '', verifiedCols };
+
+    const resolved = new Map();
+    const pending = new Set(codes);
+    const matchedCols = [];
+    for (const spec of active.slice(0, 3)) {
+        if (!pending.size) break;
+        const targetCodes = [...pending];
+        const selectParts = [
+            `${client.ident(spec.code)} AS \`__code\``,
+            ...(spec.cn ? [`${client.ident(spec.cn)} AS \`__cn\``] : []),
+            ...(spec.en ? [`${client.ident(spec.en)} AS \`__en\``] : []),
+            ...(spec.groupCn ? [`${client.ident(spec.groupCn)} AS \`__gcn\``] : []),
+            ...(spec.groupEn ? [`${client.ident(spec.groupEn)} AS \`__gen\``] : []),
+        ];
+        const sql = `SELECT DISTINCT ${selectParts.join(', ')} FROM ${tableSqlRef(tableName)} WHERE ${client.ident(spec.code)} IN (${targetCodes.map(client.quote).join(', ')}) LIMIT ${Math.min(250, Math.max(50, targetCodes.length * 4))}`;
+        const rows = await runQuery(sql).catch(() => []);
+        let hit = false;
+        for (const r of rows) {
+            const code = String(pick(r, '__code') ?? '').trim();
+            if (!code || !pending.has(code)) continue;
+            const label = formatResolvedLabel({
+                cn: cleanLabel(pick(r, '__cn')),
+                en: cleanLabel(pick(r, '__en')),
+                groupCn: cleanLabel(pick(r, '__gcn')),
+                groupEn: cleanLabel(pick(r, '__gen')),
+            });
+            if (!label) continue;
+            resolved.set(code, label);
+            pending.delete(code);
+            hit = true;
+        }
+        if (hit) matchedCols.push(spec.code);
+    }
+    return { resolved, matchedCol: matchedCols.join('/'), verifiedCols };
+}
+
 /** 查询结果里出现纯运营商/地代编码列但缺名称列时，仅在对应映射表确实存在时给出自动提示 */
-function codeMappingHintForRows(rows, mapTables) {
+function codeMappingHintForRows(rows, mapTables, verifiedColsByTable = null) {
     if (!Array.isArray(rows) || !rows.length || !mapTables) return '';
-    const sample = rows.slice(0, 20);
-    const cols = Object.keys(sample[0] || {});
+    const cols = Object.keys(rows[0] || {});
     if (!cols.length) return '';
     const hints = [];
 
-    const hasOpaqueValue = (colName) => sample.some((row) => {
-        const v = String(row?.[colName] ?? '').trim();
-        return Boolean(v) && !/^(?:others|unknown|snull|null|源为空)$/i.test(v) && OPAQUE_CODE_RE.test(v);
-    });
-
-    const opCodeCols = cols.filter((c) => ROLE_RULES.operator.test(c) && hasOpaqueValue(c));
+    const opCodeCols = cols.filter((c) => ROLE_RULES.operator.test(c) && collectOpaqueCodes(rows, [c]).length > 0);
     const hasOpNameCol = cols.some((c) => OPERATOR_NAME_COL_RE.test(c) || /^(?:operator_name|carrier_name|cust_name|customer_name|name_cn|name_en)$/i.test(c));
     if (opCodeCols.length && !hasOpNameCol && Array.isArray(mapTables.operator) && mapTables.operator.length) {
         const primary = mapTables.operator[0];
         const fallback = mapTables.operator.slice(1);
-        hints.push(`提示：结果中的 ${opCodeCols.join('、')} 是纯运营商编码，用户不易辨认；当前库存在运营商/客户映射表 ${primary}${fallback.length ? `（备选 ${fallback.join('、')}）` : ''}，请先查询该映射表（如通过 customer_number = cust_account_num 或运营商编码列，核对其中英文名称字段如 hq_cust_category_cn_name / 英文名列）把编码翻译成可读名称再展示（例如「名称（编码）」），不要只输出纯编码。`);
+        const verified = verifiedColsByTable?.[primary];
+        const colTip = verified?.length
+            ? `已核实可用列：${verified.join('、')}`
+            : 't1_operator_code 可直接按 hq_cust_category_code 匹配 hq_cust_category_cn_name / hq_cust_category_en_name，客户明细可按 customer_number = cust_account_num 关联';
+        hints.push(`提示：结果中的 ${opCodeCols.join('、')} 是纯运营商编码，用户不易辨认；当前库存在运营商/客户映射表 ${primary}${fallback.length ? `（备选 ${fallback.join('、')}）` : ''}（${colTip}），请用轻量 IN 查询把编码翻译成可读名称再展示（例如「名称（编码）」），不要只输出纯编码。`);
     }
 
-    const repCodeCols = cols.filter((c) => (ROLE_RULES.region.test(c) || ROLE_RULES.office.test(c)) && hasOpaqueValue(c));
+    const repCodeCols = cols.filter((c) => (ROLE_RULES.region.test(c) || ROLE_RULES.office.test(c)) && collectOpaqueCodes(rows, [c]).length > 0);
     const hasRepNameCol = cols.some((c) => REP_NAME_COL_RE.test(c));
     if (repCodeCols.length && !hasRepNameCol && Array.isArray(mapTables.rep) && mapTables.rep.length) {
-        hints.push(`提示：结果中的 ${repCodeCols.join('、')} 是地区部/代表处编码；当前库存在 ${mapTables.rep[0]}（dept_code 映射 rep_name_cn / rep_short_name_cn / 英文名），请补全可读名称后再展示。`);
+        const repTable = mapTables.rep[0];
+        const verified = verifiedColsByTable?.[repTable];
+        const colTip = verified?.length ? `已核实可用列：${verified.join('、')}` : 'dept_code 映射 rep_name_cn / rep_short_name_cn / rep_name_en';
+        hints.push(`提示：结果中的 ${repCodeCols.join('、')} 是地区部/代表处编码；当前库存在 ${repTable}（${colTip}），请补全可读名称后再展示。`);
     }
     return hints.join('\n');
+}
+
+/**
+ * 服务端实时编码解析（每次按当次结果中的编码实时 IN 查维表，不缓存名称值以保证始终最新；仅缓存维表列名 10 分钟）。
+ * - 命中映射：直接把「编码 → 中文/英文可读名称」附在工具结果末尾，模型零额外 SQL 即可输出可读名称；
+ * - 未命中或维表不含直接编码列：自动退回携带已核实列名的轻量提示；
+ * - 维表不存在或查询异常：静默跳过，绝不影响主查询。
+ */
+async function resolveCodeMappingsForRows(rows, { scope = 'business', mapTables = null, getCols = null, runQuery = null } = {}) {
+    if (scope !== 'business' || !Array.isArray(rows) || !rows.length) return '';
+    try {
+        const cols = Object.keys(rows[0] || {});
+        if (!cols.length) return '';
+
+        const opCodeCols = cols.filter((c) => ROLE_RULES.operator.test(c));
+        const hasOpNameCol = cols.some((c) => OPERATOR_NAME_COL_RE.test(c) || /^(?:operator_name|carrier_name|cust_name|customer_name|name_cn|name_en)$/i.test(c));
+        const opCodes = !hasOpNameCol && opCodeCols.length ? collectOpaqueCodes(rows, opCodeCols) : [];
+
+        const custCodeCols = cols.filter((c) => ROLE_RULES.customer.test(c));
+        const hasCustNameCol = cols.some((c) => CUSTOMER_NAME_COL_RE.test(c));
+        const custCodes = !hasCustNameCol && custCodeCols.length ? collectOpaqueCodes(rows, custCodeCols) : [];
+
+        const repCodeCols = cols.filter((c) => ROLE_RULES.region.test(c) || ROLE_RULES.office.test(c));
+        const hasRepNameCol = cols.some((c) => REP_NAME_COL_RE.test(c));
+        const repCodes = !hasRepNameCol && repCodeCols.length ? collectOpaqueCodes(rows, repCodeCols) : [];
+
+        if (!opCodes.length && !custCodes.length && !repCodes.length) return '';
+
+        const tables = mapTables || await availableMappingTables(scope);
+        const needOp = opCodes.length > 0 && Array.isArray(tables?.operator) && tables.operator.length > 0;
+        const needCust = custCodes.length > 0 && Array.isArray(tables?.operator) && tables.operator.length > 0;
+        const needRep = repCodes.length > 0 && Array.isArray(tables?.rep) && tables.rep.length > 0;
+        if (!needOp && !needCust && !needRep) return '';
+
+        let config = null;
+        if (!getCols || !runQuery) {
+            config = await liveConfig().catch(() => null);
+            if (!config) return codeMappingHintForRows(rows, tables);
+        }
+        const fetchCols = getCols || ((t) => getMappingTableColumns(config, scope, t));
+        const execQuery = runQuery || ((sql) => client.queryPage(sql, { scope, limit: 250, config }).then(r => r.rows || []));
+        const tableSqlRef = (t) => (config ? tableRef(config, scope, t) : client.ident(t));
+
+        const sections = [];
+        const verifiedColsByTable = {};
+
+        const renderSection = (title, source, codes, resolved, verifiedCols) => {
+            if (!resolved.size) return false;
+            const lines = [`【实时编码名称映射（${title}，来源 ${source}；已实时查出，展示时请直接使用可读名称如「名称（编码）」，无需再重复查维表或 describe）】`];
+            for (const code of codes) {
+                if (resolved.has(code)) lines.push(`- ${code}: ${resolved.get(code)}`);
+            }
+            const missing = codes.filter(c => !resolved.has(c));
+            if (missing.length) {
+                lines.push(`注：编码 ${missing.slice(0, 15).join('、')}${missing.length > 15 ? ` 等 ${missing.length} 个` : ''} 未在 ${source} 命中${verifiedCols.length ? `（该表可用列：${verifiedCols.join('、')}）` : ''}。`);
+            }
+            sections.push(lines.join('\n'));
+            return true;
+        };
+
+        if (needOp) {
+            const primary = tables.operator[0];
+            const res = await lookupCodesInTable({
+                tableName: primary, codes: opCodes, specs: OPERATOR_COL_SPECS, preferredCodeCols: opCodeCols,
+                getCols: fetchCols, runQuery: execQuery, tableSqlRef,
+            });
+            if (res.verifiedCols.length) verifiedColsByTable[primary] = res.verifiedCols;
+            if (!renderSection(`运营商 ${opCodeCols.join('/')}`, `${primary}.${res.matchedCol || 'hq_cust_category_code'}`, opCodes, res.resolved, res.verifiedCols)) {
+                const fallbackHint = codeMappingHintForRows(rows, { operator: tables.operator, rep: [], country: [] }, verifiedColsByTable);
+                if (fallbackHint) sections.push(fallbackHint);
+            }
+        }
+
+        if (needCust) {
+            const primary = tables.operator[0];
+            const res = await lookupCodesInTable({
+                tableName: primary, codes: custCodes, specs: CUSTOMER_COL_SPECS, preferredCodeCols: custCodeCols,
+                getCols: fetchCols, runQuery: execQuery, tableSqlRef,
+            });
+            if (res.verifiedCols.length) verifiedColsByTable[primary] = res.verifiedCols;
+            renderSection(`客户 ${custCodeCols.join('/')}`, `${primary}.${res.matchedCol || 'cust_account_num'}`, custCodes, res.resolved, res.verifiedCols);
+        }
+
+        if (needRep) {
+            const repTable = tables.rep[0];
+            const res = await lookupCodesInTable({
+                tableName: repTable, codes: repCodes, specs: REP_COL_SPECS, preferredCodeCols: repCodeCols,
+                getCols: fetchCols, runQuery: execQuery, tableSqlRef,
+            });
+            if (res.verifiedCols.length) verifiedColsByTable[repTable] = res.verifiedCols;
+            if (!renderSection(`地区部/代表处 ${repCodeCols.join('/')}`, `${repTable}.${res.matchedCol || 'dept_code'}`, repCodes, res.resolved, res.verifiedCols)) {
+                const fallbackHint = codeMappingHintForRows(rows, { operator: [], rep: tables.rep, country: [] }, verifiedColsByTable);
+                if (fallbackHint) sections.push(fallbackHint);
+            }
+        }
+
+        return sections.join('\n');
+    } catch {
+        return '';
+    }
 }
 
 function valueKind(value) {
@@ -360,9 +585,9 @@ function hintsOf(name, fields, base, mapTables = null) {
             const primary = availOp[0];
             const fallback = availOp.slice(1);
             const joinHint = custFields.length
-                ? `可通过 ${custFields[0]} = cust_account_num 或运营商编码列关联`
-                : '可先 netcare_describe 核对编码与中英文名称字段';
-            hints.push(`运营商字段（${opFields.join('、')}）是纯编码，用户看不懂数字代码；按运营商维度统计或展示前，请优先查当前库已有的公共客户/运营商映射表 ${primary}${fallback.length ? `（备选 ${fallback.join('、')}）` : ''}（${joinHint}，取中英文运营商/系统部名称如 hq_cust_category_cn_name 及对应英文列），以“名称（编码）”展示；为防大表 JOIN 超时，建议先聚合出涉及的编码/客户号再查维表映射。`);
+                ? `t1_operator_code 直接对应 ${primary}.hq_cust_category_code（取 hq_cust_category_cn_name / hq_cust_category_en_name，毫秒级单表 IN 查）；客户明细才需 ${custFields[0]} = cust_account_num`
+                : `可直接按 ${primary}.hq_cust_category_code 查 hq_cust_category_cn_name / hq_cust_category_en_name`;
+            hints.push(`运营商字段（${opFields.join('、')}）是纯编码，用户看不懂数字代码；按运营商维度统计后查询工具会自动实时附带中英文名称映射（来源 ${primary}${fallback.length ? `，备选 ${fallback.join('、')}` : ''}，${joinHint}），直接使用映射以“名称（编码）”展示即可，无需大表 JOIN 或重复 describe；Others 仅在用户明确要求拆分时再按 customer_number 下钻。`);
         }
     }
     if (base?.review) hints.push(base.review);
@@ -471,4 +696,4 @@ async function countRows(scope, table, filters = []) {
     return { sql: result.sql, count: Number(Object.values(result.rows[0] || {})[0]) || 0, durationMs: result.durationMs };
 }
 
-module.exports = { listTables, describeTable, queryTable, countRows, buildSelect, saveNote, getNote, listNotes, invalidate, inferGrain, inferCategory, familyOf, profile, hintsOf, availableMappingTables, codeMappingHintForRows, SEED_COUNT: seed.count };
+module.exports = { listTables, describeTable, queryTable, countRows, buildSelect, saveNote, getNote, listNotes, invalidate, inferGrain, inferCategory, familyOf, profile, hintsOf, availableMappingTables, codeMappingHintForRows, resolveCodeMappingsForRows, SEED_COUNT: seed.count };

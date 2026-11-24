@@ -31,9 +31,12 @@ icon: 🧭
    - **先小后大**：新表先 LIMIT 5 确认字段格式和时间样例，再跑全量聚合。
    - **速查表跳过搜索**：遇到下方已知速查表中的主题，跳过 `netcare_tables` 搜索步骤，直接 describe 或 query。
 3. **公共映射表（通用，呈现给用户前必做编码翻译）**：
-   - **运营商 / 大T客户编码 → 中英文名称**（若当前库存在）：优先查 `netcare.cs_nc_comm_customer_d_list`（公共客户与运营商维表；常用关联：`业务表.customer_number = cs_nc_comm_customer_d_list.cust_account_num` 或按运营商编码列匹配，取一级运营商/系统部中英文名如 `hq_cust_category_cn_name` 及对应英文名列、`mergered_cust_name`；首次使用可先 `netcare_describe` 核对精确中英文列名）；备选 `netcare.cs_nc_comm_customer_d_list_dim`（大T-客户映射表）、`netcare.common_data_customer_dlvy_org`。遇到 `t1_operator_code`、`t2_operator_code`、`operator_code` 等纯编码维度时，**务必主动翻译为可读名称（如「移动系统部（028262）」）**，不要只把数字编码丢给用户；建议先在业务表聚合再查维表映射，避免大表 JOIN 超时。
-   - **地区部 / 代表处编码 → 中英文名称**（若当前库存在）：`netcare.common_data_rep`（关联条件：业务表 `repoffice_code = common_data_rep.dept_code`，取 `rep_name_cn` / `rep_short_name_cn` 及对应英文名列）。
-   - **国家 / 地区编码 → 中英文名称**（若当前库存在）：`netcare.common_data_customer_rel_country_relation`。
+   - **优先使用工具自动附带的实时映射**：当 `netcare_query` / `netcare_sql` 返回纯运营商或地代编码时，工具后端会自动实时查业务库维表，把「【实时编码名称映射】」直接附在结果末尾——**请直接使用该映射输出「名称（编码）」**，不要再重复查维表或 `netcare_describe` 97 个字段。
+   - **手动按需查维表时的精确列名**（若当前库存在）：
+     - **一级运营商编码（`t1_operator_code` 等）**：直接查 `netcare.cs_nc_comm_customer_d_list.hq_cust_category_code IN (...)` 取 `hq_cust_category_cn_name` / `hq_cust_category_en_name`（60ms 级单表查询，**严禁对业务大表做全表 LEFT JOIN**）；备选列 `top_cust_category_code` / `acctcust_hq_code` / `acctcust_branch_code`，备选表 `netcare.cs_nc_comm_customer_d_list_dim` / `netcare.common_data_customer_dlvy_org`。
+     - **客户账号（`customer_number`）与 `Others` 下钻**：`业务表.customer_number = netcare.cs_nc_comm_customer_d_list.cust_account_num`（取 `mergered_cust_name`、`hq_cust_category_cn_name` / `hq_cust_category_en_name`）。注意 `t1_operator_code = 'Others'` 表示非重点大 T 的其他客户/虚拟系统部，**常规按运营商汇总时直接保留 `Others` 并一句话说明口径即可，仅在用户明确要求拆分 `Others` 时再下钻**，不要擅自多跑多轮 SQL。
+     - **地区部 / 代表处编码**：`netcare.common_data_rep`（`dept_code` → `rep_name_cn` / `rep_short_name_cn` / `rep_name_en`）。
+     - **国家 / 地区编码**：`netcare.common_data_customer_rel_country_relation`。
 4. **口径与结果说明**：
    - 说明使用表名、过滤条件、统计日期/区间、是全量还是样本，附上 SQL 摘要便于复核。
 

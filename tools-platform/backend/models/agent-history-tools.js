@@ -17,9 +17,9 @@ const SNIPPET_RADIUS = 80;
 const DEFINITIONS = [
     {
         name: 'search_my_conversations',
-        description: '搜索当前用户自己在平台上的历史 AI 对话（只含本人的会话和本人参与的共享对话）。用户问“我之前问过/聊过……”“上次那个结论是什么”“找一下以前关于 X 的对话”时用。query 为关键词（空格分隔，全部命中才算），不传则按最近更新列出会话；可用 since/until（YYYY-MM-DD）限定时间。返回会话 id、标题、时间和命中的片段，需要全文再用 read_my_conversation。',
+        description: '搜索当前用户自己在平台上的历史 AI 对话（只含本人的会话和本人参与的共享对话）。**仅在用户明确要求查找过去其他对话里的内容或结论**（如“我之前问过/聊过……”“找一下以前关于 X 的对话”）时调用；普通业务查数、表结构/字段问题、概念问答以及当前对话已有上下文**严禁主动翻历史**。历史记录仅保存问答正文，不含工具 SQL 参数或底层报错日志；按关键词搜索时会自动排除当前对话。同一轮最多调用 1–2 次，没命中就直接告知用户，勿反复换词重试。',
         parameters: { type: 'object', properties: {
-            query: { type: 'string', description: '关键词，空格分隔；不传则列出最近的会话' },
+            query: { type: 'string', description: '关键词，空格分隔（全部命中才算）；不传则列出最近的会话' },
             since: { type: 'string', description: '起始日期 YYYY-MM-DD，可选' },
             until: { type: 'string', description: '截止日期 YYYY-MM-DD（含当天），可选' },
             limit: { type: 'integer', description: '最多返回几个会话，默认 10，上限 30' },
@@ -28,7 +28,7 @@ const DEFINITIONS = [
     },
     {
         name: 'read_my_conversation',
-        description: '读取当前用户自己的某个历史对话的消息（问题与回答正文，不含工具细节）。sessionId 取自 search_my_conversations。默认返回最近 20 条；继续往前翻传上一页返回的 before；传 query 时只返回含关键词的消息。',
+        description: '读取当前用户自己的某个历史对话的消息（仅问题与回答正文，不含工具调用参数、SQL 原文和底层报错细节）。sessionId 取自 search_my_conversations。默认返回最近 20 条；继续往前翻传上一页返回的 before；传 query 时只返回含关键词的消息。',
         parameters: { type: 'object', properties: {
             sessionId: { type: 'string' },
             query: { type: 'string', description: '只看含这些关键词的消息（空格分隔，全部命中），可选' },
@@ -64,7 +64,7 @@ async function revokedIds(tenantId, username) {
     }
 }
 
-async function searchConversations({ tenantId, username, secrets = [] }, args = {}) {
+async function searchConversations({ tenantId, username, currentSessionId = '', secrets = [] }, args = {}) {
     await chat.ensureReady();
     const words = terms(args.query);
     const limit = Math.max(1, Math.min(Number(args.limit) || 10, 30));
@@ -72,6 +72,7 @@ async function searchConversations({ tenantId, username, secrets = [] }, args = 
     const excluded = await revokedIds(tenantId, username);
     const where = ['s.owner = ?', 'EXISTS (SELECT 1 FROM ai_chat_messages e WHERE e.session_id = s.id)'];
     const params = [username];
+    if (words.length && currentSessionId && !args.includeCurrent) { where.push('s.id <> ?'); params.push(currentSessionId); }
     if (excluded.length) { where.push(`s.id NOT IN (${excluded.map(() => '?').join(',')})`); params.push(...excluded); }
     if (day(args.since)) { where.push('date(s.updated_at) >= ?'); params.push(day(args.since)); }
     if (day(args.until)) { where.push('date(s.created_at) <= ?'); params.push(day(args.until)); }
@@ -95,6 +96,7 @@ async function searchConversations({ tenantId, username, secrets = [] }, args = 
             page: row.page_path === '/' ? 'Dragon Claw' : (row.page_title || row.page_path),
             createdAt: row.created_at,
             updatedAt: row.updated_at,
+            ...(row.id === currentSessionId ? { isCurrentConversation: true } : {}),
             messages: Number(row.message_count) || 0
         };
         if (words.length) {
@@ -107,7 +109,12 @@ async function searchConversations({ tenantId, username, secrets = [] }, args = 
         }
         sessions.push(item);
     }
-    return { sessions, hasMore, nextOffset: hasMore ? offset + limit : null, ...(sessions.length ? {} : { note: words.length ? '没有找到含这些关键词的对话，可以换个说法或少用几个词' : '还没有历史对话' }) };
+    return {
+        sessions,
+        hasMore,
+        nextOffset: hasMore ? offset + limit : null,
+        ...(sessions.length ? {} : { note: words.length ? '没有找到匹配的历史对话（注意：历史对话仅保存问答正文，不含工具 SQL 与底层报错日志）；如已换词查过一次仍无命中，请直接告知用户，不要反复重试' : '还没有历史对话' })
+    };
 }
 
 async function readConversation({ tenantId, username, currentSessionId, secrets = [] }, args = {}) {
@@ -162,7 +169,7 @@ function toolset({ owner, currentSessionId = '', sensitiveValues = [] }) {
     const scoped = fn => (tenantId ? runWithTenant(tenantId, fn) : fn());
     return {
         id: 'my_conversations',
-        label: '我的历史对话：按关键词搜索、翻看当前用户自己以前的 AI 对话（只读，只含本人的）',
+        label: '我的历史对话（仅在用户明确要求查找过去对话/历史结论时加载，普通业务查询与当前对话上下文勿加载；只含问答正文，不含工具 SQL 与报错细节）',
         definitions: DEFINITIONS,
         kindOf: () => 'read',
         preview: async () => ({}),

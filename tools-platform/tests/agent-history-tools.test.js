@@ -45,6 +45,10 @@ test('search and read own past conversations only', async () => {
 
     const listed = await run(set, 'search_my_conversations', {});
     assert.deepEqual(listed.data.sessions.map(item => key(item.sessionId)).sort(), ['S_alice_1', 'S_alice_2']);
+    assert.equal(listed.data.sessions.find(item => item.sessionId === ids.S_alice_2)?.isCurrentConversation, true);
+
+    const skipSelf = await run(set, 'search_my_conversations', { query: '3 加 5' });
+    assert.equal(skipSelf.data.sessions.length, 0, 'keyword search skips current conversation by default');
 
     const found = await run(set, 'search_my_conversations', { query: '一键催办 接收人' });
     assert.deepEqual(found.data.sessions.map(item => key(item.sessionId)), ['S_alice_1'], 'only own sessions, every keyword must match');

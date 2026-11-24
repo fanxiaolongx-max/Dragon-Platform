@@ -139,6 +139,8 @@ async function forChat({ owner, user, chatSessionId, readOnly, write, signal, se
             : null
     });
     const run = manager.beginChatRun({ owner, chatSessionId, write, signal });
+    let historySearchCalls = 0;
+    const MAX_HISTORY_SEARCH_PER_TURN = 3;
     return {
         definitions: () => registry.definitions(),
         allowed: registry.allowed,
@@ -155,6 +157,13 @@ async function forChat({ owner, user, chatSessionId, readOnly, write, signal, se
             if (registry.isMeta(call.name)) return registry.runMeta(call);
             const set = registry.toolset(call.name);
             if (!set) return { content: `工具 ${call.name} 不可用。`, summary: '工具不可用', isError: true };
+            if (call.name === 'search_my_conversations' && ++historySearchCalls > MAX_HISTORY_SEARCH_PER_TURN) {
+                return {
+                    content: `本轮已搜索历史对话 ${MAX_HISTORY_SEARCH_PER_TURN} 次仍未拿到所需内容（注：历史对话仅保存问答正文，不含工具 SQL 与底层报错日志）。请立即停止继续搜索，直接根据已有信息回答或如实告知用户未找到。`,
+                    summary: '本轮历史搜索次数已达上限',
+                    isError: true
+                };
+            }
             registry.noteCall(call.name);
             const kind = typeof set.kindOf === 'function' ? set.kindOf(call.name, call.args) : 'read';
             const previewSet = () => (typeof set.preview === 'function' ? set.preview(call.name, call.args) : {});
