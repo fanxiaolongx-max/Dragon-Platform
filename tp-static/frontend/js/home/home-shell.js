@@ -852,8 +852,27 @@
     const rowItem = (icon, label, action, hint = '', arrow = false) => `<button type="button" class="v2-pop-item" role="menuitem" data-v2-do="${action}"><span class="v2-ico" data-icon="${icon}"></span><span>${esc(label)}</span>${hint ? `<span class="v2-pop-hint">${esc(hint)}</span>` : ''}${arrow ? '<span class="v2-ico v2-pop-arrow" data-icon="chevronRight"></span>' : ''}</button>`;
     const switchItem = (icon, label, action, on) => `<button type="button" class="v2-pop-item" role="menuitemcheckbox" aria-checked="${on}" data-v2-do="${action}"><span class="v2-ico" data-icon="${icon}"></span><span>${esc(label)}</span><span class="v2-pop-switch" aria-hidden="true"></span></button>`;
     // 宽屏模式：对话正文与输入框随窗口变宽，两侧不再留大片空白；只记在本浏览器
+    // 对话列变宽/变窄时文字重新换行、总高度变化，而滚动容器宽度不变、scrollTop 原样保留，视野里的内容会整体跳动：
+    // 切换前记住视野顶部的段落（或“停在底部”），切换后把它放回原来的位置
+    function keepThreadPosition(change) {
+        const thread = document.getElementById('dcThread');
+        if (!thread || thread.scrollHeight <= thread.clientHeight + 1) return change();
+        const atBottom = thread.scrollHeight - thread.scrollTop - thread.clientHeight < 4;
+        const top = thread.getBoundingClientRect().top;
+        const anchor = atBottom ? null : [...thread.querySelectorAll('.dc-msg-body > *, .dc-msg')].find(node => node.getBoundingClientRect().bottom > top + 1);
+        // 顶部段落被滚出去一部分时按比例还原：段落变矮也不会整段滑出视野
+        const box = anchor?.getBoundingClientRect();
+        const hidden = box && box.height ? Math.max(0, top - box.top) / box.height : 0;
+        const offset = box ? Math.max(0, box.top - top) : 0;
+        change();
+        if (atBottom) thread.scrollTop = thread.scrollHeight;
+        else if (anchor?.isConnected) {
+            const next = anchor.getBoundingClientRect();
+            thread.scrollTop += next.top + hidden * next.height - thread.getBoundingClientRect().top - offset;
+        }
+    }
     function setWide(on) {
-        root.classList.toggle('v2-wide', on);
+        keepThreadPosition(() => root.classList.toggle('v2-wide', on));
         try { localStorage.setItem('tools_home_wide', on ? '1' : '0'); } catch { /* 无痕模式下只在本页生效 */ }
         window.dispatchEvent(new Event('resize'));
     }

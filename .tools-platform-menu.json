@@ -426,8 +426,8 @@
       "description": "平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data",
       "href": "./uivf12/index.html",
       "encrypted": false,
-      "fingerprint": "bb860894046701133945dfdfef1d295450a6b3a7628c9c90dcc5480de79d2df8",
-      "updatedAt": "2026-11-25T02:29:31.071Z"
+      "fingerprint": "01be0c0e908feea2d1ab3003955b33325648ef7051e02aaf2099dfa9ff4228ce",
+      "updatedAt": "2026-11-25T12:29:32.017Z"
     },
     {
       "slug": "sla",
@@ -436,8 +436,8 @@
       "description": "平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data",
       "href": "./sla/index.html",
       "encrypted": false,
-      "fingerprint": "a02a93e26cc9d2d5031fcd9dfebe455c9d065c753eab50348f0ff14467fe206b",
-      "updatedAt": "2026-11-25T02:29:31.911Z"
+      "fingerprint": "7a8209c3141d9e9f1e19c9db4b523abe2335c3dae878a13e01b1c1f9ab4776d5",
+      "updatedAt": "2026-11-25T12:29:32.852Z"
     },
     {
       "slug": "report",
@@ -446,8 +446,8 @@
       "description": "平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data",
       "href": "./report/index.html",
       "encrypted": false,
-      "fingerprint": "774f9043c93197dfe76a5e71000cc689b6546b19c01a2a93decd0246f651782d",
-      "updatedAt": "2026-11-25T02:29:32.152Z"
+      "fingerprint": "e459c66243ba14107c63fec9a279d635f085d62c33bbb84afb7f2b4f1a33d02c",
+      "updatedAt": "2026-11-25T12:29:33.174Z"
     },
     {
       "slug": "expedite",
@@ -456,8 +456,8 @@
       "description": "平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data",
       "href": "./expedite/index.html",
       "encrypted": false,
-      "fingerprint": "db7727773dfbcb0491469385a791f8c84a423ffcc84cf90bcb46e5cf0339dccf",
-      "updatedAt": "2026-11-25T02:29:32.282Z"
+      "fingerprint": "59c45369f25b97907b0f2e31974be69962747438ec8bd866f113f0d29db077a2",
+      "updatedAt": "2026-11-25T12:29:33.300Z"
     },
     {
       "slug": "monthly",
