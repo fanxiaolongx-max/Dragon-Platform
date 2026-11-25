@@ -1,8 +1,8 @@
 {
   "zh": [
-    "首页对话体验优化：切换「宽屏模式」时自动锚定当前阅读段落或底部位置，避免文字重新换行导致画面上下跳动。"
+    "DragonClaw 简介（dragonclaw）：新增代表处风险闭环 3—5 年愿景、跨区域推广评估页面及配套演讲讲稿与中英双语词条。"
   ],
   "en": [
-    "Home Chat UX: Toggling Wide mode now anchors the current visible paragraph or bottom scroll position so text reflows without jumping."
+    "DragonClaw Overview (dragonclaw): Added representative-office 3–5 year risk-closure vision, cross-region rollout assessment slides, speaker notes, and bilingual i18n entries."
   ]
 }
