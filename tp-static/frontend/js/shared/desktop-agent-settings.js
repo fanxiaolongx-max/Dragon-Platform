@@ -35,7 +35,7 @@
         const cfg = config.settings;
         let savedAllowSend = cfg.allowSend;
         const toggle = (name, title, hint, on) => `<label class="da-row"><span><b>${title}</b>${hint ? `<small>${hint}</small>` : ''}</span><input type="checkbox" class="da-switch" name="${name}" ${on ? 'checked' : ''}></label>`;
-        const notes = { codex: L('原生桌面 IPC · 可发送、可读取运行状态', 'Native desktop IPC · send and live status'), claudecode: L('读取本机历史 · 可选模拟操作发送', 'Local history · optional UI automation sending'), antigravity: L('桌面页面连接 · 打开记录会切换桌面会话', 'Desktop page connection · opening a chat switches the desktop view'), workbuddy: L('读取本机会话 · CLI 无头发送 · 深链切换桌面会话', 'Local sessions · headless CLI sending · deep link switches the desktop view') };
+        const notes = { codex: L('app-server daemon · 可发送、可读取运行状态', 'App-server daemon · send and live status'), claudecode: L('读取本机历史 · 可选模拟操作发送', 'Local history · optional UI automation sending'), antigravity: L('桌面页面连接 · 打开记录会切换桌面会话', 'Desktop page connection · opening a chat switches the desktop view'), workbuddy: L('读取本机会话 · CLI 无头发送 · 深链切换桌面会话', 'Local sessions · headless CLI sending · deep link switches the desktop view') };
         content.innerHTML = `<section class="desktop-agent-settings">
             <form class="desktop-agent-setting-fields">
                 <div class="da-overview">
