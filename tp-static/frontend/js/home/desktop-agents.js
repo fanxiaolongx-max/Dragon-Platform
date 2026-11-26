@@ -213,7 +213,7 @@
                     working.remove();
                     api.toast(error.message);
                 }
-                return false;
+                throw error;
             }
         };
         api = window.DragonClaw?.enterExternal?.({ onExit: exit, owner: 'desktop-agent', composer: { canSend, send: create, placeholder: canSend ? L(`新建 ${name} 会话：输入第一条消息`, `New ${name} session: type the first message`) : L(`${name} 当前不能从网页新建会话`, `${name} can't start sessions from the Web right now`) } });
