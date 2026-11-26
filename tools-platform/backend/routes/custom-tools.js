@@ -885,6 +885,59 @@ router.patch('/:slug/access', requireSuperAdmin, async (req, res) => {
     }
 });
 
+// 单工具临时免密令牌管理（仅超级管理员）：仅授予指定工具页面与可选独立隔离终端访问权
+router.get('/:slug/temp-links', requireSuperAdmin, async (req, res) => {
+    try {
+        const tool = await repo.getTool(req.params.slug);
+        if (!tool) return res.status(404).json({ error: '自定义工具不存在' });
+        const tempToolTokens = require('../models/temp-tool-tokens-repository');
+        const items = await tempToolTokens.listTokens(tool.slug);
+        res.setHeader('Cache-Control', 'no-store');
+        res.json({ success: true, slug: tool.slug, items });
+    } catch (err) {
+        res.status(err.status || 500).json({ error: err.message || '获取临时免密链接失败' });
+    }
+});
+
+router.post('/:slug/temp-links', requireSuperAdmin, async (req, res) => {
+    req.suppressBodyLog = true;
+    try {
+        const tool = await repo.getTool(req.params.slug);
+        if (!tool) return res.status(404).json({ error: '自定义工具不存在' });
+        const tempToolTokens = require('../models/temp-tool-tokens-repository');
+        const { label = '', ttlHours = 24, allowTerminal = true } = req.body || {};
+        const { record, rawToken } = await tempToolTokens.createToken({
+            slug: tool.slug,
+            label,
+            ttlHours,
+            allowTerminal: allowTerminal !== false,
+            createdBy: req.user?.username || 'admin',
+            sourceTenant: getTenantId()
+        });
+        const entryPath = `/t/${encodeURIComponent(tool.slug)}/${rawToken}`;
+        const proto = String(req.headers['x-forwarded-proto'] || req.protocol || 'http').split(',')[0].trim();
+        const host = req.headers['x-forwarded-host'] || req.get('host') || '';
+        const url = host ? `${proto}://${host}${entryPath}` : entryPath;
+        res.setHeader('Cache-Control', 'no-store');
+        res.json({ success: true, item: record, path: entryPath, url });
+    } catch (err) {
+        res.status(err.status || 500).json({ error: err.message || '生成临时免密链接失败' });
+    }
+});
+
+router.delete('/:slug/temp-links/:id', requireSuperAdmin, async (req, res) => {
+    try {
+        const tempToolTokens = require('../models/temp-tool-tokens-repository');
+        const terminals = require('../models/terminal-sessions');
+        const revoked = await tempToolTokens.revokeToken(req.params.id, req.params.slug);
+        if (!revoked) return res.status(404).json({ error: '临时链接不存在' });
+        const killedTerminals = terminals.killOwner(tempToolTokens.ownerKeyForToken(revoked));
+        res.json({ success: true, item: revoked, killedTerminals });
+    } catch (err) {
+        res.status(err.status || 500).json({ error: err.message || '吊销临时免密链接失败' });
+    }
+});
+
 router.patch('/:slug/name', async (req, res) => {
     try {
         if (!isSuperAdmin(req.user)) {

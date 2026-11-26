@@ -4,13 +4,16 @@ const { requireAdmin } = require('../middleware/auth');
 const { getTenantId, getDataDir } = require('../models/tenant-context');
 const { ownerKey } = require('../models/agent-run-manager');
 const terminals = require('../models/terminal-sessions');
+const tempToolTokens = require('../models/temp-tool-tokens-repository');
 const boundary = require('../models/team-boundary');
 
 const router = express.Router();
 router.use(express.json({ limit: '128kb' }));
 router.use(requireAdmin);
 
-const owner = req => ownerKey(req.user, getTenantId());
+const owner = req => req.user?.tempToolToken
+    ? tempToolTokens.ownerKeyForToken(req.user.tempToolToken)
+    : ownerKey(req.user, getTenantId());
 const handle = fn => async (req, res) => {
     try { await fn(req, res); } catch (error) {
         if (!res.headersSent) res.status(error.status || 500).json({ error: error.message || '终端操作失败' });
@@ -48,6 +51,9 @@ router.delete('/sessions/:id', handle(async (req, res) => res.json({ ok: termina
 // 但用户的浏览器通常不在服务器上，跳回 localhost 会打不开。用户把地址栏里的完整地址交给这里，由服务器本机去请求。
 // 只接受 http 回环地址；地址里带 token，走 POST 正文、不写日志。
 router.post('/loopback', handle(async (req, res) => {
+    if (req.user?.tempToolToken) {
+        throw Object.assign(new Error('临时免密会话不允许调用本机回调转发'), { status: 403 });
+    }
     let url;
     try { url = new URL(String(req.body?.url || '').trim()); } catch { url = null; }
     if (!url || url.protocol !== 'http:' || !['localhost', '127.0.0.1', '[::1]'].includes(url.hostname) || !url.port) {

@@ -3,6 +3,28 @@ const authSessionsRepo = require('../models/auth-sessions-repository');
 
 const SALT = 'tools_platform_salt';
 
+async function tryTempTerminalAuth(req) {
+    if (!req.path.startsWith('/terminal') || req.path === '/terminal/loopback') return false;
+    try {
+        const tempToolTokens = require('../models/temp-tool-tokens-repository');
+        const tempRaw = tempToolTokens.extractTempTokenFromCookie(req.headers.cookie);
+        const record = tempRaw ? await tempToolTokens.verifyToken(tempRaw, { requireTerminal: true, touch: false }) : null;
+        if (!record) return false;
+        req.user = {
+            username: `temp:${record.slug}:${record.id.slice(0, 8)}`,
+            role: 'admin',
+            tenantId: record.sourceTenant,
+            homeTenantId: record.sourceTenant,
+            isSuper: false,
+            tempToolToken: record
+        };
+        return true;
+    } catch (tempErr) {
+        console.error('Temp tool token auth error:', tempErr);
+        return false;
+    }
+}
+
 async function checkAuth(req, res, next) {
     // 登录接口无需鉴权 (req.path is relative to /api, so it's /auth/login)
     if (req.path === '/auth/login') return next();
@@ -14,6 +36,7 @@ async function checkAuth(req, res, next) {
     // 只认 Authorization 头与 HttpOnly Cookie：查询串里的令牌会进访问日志、浏览历史和 Referer
     const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : cookieToken;
     if (!token) {
+        if (await tryTempTerminalAuth(req)) return next();
         return res.status(401).json({ error: '请先登录', code: 'AUTH_REQUIRED' });
     }
 
@@ -24,6 +47,7 @@ async function checkAuth(req, res, next) {
             if (session) {
                 await authSessionsRepo.deleteSession(token);
             }
+            if (await tryTempTerminalAuth(req)) return next();
             return res.status(401).json({ error: '登录已过期，请重新登录', code: 'AUTH_EXPIRED' });
         }
 

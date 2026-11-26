@@ -274,6 +274,15 @@ function kill(owner, id, { keep = false } = {}) {
     return true;
 }
 
+function killOwner(owner) {
+    if (!owner) return 0;
+    let count = 0;
+    for (const session of listFor(owner)) {
+        if (kill(owner, session.id)) count++;
+    }
+    return count;
+}
+
 function rename(owner, id, title) {
     const session = get(owner, id);
     const value = String(title || '').replace(/[\r\n\t]+/g, ' ').trim().slice(0, 60);
@@ -378,4 +387,4 @@ function plainOutput(raw, inputs = []) {
     return text.replace(/\n{3,}/g, '\n\n').trim();
 }
 
-module.exports = { create, createCommand, plainOutput, view, write, resize, signal, kill, rename, attach, list, info, availableShells, _internal: { sessions, sweep, resolveCwd } };
+module.exports = { create, createCommand, plainOutput, view, write, resize, signal, kill, killOwner, rename, attach, list, info, availableShells, _internal: { sessions, sweep, resolveCwd } };

@@ -224,6 +224,7 @@ const DEFINITIONS = new Map([
     ["uiv_categories", {"category": "tools", "description": "UIVF12 脚本类别与排序。", "descriptionEn": "UIVF12 script categories and ordering.", "source": "backend/models/uiv-categories-repository.js"}],
     ["f12_script_presets", {"category": "tools", "description": "F12 脚本配置预设。", "descriptionEn": "F12 script configuration presets.", "source": "backend/models/f12-script-presets-repository.js"}],
     ["custom_tools", {"category": "tools", "description": "自定义和内置工具的安装注册信息。", "descriptionEn": "Installation registry for custom and built-in tools.", "source": "backend/models/custom-tools-repository.js"}],
+    ["temp_tool_tokens", {"category": "tools", "description": "单工具限时免密访问令牌的 SHA-256 哈希、权限范围与吊销记录。", "descriptionEn": "SHA-256 hashes, scopes, and revocation records for single-tool temporary passwordless access links.", "source": "backend/models/temp-tool-tokens-repository.js"}],
     ["custom_tools_snapshots", {"category": "tools", "description": "自定义工具保存的业务快照。", "descriptionEn": "Business snapshots saved by custom tools.", "source": "backend/models/custom-tools-snapshots-repository.js"}],
     ["tool_market_settings", {"category": "tools", "description": "多源工具市场的配置。", "descriptionEn": "Configuration for multi-source tool marketplaces.", "source": "backend/models/custom-tools-market-service.js"}],
     ["python_scripts", {"category": "tools", "description": "平台保存的 Python 脚本及元数据。", "descriptionEn": "Python scripts and metadata stored on the platform.", "source": "backend/models/python-script-repository.js"}],

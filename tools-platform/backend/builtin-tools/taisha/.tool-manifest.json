@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "tool": {
+    "slug": "taisha",
+    "name": "TaiSha",
+    "nameEn": "TaiShan Batch Config Simulator",
+    "icon": "🧩",
+    "description": "用于 TaiShan 服务器集群的批量并发配置模拟，支持通过 SSH 自动下发交换机 VLAN 配置，并模拟 iBMC 与 OS 串口登录，自动完成 Bond4 网络链路聚合与路由设置，适用于大规模服务器部署的流程验证与压力测试。",
+    "descriptionEn": "A batch concurrent configuration simulator for TaiShan server clusters. It automates switch VLAN provisioning via SSH, simulates iBMC and OS serial console logins, and performs Bond4 link aggregation and routing setup, ideal for process validation and stress testing in large-scale server deployments.",
+    "tags": [
+      "TaiShan",
+      "自动化部署",
+      "网络配置",
+      "并发模拟",
+      "运维工具"
+    ],
+    "href": "/tools/taisha",
+    "filePath": "/custom-tools/taisha/index.html",
+    "publicAccess": false,
+    "createdAt": "2026-11-26T13:21:00.918Z",
+    "updatedAt": "2026-11-26T22:37:57.501Z"
+  },
+  "history": null
+}

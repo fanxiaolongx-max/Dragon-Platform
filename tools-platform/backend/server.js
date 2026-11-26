@@ -307,6 +307,7 @@ function shouldProtectHtmlEntry(req) {
     if (req.path.startsWith('/knight-dreams/')) return false;
     // 自定义工具在下方按工具配置独立鉴权，避免静态资源绕过或重复鉴权。
     if (req.path.startsWith('/custom-tools/')) return false;
+    if (req.path.startsWith('/t/')) return false;
     if (PUBLIC_HTML_PATHS.has(req.path)) return false;
     const ext = path.extname(req.path).toLowerCase();
     if (PUBLIC_ASSET_EXTS.has(ext)) return false;
@@ -466,6 +467,7 @@ const SUPER_ONLY_API_PATHS = [
     /^\/(?:department-reward-penalty|reward-program)\/snapshot\/(?:settings|prerequisites|jobs|publish)(?:\/|$)/,
     /^\/custom-tools\/backup(?:\/|$)/,
     /^\/custom-tools\/[^/]+\/access$/,
+    /^\/custom-tools\/[^/]+\/temp-links(?:\/|$)/,
     /^\/db\/report-data-backup(?:\/|$)/
 ];
 app.use('/api', function superOnlyPathGate(req, res, next) {
@@ -685,10 +687,74 @@ app.get('/python-updater', checkHtmlAuth, (req, res) => {
 app.get('/tools/:slug', checkHtmlAuth, (req, res) => {
     sendFrontendHtml(res, 'pages/custom-tool.html');
 });
+const tempToolTokens = require('./models/temp-tool-tokens-repository');
+
+function issueTempToolCookieAndRedirect(req, res, slug, rawToken, record) {
+    const remainingSec = Math.max(1, Math.floor((record.expiresAt - Date.now()) / 1000));
+    const isHttps = Boolean(req.secure || String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() === 'https');
+    const cookieParts = [
+        `${tempToolTokens.COOKIE_NAME}=${rawToken}`,
+        'Path=/',
+        'HttpOnly',
+        'SameSite=Lax',
+        `Max-Age=${remainingSec}`
+    ];
+    if (isHttps) cookieParts.push('Secure');
+    res.setHeader('Set-Cookie', cookieParts.join('; '));
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    return res.redirect(302, `/custom-tools/${encodeURIComponent(slug)}/index.html?standalone=1`);
+}
+
+function sendTempTokenExpiredHtml(res) {
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    return res.status(401).type('html').send(`<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>临时免密链接已失效</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;color:#0f172a;}.box{max-width:460px;padding:28px;background:#fff;border:1px solid #cbd5e1;border-radius:14px;box-shadow:0 12px 32px rgba(15,23,42,.08);text-align:center;}h2{margin:0 0 10px;font-size:18px;}p{margin:0;color:#475569;font-size:13.5px;line-height:1.65;}</style></head><body><div class="box"><h2>🔒 临时免密访问链接已失效</h2><p>该链接不存在、已过期或已被管理员吊销。<br>请联系管理员在工具内重新生成新的临时链接，或使用账号登录访问。</p></div></body></html>`);
+}
+
+// 单工具临时免密访问入口：校验令牌后立即写入 scoped HttpOnly Cookie 并 302 剥离 URL 里的令牌
+app.get('/t/:slug/:token', async (req, res, next) => {
+    try {
+        const slug = String(req.params.slug || '').trim();
+        const rawToken = String(req.params.token || '').trim();
+        const record = await tempToolTokens.verifyToken(rawToken, { expectedSlug: slug, touch: true });
+        if (!record) return sendTempTokenExpiredHtml(res);
+        const tool = await runWithTenant(record.sourceTenant, () => customToolsRepo.getTool(record.slug));
+        if (!tool) return sendTempTokenExpiredHtml(res);
+        return issueTempToolCookieAndRedirect(req, res, tool.slug, rawToken, record);
+    } catch (error) {
+        return next(error);
+    }
+});
+
 app.use('/custom-tools/:slug', (req, res, next) => {
     const authorize = async () => {
         try {
+            const hasTempTokens = typeof tempToolTokens !== 'undefined' && tempToolTokens;
+            // 兼容直接带 ?access_token=<token> 的直达链接：立即换成 HttpOnly Cookie 并 302 去掉 URL 中的令牌
+            const queryToken = hasTempTokens && typeof req.query?.access_token === 'string' ? req.query.access_token.trim() : '';
+            if (queryToken && (req.method === 'GET' || req.method === 'HEAD')) {
+                const rec = await tempToolTokens.verifyToken(queryToken, { expectedSlug: req.params.slug, touch: true });
+                if (!rec) return sendTempTokenExpiredHtml(res);
+                const tool = await runWithTenant(rec.sourceTenant, () => customToolsRepo.getTool(rec.slug));
+                if (!tool) return sendTempTokenExpiredHtml(res);
+                return issueTempToolCookieAndRedirect(req, res, tool.slug, queryToken, rec);
+            }
+
             req.distributedTool = await toolDistribution.resolveTool(req.params.slug, req.user);
+            if (!req.distributedTool && hasTempTokens) {
+                // 回退校验单工具临时免密 HttpOnly Cookie（仅限匹配当前 slug）
+                const cookieToken = tempToolTokens.extractTempTokenFromCookie(req.headers.cookie);
+                if (cookieToken) {
+                    const rec = await tempToolTokens.verifyToken(cookieToken, { expectedSlug: req.params.slug, touch: false });
+                    if (rec) {
+                        const tool = await runWithTenant(rec.sourceTenant, () => customToolsRepo.getTool(rec.slug));
+                        if (tool) {
+                            req.distributedTool = { tool, sourceTenant: rec.sourceTenant, shared: true, tempAccess: rec };
+                        }
+                    }
+                }
+            }
             if (!req.distributedTool) {
                 if (!req.user) return redirectHtmlLogin(req, res);
                 return res.status(403).send('此工具未开放使用');
