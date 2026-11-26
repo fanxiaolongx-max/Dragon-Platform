@@ -50,4 +50,5 @@ tools-platform/backend/wal_strings.txt
 tools-platform/backend/dump_step.txt
 tools-platform/export_test.xlsx
 tools-platform/frontend/assets/page-updates.json
+tools-platform/frontend/downloads/*/
 

@@ -42,7 +42,7 @@ const parse = text => parser.parse(text, { now: NOW, timezone: ZONE });
 test.after(async () => {
     schedules.stop();
     await appDb.closeDatabase();
-    fs.rmSync(sandbox, { recursive: true, force: true });
+    fs.rmSync(sandbox, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 });
 
 test('解析一次性时间：相对、钟点、日期，指令为剩余文字', () => {
