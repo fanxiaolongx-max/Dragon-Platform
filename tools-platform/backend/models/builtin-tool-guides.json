@@ -647,6 +647,15 @@
     "model": "gemini-3.1-flash-lite",
     "generated_at": "2026-11-26 00:01:35"
   },
+  "custom:dpi-log-analysis": {
+    "tool_id": "custom:dpi-log-analysis",
+    "title": "DPI日志分析简介",
+    "summary": "本工具支持自动解析华为 VBP/DPI 信令日志，实现全组件故障定位与智能路由分析。",
+    "guide": "## 能做什么\n*   **多源日志解析**：自动处理 SAS CAPTURE、SGMS SSH 及 VBP 后台日志。\n*   **全组件故障定位**：覆盖 8 大 VBP 核心组件，提供智能路由分析。\n*   **原厂知识库支持**：集成 9 份原厂 Debug 能力包，支持动态检典。\n*   **一站式概览**：通过单页概览快速掌握信令分析结果。\n\n## 什么时候用\n*   当需要对 DPI 信令进行深度分析时。\n*   当 VBP 组件出现异常，需要快速定位故障点时。\n*   当需要查看 SAS 或 SGMS 相关的 SSH 日志时。\n*   当需要调用原厂 Debug 知识库进行问题排查时。\n*   当需要对 VBP 后台日志进行自动化解析时。\n*   当需要进行跨组件的信令路由追踪时。\n\n## 怎么用\n1.  进入工具页面 `/tools/dpi-log-analysis`。\n2.  在界面中选择或上传需要分析的日志文件（支持 SAS、SGMS、VBP 后台日志）。\n3.  点击分析按钮，系统将自动进行智能路由匹配与故障定位。\n4.  查看分析结果概览，并根据提示调用对应的 Debug 能力包进行深入排查。\n\n## 工作原理\n本工具通过读取用户提供的 SAS CAPTURE、SGMS SSH 及 VBP 后台日志，利用内置的解析引擎对信令数据进行清洗与结构化处理。随后，系统将数据映射至 8 大 VBP 组件进行路由分析，并结合 9 份原厂 Debug 知识库进行比对，最终在页面上呈现故障定位结果与分析概览。\n\n## 注意事项\n无",
+    "source_hash": "58611073e4319ec64c18f78a",
+    "model": "gemini-3.1-flash-lite",
+    "generated_at": "2026-11-26 08:34:25"
+  },
   "custom:we-ai": {
     "tool_id": "custom:we-ai",
     "title": "WE✖️AI提词器",

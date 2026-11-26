@@ -77,8 +77,16 @@ async function connection(run, timeout) { const client = new DaemonClient(timeou
 // notLoaded 表示 daemon 当前未加载这段会话 = 没有在运行
 const runtimeStatus = thread => { const s = thread?.status || { type: 'notLoaded' }; return s.type === 'notLoaded' ? { type: 'idle' } : s; };
 async function loaded(client, id) {
-    const answer = await client.request('thread/resume', { threadId: id, excludeTurns: true }).catch(e => {
-        throw e.code === 'DESKTOP_REJECTED' ? failure('DESKTOP_UNAVAILABLE', 'Codex 找不到这段会话：' + e.message) : e;
+    const answer = await client.request('thread/resume', { threadId: id, excludeTurns: true }).catch(async e => {
+        if (e.code !== 'DESKTOP_REJECTED')
+            throw e;
+        if (/already has an active writer/i.test(e.message)) {
+            const shared = await desktopOnDaemon();
+            throw failure('DESKTOP_UNAVAILABLE', shared === false
+                ? '这段会话正被 ChatGPT 桌面端独占（桌面未接入共用 app-server daemon）。请在终端运行 sh tools-platform/scripts/codex-daemon-login-agent.sh 并完全退出重开 ChatGPT.app（Cmd+Q）后重试'
+                : '这段会话正被另一个 Codex 进程独占，请先关闭占用该会话的 Codex 窗口或 CLI 后重试');
+        }
+        throw failure('DESKTOP_UNAVAILABLE', 'Codex 找不到这段会话：' + e.message);
     });
     return answer.thread;
 }
@@ -89,6 +97,25 @@ async function read(id) {
     return connection(async client => {
         const { thread } = await client.request('thread/read', { threadId: id, includeTurns: false });
         return { threadRuntimeStatus: runtimeStatus(thread), turns: [] };
+    });
+}
+async function create(value, requestId = '', { model = '', cwd = '' } = {}) {
+    return connection(async client => {
+        const started = await client.request('thread/start', {
+            ephemeral: false,
+            ...(cwd ? { cwd } : {}),
+            ...(model ? { model } : {})
+        });
+        const threadId = started?.thread?.id;
+        if (!threadId)
+            throw failure('DESKTOP_PROTOCOL', 'Codex daemon 未返回新会话标识');
+        const result = await client.request('turn/start', {
+            threadId,
+            input: text(value),
+            ...(requestId ? { clientUserMessageId: requestId } : {}),
+            ...(model ? { model } : {})
+        });
+        return { id: threadId, path: started?.thread?.path || '', result };
     });
 }
 async function send(id, value, requestId, model = '') {
@@ -141,4 +168,4 @@ function desktopOnDaemon() {
         resolve(!lines.some(l => /CodexCLI\.app\/Contents\/MacOS\/codex .*app-server --analytics/.test(l)));
     }));
 }
-module.exports = { DaemonClient, socketPath, exists, read, send, steer, available, desktopOnDaemon };
+module.exports = { DaemonClient, socketPath, exists, read, create, send, steer, available, desktopOnDaemon };

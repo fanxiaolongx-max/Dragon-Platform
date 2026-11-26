@@ -78,3 +78,18 @@ test('new Codex and Claude conversations select the requested model before the f
   await assert.rejects(createAndSend(provider,prompt,{...fail,model:'missing'}),{code:'DESKTOP_MODEL_UNAVAILABLE'});assert.equal(submitted,false);
  }
 });
+
+test('Codex daemon creation starts a thread without accessibility automation and confirms only the created ID',async()=>{
+ const calls=[],other='33333333-3333-4333-8333-333333333333';
+ let polls=0;
+ const result=await createAndSend('codex',prompt,{
+  model:'gpt-fixture',
+  requestId:'req-codex-new',
+  codexCreate:async(text,requestId,opts)=>{calls.push({text,requestId,opts});return {id:fresh,path:'/tmp/rollout.jsonl'};},
+  readRows:async()=>{polls++;return polls===1?[{id,cwd:'/tmp/nonexistent-dir'},{id:'old-2',cwd:process.cwd()}]:[{id},{id:other},{id:fresh}];},
+  readTranscript:async row=>({items:row.id===fresh?[{role:'user',content:prompt}]:[{role:'user',content:prompt}]}),
+  wait:async()=>{}
+ });
+ assert.deepEqual(result,{id:fresh,status:'accepted'});
+ assert.deepEqual(calls,[{text:prompt,requestId:'req-codex-new',opts:{model:'gpt-fixture',cwd:process.cwd()}}]);
+});

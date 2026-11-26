@@ -19,8 +19,13 @@ test.before(async () => {
         // 服务端主动请求（审批）不能被当成响应
         if (m.method === 'turn/start') ws.send(JSON.stringify({ id: m.id, method: 'item/commandExecution/requestApproval', params: {} }));
         if (m.method === 'initialize') return reply({ userAgent: 'test' });
+        if (m.method === 'thread/start') return reply({ thread: { id: '33333333-3333-4333-8333-333333333333', path: '/tmp/rollout-new.jsonl', status: { type: 'idle' } }, cwd: m.params.cwd || root, model: m.params.model || 'gpt-x' });
         if (m.method === 'thread/read') return reply({ thread: { id: ID, status: thread } });
-        if (m.method === 'thread/resume') return m.params.threadId === ID ? reply({ thread: { id: ID, status: thread } }) : ws.send(JSON.stringify({ id: m.id, error: { code: -32600, message: 'thread not found' } }));
+        if (m.method === 'thread/resume') {
+            if (m.params.threadId === ID) return reply({ thread: { id: ID, status: thread } });
+            if (m.params.threadId === '44444444-4444-4444-8444-444444444444') return ws.send(JSON.stringify({ id: m.id, error: { code: -32600, message: 'thread 44444444-4444-4444-8444-444444444444 already has an active writer' } }));
+            return ws.send(JSON.stringify({ id: m.id, error: { code: -32600, message: 'thread not found' } }));
+        }
         if (m.method === 'thread/turns/list') return reply({ data: [turn], nextCursor: null });
         if (m.method === 'turn/start') return reply({ turn: { id: 'new-turn', status: 'inProgress' } });
         if (m.method === 'turn/steer') return reply({ turnId: m.params.expectedTurnId });
@@ -62,4 +67,25 @@ test('steer targets the active turn and refuses when the turn has ended', async 
     const answer = await ipc.steer(ID, 'nudge', 'req-4');
     assert.equal(answer.result.turnId, 't9');
     assert.equal(calls.at(-1).params.expectedTurnId, 't9');
+});
+test('create starts a persistent thread and first turn via daemon RPC', async () => {
+    calls = [];
+    const created = await ipc.create('first question', 'req-create', { model: 'gpt-x', cwd: '/tmp/work' });
+    assert.equal(created.id, '33333333-3333-4333-8333-333333333333');
+    assert.equal(created.path, '/tmp/rollout-new.jsonl');
+    assert.equal(created.result.turn.id, 'new-turn');
+    assert.deepEqual(calls.map(c => c.method), ['initialize', 'thread/start', 'turn/start']);
+    assert.deepEqual(calls[1].params, { ephemeral: false, cwd: '/tmp/work', model: 'gpt-x' });
+    assert.deepEqual(calls[2].params, {
+        threadId: '33333333-3333-4333-8333-333333333333',
+        input: [{ type: 'text', text: 'first question', text_elements: [] }],
+        clientUserMessageId: 'req-create',
+        model: 'gpt-x'
+    });
+});
+test('active writer lock reports an actionable daemon-sharing error instead of not found', async () => {
+    await assert.rejects(
+        ipc.send('44444444-4444-4444-8444-444444444444', 'hi', 'req-lock'),
+        e => e.code === 'DESKTOP_UNAVAILABLE' && e.message.includes('独占') && !e.message.includes('找不到这段会话')
+    );
 });

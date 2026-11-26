@@ -1,8 +1,10 @@
 {
   "zh": [
-    "DragonClaw 简介（dragonclaw）：将页眉、封面及致谢页标识统一更新为平台小恐龙图标，并同步更新内置工具使用说明。"
+    "新增内置工具「DPI日志分析简介」（dpi-log-analysis）：单页展示华为 VBP / DPI 三类日志自动解析、8 大 VBP 组件智能路由矩阵（支持点击查看排查流程与故障场景）及 9 份原厂 Debug 能力包目录，支持中英切换与全屏演示。",
+    "桌面 Agent（Codex）：新建 Codex 会话改走 app-server daemon 原生 RPC（thread/start + turn/start），不再依赖旧版桌面辅助功能模拟操作；优化会话写锁冲突（active writer）时的报错与设置页修复指引，并在新建失败时于输入框下方直接显示真实错误原因。"
   ],
   "en": [
-    "DragonClaw Overview (dragonclaw): Updated the header, cover, and closing brand mark to the platform dinosaur icon and refreshed the built-in tool guide."
+    "Added built-in tool \"DPI Log Analysis\" (dpi-log-analysis): a single-page bilingual overview of Huawei VBP/DPI 3-format log parsing, an interactive 8-module VBP routing and Debug matrix with runbook modals, and the 9-manual Debug pack inventory.",
+    "Desktop Agents (Codex): create new Codex sessions directly through app-server daemon RPC (thread/start + turn/start) instead of legacy UI automation; improved active-writer lock diagnostics and daemon-sharing guidance in settings, and surfaced exact creation error messages below the DragonClaw composer."
   ]
 }

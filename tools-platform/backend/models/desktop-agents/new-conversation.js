@@ -1,10 +1,17 @@
 // Native desktop creation. Never resumes an unrelated recent conversation or
 // substitutes a CLI model. A new native UUID and its exact user receipt are required.
 const {execFile}=require('node:child_process');
-const catalog=require('./catalog'),claude=require('./claude-desktop'),ag=require('./antigravity-cdp'),wb=require('./workbuddy');
+const fs=require('node:fs'),os=require('node:os');
+const catalog=require('./catalog'),claude=require('./claude-desktop'),ag=require('./antigravity-cdp'),wb=require('./workbuddy'),codex=require('./codex-ipc');
 const {composerText}=require('./composer-text');
 const names={codex:'Codex',claudecode:'Claude Code',antigravity:'Antigravity',workbuddy:'WorkBuddy'};
 const failure=(code,message)=>Object.assign(new Error(message),{code,status:code==='DELIVERY_UNKNOWN'?504:409});
+const isTempDir=dir=>/^(?:\/private)?\/tmp(?:\/|$)|^\/var\/folders(?:\/|$)/.test(dir);
+function defaultCodexCwd(rows){
+ const dirs=(rows||[]).map(r=>typeof r?.cwd==='string'?r.cwd.trim():'').filter(Boolean);
+ const valid=dir=>{try{return fs.statSync(dir).isDirectory();}catch{return false;}};
+ return dirs.find(d=>!isTempDir(d)&&valid(d))||dirs.find(valid)||os.homedir();
+}
 // Accessibility text can merge blank paragraphs; compare all actual lines and
 // characters while allowing only repeated blank-line presentation differences.
 function isNewClaudeComposer(snapshot,state,previous){
@@ -20,18 +27,26 @@ async function ui(provider,command,argument){
  return value;
 }
 async function nativeRows(provider){return provider==='codex'?catalog.codex(200):catalog.claude(200);}
-async function receipt(provider,before,text,{readRows=nativeRows,readTranscript=catalog.transcript,wait=ms=>new Promise(r=>setTimeout(r,ms))}={}){
+async function receipt(provider,before,text,{readRows=nativeRows,readTranscript=catalog.transcript,wait=ms=>new Promise(r=>setTimeout(r,ms)),expectedId=''}={}){
  const previous=new Set(before.map(s=>s.id));
  for(let n=0;n<60;n++){
-  for(const row of await readRows(provider)){if(previous.has(row.id))continue;const transcript=await readTranscript(row).catch(()=>({items:[]}));if(transcript.items.some(m=>m.role==='user'&&composerText(m.content)===composerText(text)))return {id:row.id,status:'accepted'};}
+  for(const row of await readRows(provider)){if(expectedId?row.id!==expectedId:previous.has(row.id))continue;const transcript=await readTranscript(row).catch(()=>({items:[]}));if(transcript.items.some(m=>m.role==='user'&&composerText(m.content)===composerText(text)))return {id:row.id,status:'accepted'};}
   await wait(250);
  }
  throw failure('DELIVERY_UNKNOWN','已操作新建，但未确认新的原生会话与消息回执；请检查桌面，不会重试或改用旧会话');
 }
-async function createAndSend(provider,text,{driver=ui,readRows=nativeRows,readReceipt=receipt,open=uri=>exec('/usr/bin/open',['-g',uri]),wait=ms=>new Promise(r=>setTimeout(r,ms)),platform=process.platform,model=''}={}){
+async function createAndSend(provider,text,options={}){
+ const {driver=ui,readRows=nativeRows,readReceipt=receipt,open=uri=>exec('/usr/bin/open',['-g',uri]),wait=ms=>new Promise(r=>setTimeout(r,ms)),platform=process.platform,model='',requestId='',cwd='',codexCreate}=options;
  if(provider==='antigravity')return ag.createAndSend(text,{model});
  if(provider==='workbuddy')return wb.createAndSend(text,{model});
  if(!['codex','claudecode'].includes(provider))throw failure('DESKTOP_UNAVAILABLE','未知桌面成员');
+ const useCodexDaemon=provider==='codex'&&(typeof codexCreate==='function'||(platform!=='win32'&&!options.driver&&!options.open&&codex.usesDaemon()));
+ if(useCodexDaemon){
+  const before=await readRows(provider);
+  const created=await (codexCreate||codex.create)(text,requestId,{model,cwd:cwd||defaultCodexCwd(before)});
+  const receiptOptions={expectedId:created.id,...(options.readRows?{readRows}:{}),...(options.readTranscript?{readTranscript:options.readTranscript}:{}),...(options.wait?{wait}:{})};
+  return await readReceipt(provider,before,text,receiptOptions);
+ }
  if(platform!=='darwin')throw failure('DESKTOP_UNAVAILABLE',names[provider]+' 自动建桌面对话目前需要 macOS 桌面连接器');
  return exclusive(async()=>{
   const status=await driver(provider,'status');

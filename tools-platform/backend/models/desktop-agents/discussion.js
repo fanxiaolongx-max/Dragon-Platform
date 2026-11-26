@@ -184,7 +184,7 @@ async function execute(owner, id, { send = desktop.send, wait = desktop.waitForR
                 let receipt;
                 if(!report.nativeId){
                     report.status='creating';await write(owner,job,'running');
-                    receipt=await create(report.provider,prompt,{model:report.model||''});
+                    receipt=await create(report.provider,prompt,{model:report.model||'',...(report.worktreeRoot?{cwd:report.worktreeRoot}:{})});
                     if(!receipt.id||!/^(?:local_)?[a-f0-9-]{36}$/i.test(receipt.id))throw error('未确认新建桌面会话编号',504);
                     report.nativeId=receipt.id;job.settings.bindings[report.provider]=receipt.id;
                     await saveBindings(owner,job.sessionId,report.provider,receipt.id);

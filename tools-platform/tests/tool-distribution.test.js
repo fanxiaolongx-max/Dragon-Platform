@@ -47,7 +47,7 @@ test.after(async () => {
     }
     await require('../backend/models/app-db').closeDatabase();
     await require('../backend/models/tenant-sqlite-pool').closeAll();
-    fs.rmSync(temp, { recursive: true, force: true });
+    fs.rmSync(temp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 });
 
 test('standalone HTML access honors both sharing and password-free access with a stale login cookie', async () => {

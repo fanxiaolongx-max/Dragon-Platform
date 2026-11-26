@@ -40,13 +40,14 @@ async function scan(owner, cfg) {
             const checkedAt = Date.now();
             const items = await (provider === 'codex' ? catalog.codex(cfg.recentLimit) : provider === 'claudecode' ? catalog.claude(cfg.recentLimit) : provider === 'workbuddy' ? wb.list(cfg.recentLimit) : ag.list(cfg.recentLimit));
             rows.push(...items);
-            let canSend = false, reason = '';
+            let canSend = false, reason = '', extra = {};
             if (provider === 'codex') {
                 const link = await codex.available(1500);
                 canSend = link.canSend;
+                if (link.mode === 'daemon') extra.desktopOnDaemon = link.desktopOnDaemon;
                 reason = !canSend ? 'Codex 桌面与 app-server daemon 均未运行，可查看已保存记录'
                     : link.mode === 'ipc' ? '原生桌面 IPC 连接'
-                        : link.desktopOnDaemon === false ? 'app-server daemon 已连接；桌面未接入 daemon，网页发送不会实时显示在桌面'
+                        : link.desktopOnDaemon === false ? 'app-server daemon 已连接，但 ChatGPT 桌面未接入共用 daemon；桌面打开中的历史会话将无法从网页发送（请运行 codex-daemon-login-agent.sh 并重开 ChatGPT.app）'
                             : 'app-server daemon 连接 · 与桌面共享会话';
             }
             if (provider === 'claudecode') {
@@ -66,7 +67,7 @@ async function scan(owner, cfg) {
                     ? (fromSidebar ? '原生桌面页面连接；打开记录会同步切换桌面会话' : '本地记录直读 · 原生桌面会话连接')
                     : (items.length > 0 ? '可读取已保存记录，Antigravity 本机桌面调试连接不可用' : '本机桌面连接不可用，请打开对应客户端后刷新');
             }
-            states.push({ id: provider, enabled: true, connected, canRead: items.length > 0, canSend: cfg.allowSend && canSend, count: items.length, latencyMs: Date.now() - checkedAt, reason });
+            states.push({ id: provider, enabled: true, connected, canRead: items.length > 0, canSend: cfg.allowSend && canSend, count: items.length, latencyMs: Date.now() - checkedAt, reason, ...extra });
         }
         catch {
             states.push({ id: provider, enabled: true, connected: false, canRead: false, canSend: false, count: 0, reason: '本机桌面连接不可用，请打开对应客户端后刷新' });
@@ -258,13 +259,13 @@ async function create(owner, provider, { text, requestId, model: requestedModel 
     }
     locks.add(provider);
     try {
-        const result = await createAndSend(provider, text.trim(), {model});
+        const result = await createAndSend(provider, text.trim(), { model, requestId });
         await repo.saveModel(owner,provider,result.id,model);
         invalidate(owner);
         return { ...await repo.settle(owner, requestId, 'accepted'), id: result.id };
     }
     catch (error) {
-        const uncertain = error.code === 'DELIVERY_UNKNOWN', message = redactText(error.message || '桌面新建失败').slice(0, 300);
+        const uncertain = ['DELIVERY_UNKNOWN', 'DESKTOP_TIMEOUT'].includes(error.code), message = redactText(error.message || '桌面新建失败').slice(0, 300);
         await repo.settle(owner, requestId, uncertain ? 'unknown' : 'rejected', message);
         throw Object.assign(new Error(message), { status: uncertain ? 504 : 409, code: error.code, requestId });
     }

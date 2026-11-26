@@ -178,7 +178,9 @@ const daemon = require('./codex-daemon');
 const viaDaemon = () => process.env.TOOLS_CODEX_PREFER_LEGACY !== '1' && daemon.exists();
 module.exports = {
     DesktopIPC, socketPath,
+    usesDaemon: viaDaemon,
     read: id => viaDaemon() ? daemon.read(id) : read(id),
+    create: (...args) => daemon.create(...args),
     send: (...args) => viaDaemon() ? daemon.send(...args) : send(...args),
     steer: (...args) => viaDaemon() ? daemon.steer(...args) : steer(...args),
     async available(timeout = 1500) {

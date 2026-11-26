@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "tool": {
+    "slug": "dpi-log-analysis",
+    "name": "DPI日志分析简介",
+    "nameEn": "DPI Log Analysis",
+    "icon": "📡",
+    "description": "华为 VBP / DPI 信令日志分析与全组件故障定位一体化技能单页概览：覆盖 SAS CAPTURE、SGMS SSH、VBP 后台三类日志自动解析，8 大 VBP 组件智能路由与 9 份原厂 Debug 能力包动态检典。",
+    "descriptionEn": "One-page overview of the unified Huawei VBP/DPI signaling log analysis and fault localization skill: auto-parses SAS CAPTURE, SGMS SSH & VBP backend logs, routes across all 8 VBP modules, and searches 9 official Debug manuals dynamically.",
+    "tags": [
+      "DPI信令",
+      "VBP故障定位",
+      "SAS/SGMS",
+      "AI Skill",
+      "Debug知识库"
+    ],
+    "href": "/tools/dpi-log-analysis",
+    "filePath": "/custom-tools/dpi-log-analysis/index.html",
+    "publicAccess": true,
+    "createdAt": "2026-11-26T08:30:00.000Z",
+    "updatedAt": "2026-11-26T08:37:42.241Z"
+  },
+  "history": null
+}
