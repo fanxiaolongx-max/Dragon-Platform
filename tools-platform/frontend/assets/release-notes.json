@@ -2,11 +2,13 @@
   "zh": [
     "新增并升级内置工具「TaiSha 批量开局与仿真验证台」（taisha）：整合极简开局向导、阶段一/二步骤号自动重排、极简映射表、可选 SSH/SELinux 6 项加固、Windows PowerShell 多窗口实时监控，以及基于 DragonClaw 真终端（node-pty）的一键直连执行（支持本机直连与可选 SSH 跳板机免密中转、智能连通性结论横幅、按行缓冲终端渲染、阶段二网卡不足立即熔断与虚拟实验机网卡兼容）。",
     "TaiSha 终端管控与控制桥接口：新增统一只读/任务控制接口 window.TaiShaWorkbench（run/getSnapshot/subscribe/getTerminalSnapshot/subscribeTerminals），按 pc/sw1/sw2/ibmc/os 镜像脱敏终端实时流；优化 8 槽位名额排队等待与查询重试，失败默认释放终端并保留完整日志，主动勾选保留终端时支持 5 分钟闲置自动回收，并自动清理历史刷新遗留的 TaiShan 孤儿终端。",
-    "新增单工具临时免密访问链接（/t/:slug/:token 与 /api/custom-tools/:slug/temp-links）：仅超级管理员可创建与一键吊销，服务端仅存 SHA-256 哈希，访问后自动转为 HttpOnly Cookie 并 302 剥离地址栏令牌，权限严格隔离在对应工具页面及独立终端槽位，吊销时立即终止关联终端。"
+    "新增单工具临时免密访问链接（/t/:slug/:token 与 /api/custom-tools/:slug/temp-links）：仅超级管理员可创建与一键吊销，服务端仅存 SHA-256 哈希，访问后自动转为 HttpOnly Cookie 并 302 剥离地址栏令牌，权限严格隔离在对应工具页面及独立终端槽位，吊销时立即终止关联终端。",
+    "TaiSha 阶段二验收优化：配置 Bond4 后先等待网关可达再做双向 Ping 验收，反向 Ping 重试次数由 3 次提高到 10 次，减少 LACP 刚协商完成时的误报失败；PowerShell 监控包与 MobaXterm 脚本同步对齐。"
   ],
   "en": [
     "Added and enhanced built-in tool \"TaiSha\" (taisha): unified streamlined wizard with auto-renumbered steps, minimal mapping table, optional 6-item SSH/SELinux hardening, Windows PowerShell live multi-window monitor, and DragonClaw native node-pty direct execution (direct LAN/Desktop & optional passwordless SSH jump-host relay, smart reachability verdict banner, line-buffered terminal output, Stage 2 fail-fast, and virtual/1G lab NIC fallback).",
     "TaiSha Workbench API & terminal lifecycle: added window.TaiShaWorkbench (run, getSnapshot, subscribe, getTerminalSnapshot, subscribeTerminals) with redacted pc/sw1/sw2/ibmc/os terminal mirroring; added 8-slot quota waiting and query retry handling, separated failure logs from opt-in retained PTYs with 5-minute idle auto-reclaim, and added automatic cleanup of orphaned TaiShan-* sessions.",
-    "Added single-tool scoped temporary passwordless links (/t/:slug/:token & /api/custom-tools/:slug/temp-links): Super-Admin-managed expiring links storing only SHA-256 hashes, exchanged for scoped HttpOnly cookies with 302 URL token stripping, strictly isolated to the target tool and optional per-token terminal slots, immediately killing active PTYs on revocation."
+    "Added single-tool scoped temporary passwordless links (/t/:slug/:token & /api/custom-tools/:slug/temp-links): Super-Admin-managed expiring links storing only SHA-256 hashes, exchanged for scoped HttpOnly cookies with 302 URL token stripping, strictly isolated to the target tool and optional per-token terminal slots, immediately killing active PTYs on revocation.",
+    "TaiSha Stage 2 verification: wait for the gateway to become reachable after Bond4 setup and raise reverse-ping retries from 3 to 10 to avoid false failures right after LACP negotiation; PowerShell monitor and MobaXterm scripts stay aligned."
   ]
 }

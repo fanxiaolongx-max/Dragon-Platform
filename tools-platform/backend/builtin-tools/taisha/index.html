@@ -7250,7 +7250,8 @@ bash batch_taishan.sh</div>
           '    \'nmcli con up "bond-slave-$NIC1"\',',
           '    \'nmcli con up "bond-slave-$NIC2"\',',
           '    "ip route show default | grep -v `"dev $bn`" | while read -r r; do ip route del `$r 2>/dev/null || true; done",',
-          '    "for i in 1 2 3 4 5; do grep -q `"Number of ports: 2`" /proc/net/bonding/`"$bn`" 2>/dev/null && ! grep -q `"Partner Mac Address: 00:00:00:00:00:00`" /proc/net/bonding/`"$bn`" 2>/dev/null && break; sleep 3; done"'
+          '    "for i in 1 2 3 4 5; do grep -q `"Number of ports: 2`" /proc/net/bonding/`"$bn`" 2>/dev/null && ! grep -q `"Partner Mac Address: 00:00:00:00:00:00`" /proc/net/bonding/`"$bn`" 2>/dev/null && break; sleep 3; done"',
+          '    "for g in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do ping -c 1 -W 1 `"$osGw`" >/dev/null 2>&1 && break; sleep 1; done"'
         ] : [
           '    "nmcli con up `"$bn`"",',
           '    "sleep 3"'
@@ -7329,7 +7330,7 @@ bash batch_taishan.sh</div>
         '    $disp = if ($c.Length -gt 88) { $c.Substring(0, 85) + "..." } else { $c }',
         '    Emit "cmd" "[$ci/$ctot] # $disp"',
         '    $stream.WriteLine($c)',
-        '    $maxWaitMs = if ($c -like \'for i in 1 2 3 4 5*\') { 16500 } elseif ($c -like \'ping *\') { 6500 } elseif ($c -like \'sleep *\') { 3500 } elseif ($c -like \'nmcli con up*\') { 2200 } elseif ($c -like \'systemctl *\') { 2000 } else { 950 }',
+        '    $maxWaitMs = if ($c -like \'for i in 1 2 3 4 5*\') { 16500 } elseif ($c -like \'for g in 1 2 3*\') { 42000 } elseif ($c -like \'ping *\') { 6500 } elseif ($c -like \'sleep *\') { 3500 } elseif ($c -like \'nmcli con up*\') { 2200 } elseif ($c -like \'systemctl *\') { 2000 } else { 950 }',
         '    $waited = 0; $chunk = ""',
         '    while ($waited -lt $maxWaitMs) {',
         '      Start-Sleep -Milliseconds 300; $waited += 300',
@@ -7389,7 +7390,7 @@ bash batch_taishan.sh</div>
         '  $hs.pct = 94; $hs.step = "Step 6/6: PC -> OS 反向 Ping 验收"',
         '  Emit "info" "[Step 6/6] PC -> OS 反向 Ping $($HostObj.OsIp)..."',
         '  $revOk = $false',
-        '  for ($p = 1; $p -le 3; $p++) { if (Test-Connection -ComputerName $HostObj.OsIp -Count 1 -Quiet -ErrorAction SilentlyContinue) { $revOk = $true; break }; Start-Sleep -Milliseconds 700 }',
+        '  for ($p = 1; $p -le 10; $p++) { if (Test-Connection -ComputerName $HostObj.OsIp -Count 1 -Quiet -ErrorAction SilentlyContinue) { $revOk = $true; break }; Start-Sleep -Milliseconds 1500 }',
         '  $res.PcPingOs = if ($revOk) { "OK" } else { "FAIL" }',
         '  if ($actPorts -eq 2 -and $slavesUp -eq 2 -and $pMac -ne "none" -and $pMac -ne "00:00:00:00:00:00") {',
         '    $res.Bond4LACP = "OK(2p)"',
@@ -7904,6 +7905,7 @@ bash batch_taishan.sh</div>
           cmds.push(`nmcli con up "bond-slave-$NIC2"`);
           cmds.push(`ip route show default | grep -v "dev ${bn}" | while read -r r; do ip route del $r 2>/dev/null || true; done`);
           cmds.push(`for i in 1 2 3 4 5; do grep -q "Number of ports: 2" /proc/net/bonding/"${bn}" 2>/dev/null && ! grep -q "Partner Mac Address: 00:00:00:00:00:00" /proc/net/bonding/"${bn}" 2>/dev/null && break; sleep 3; done`);
+          cmds.push(`for g in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do ping -c 1 -W 1 "${osGw}" >/dev/null 2>&1 && break; sleep 1; done`);
         } else {
           cmds.push(`nmcli con up "${bn}"`);
           cmds.push('sleep 3');
@@ -8274,7 +8276,8 @@ bash batch_taishan.sh</div>
           '      \'nmcli con up "bond-slave-$NIC1"\',',
           '      \'nmcli con up "bond-slave-$NIC2"\',',
           '      "ip route show default | grep -v `"dev $bn`" | while read -r r; do ip route del `$r 2>/dev/null || true; done",',
-          '      "for i in 1 2 3 4 5; do grep -q `"Number of ports: 2`" /proc/net/bonding/`"$bn`" 2>/dev/null && ! grep -q `"Partner Mac Address: 00:00:00:00:00:00`" /proc/net/bonding/`"$bn`" 2>/dev/null && break; sleep 3; done"'
+          '      "for i in 1 2 3 4 5; do grep -q `"Number of ports: 2`" /proc/net/bonding/`"$bn`" 2>/dev/null && ! grep -q `"Partner Mac Address: 00:00:00:00:00:00`" /proc/net/bonding/`"$bn`" 2>/dev/null && break; sleep 3; done"',
+          '      "for g in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do ping -c 1 -W 1 `"$osGw`" >/dev/null 2>&1 && break; sleep 1; done"'
         ] : [
           '      "nmcli con up `"$bn`"",',
           '      "sleep 3"'
@@ -8344,7 +8347,7 @@ bash batch_taishan.sh</div>
         '    $allOut = ""',
         '    foreach ($c in $cmds) {',
         '      $stream.WriteLine($c)',
-        '      $maxWaitMs = if ($c -like \'for i in 1 2 3 4 5*\') { 16500 } elseif ($c -like \'ping *\') { 6500 } elseif ($c -like \'sleep *\') { 3500 } elseif ($c -like \'nmcli con up*\') { 2200 } elseif ($c -like \'systemctl *\') { 2000 } else { 900 }',
+        '      $maxWaitMs = if ($c -like \'for i in 1 2 3 4 5*\') { 16500 } elseif ($c -like \'for g in 1 2 3*\') { 42000 } elseif ($c -like \'ping *\') { 6500 } elseif ($c -like \'sleep *\') { 3500 } elseif ($c -like \'nmcli con up*\') { 2200 } elseif ($c -like \'systemctl *\') { 2000 } else { 900 }',
         '      $waited = 0; $chunk = ""',
         '      while ($waited -lt $maxWaitMs) {',
         '        Start-Sleep -Milliseconds 350; $waited += 350',
@@ -8393,7 +8396,7 @@ bash batch_taishan.sh</div>
         '    }',
         '    if (-not $Cfg.RunStepVerify) { $res.Status = "SUCCESS"; $res.Verdict = "已按选定步骤完成配置" } else {',
         '      $pcOk = $false',
-        '      for ($p = 1; $p -le 3; $p++) { if (Test-Connection -ComputerName $HostObj.OsIp -Count 1 -Quiet -ErrorAction SilentlyContinue) { $pcOk = $true; break }; Start-Sleep -Seconds 1 }',
+        '      for ($p = 1; $p -le 10; $p++) { if (Test-Connection -ComputerName $HostObj.OsIp -Count 1 -Quiet -ErrorAction SilentlyContinue) { $pcOk = $true; break }; Start-Sleep -Milliseconds 1500 }',
         '      $res.PcPingOs = if ($pcOk) { "OK" } else { "FAIL" }',
         '      $res.Status = if ($pcOk) { "SUCCESS" } else { "FAILED" }',
         '      if ($res.ActivePorts -eq 2 -and $res.SlavesUp -eq 2 -and $res.PartnerMac -ne "none" -and $res.PartnerMac -ne "00:00:00:00:00:00") {',
@@ -9070,7 +9073,7 @@ bash batch_taishan.sh</div>
         '      printf -- \'[%s] [%s/%s] [%s] Step 6/6: Verifying PC -> OS Ping (%s)...\\n\' "$(date +%H:%M:%S)" "${HOST_IDX}" "${TOTAL_HOSTS}" "${IBMC_IP}" "${OS_IP}"',
         '    fi',
         '    local p_ok=0',
-        '    for p in 1 2 3; do',
+        '    for p in 1 2 3 4 5 6 7 8 9 10; do',
         '      if [ "${PING_STYLE}" = "linux" ]; then ping -c 1 -W 1 "${OS_IP}" >/dev/null 2>&1 && { p_ok=1; break; }; else ping -n 1 -w 1000 "${OS_IP}" >/dev/null 2>&1 && { p_ok=1; break; }; fi',
         '      sleep 1',
         '    done',
@@ -10818,6 +10821,20 @@ bash batch_taishan.sh</div>
       if (errM) throw new Error(`${tag} VRP 报错: ${errM[0].trim()}`);
     }
 
+    // Read-only: returns { type, pvid } for a switch port via "display port vlan", or null if not found.
+    async function dcReadPortVlan(client, tag, port, cfg) {
+      const portNum = (/(\d+\/\d+\/\d+)\s*$/.exec(port) || [])[1];
+      if (!portNum) return null;
+      const showCmd = `display port vlan | include ${portNum} `;
+      dcAppendLine("sw", "cmd", `[${tag}] ${showCmd.trim()}  (只读)`, cfg);
+      client.cursor = client.cleanBuf.length;
+      await client.write(showCmd + "\r");
+      const rb = await client.waitFor([{ name: "sys", re: /[\[<][A-Za-z0-9_~*./:@-]+[\]>]\s*$/m }], 8000);
+      const rowRe = new RegExp(`^\\s*\\S*?${portNum.replace(/\//g, "\\/")}\\s+(\\S+)\\s+(\\d+)`, "m");
+      const row = rowRe.exec(rb.chunk || "");
+      return row ? { type: row[1].toLowerCase(), pvid: String(row[2]) } : null;
+    }
+
     function dcParseIpInfo(buf, h) {
       const pickField = (label) => {
         const m = new RegExp(`^\\s*${label}\\s*:\\s*(.+)$`, "mi").exec(buf);
@@ -10985,6 +11002,7 @@ bash batch_taishan.sh</div>
 
     async function dcRunStage1All(hosts, cfg, wbTask = null) {
       const swClients = new Map();
+      const swChanged = new Set(); // switches that actually received config this run (only these need save)
       dcSetSwStatus("RUNNING STAGE 1", "dc-pill-run");
       dcAppendLine("sw", "info", `================ [阶段一 · v10.1] 管理交换机单口 Access + 出厂 iBMC 改 IP ================`, cfg);
       if (wbTask) wbUpdateStage(wbTask, { currentStage: "阶段一", phase: "stage1", message: `开始执行阶段一（共 ${hosts.length} 台服务器）`, cfg });
@@ -11014,43 +11032,83 @@ bash batch_taishan.sh</div>
             const swCli = swClients.get(tag);
             dcAppendLine(hKey, "info", `[1/5] 管理交换机 ${tag} 单口 ${port} -> Access VLAN ${cfg.vlan} (绝不下发 Eth-Trunk)...`, cfg);
             let ifUsed = port;
-            try {
-              await dcSwitchSendCmd(swCli, tag, `interface ${port}`, cfg);
-            } catch (ifErr) {
-              // Older S-series VRP (e.g. V200R001) rejects the "GE0/0/x" abbreviation; retry with the full name.
-              const m = /^GE(\d.*)$/i.exec(port);
-              if (!m || !/VRP 报错/.test(ifErr.message || "")) throw ifErr;
-              dcAppendLine("sw", "warn", `[${tag}] 本机 VRP 不识别缩写 ${port}，改用 GigabitEthernet${m[1]}`, cfg);
-              await dcSwitchSendCmd(swCli, tag, `interface GigabitEthernet${m[1]}`, cfg);
-              ifUsed = `GigabitEthernet${m[1]}`;
-            }
-            await dcSwitchSendCmd(swCli, tag, "port link-type access", cfg);
-            await dcSwitchSendCmd(swCli, tag, `port default vlan ${cfg.vlan}`, cfg);
-            await dcSwitchSendCmd(swCli, tag, "quit", cfg);
-            // Read-only verification: the port must now really be access + target VLAN
-            const portNum = (/(\d+\/\d+\/\d+)\s*$/.exec(ifUsed) || [])[1];
-            if (portNum) {
-              const showCmd = `display port vlan | include ${portNum} `;
-              dcAppendLine("sw", "cmd", `[${tag}] ${showCmd.trim()}  (回读校验)`, cfg);
-              swCli.cursor = swCli.cleanBuf.length;
-              await swCli.write(showCmd + "\r");
-              const rb = await swCli.waitFor([{ name: "sys", re: /\[[A-Za-z0-9_~*./:@-]+\]\s*$/m }], 8000);
-              const rowRe = new RegExp(`^\\s*\\S*?${portNum.replace(/\//g, "\\/")}\\s+(\\S+)\\s+(\\d+)`, "m");
-              const row = rowRe.exec(rb.chunk || "");
-              if (!row) throw new Error(`${tag} 回读校验失败：未读到 ${ifUsed} 的端口 VLAN 信息 (${rb.name})`);
-              if (row[1].toLowerCase() !== "access" || String(row[2]) !== String(cfg.vlan)) {
-                throw new Error(`${tag} 回读校验失败：${ifUsed} 实际为 ${row[1]} / PVID ${row[2]}，期望 access / VLAN ${cfg.vlan}`);
+            const before = await dcReadPortVlan(swCli, tag, port, cfg);
+            const swSkipped = Boolean(before && before.type === "access" && before.pvid === String(cfg.vlan));
+            if (swSkipped) {
+              dcAppendLine(hKey, "ok", `[1/5] 预检：${port} 已是 access / VLAN ${cfg.vlan}，跳过下发`, cfg);
+            } else {
+              swChanged.add(tag);
+              try {
+                await dcSwitchSendCmd(swCli, tag, `interface ${port}`, cfg);
+              } catch (ifErr) {
+                // Older S-series VRP (e.g. V200R001) rejects the "GE0/0/x" abbreviation; retry with the full name.
+                const m = /^GE(\d.*)$/i.exec(port);
+                if (!m || !/VRP 报错/.test(ifErr.message || "")) throw ifErr;
+                dcAppendLine("sw", "warn", `[${tag}] 本机 VRP 不识别缩写 ${port}，改用 GigabitEthernet${m[1]}`, cfg);
+                await dcSwitchSendCmd(swCli, tag, `interface GigabitEthernet${m[1]}`, cfg);
+                ifUsed = `GigabitEthernet${m[1]}`;
               }
-              dcAppendLine(hKey, "ok", `[1/5] 回读校验通过：${ifUsed} = ${row[1]} / PVID ${row[2]}`, cfg);
+              await dcSwitchSendCmd(swCli, tag, "port link-type access", cfg);
+              await dcSwitchSendCmd(swCli, tag, `port default vlan ${cfg.vlan}`, cfg);
+              await dcSwitchSendCmd(swCli, tag, "quit", cfg);
+              // Read-only verification: the port must now really be access + target VLAN
+              const after = await dcReadPortVlan(swCli, tag, ifUsed, cfg);
+              if (!after) throw new Error(`${tag} 回读校验失败：未读到 ${ifUsed} 的端口 VLAN 信息`);
+              if (after.type !== "access" || after.pvid !== String(cfg.vlan)) {
+                throw new Error(`${tag} 回读校验失败：${ifUsed} 实际为 ${after.type} / PVID ${after.pvid}，期望 access / VLAN ${cfg.vlan}`);
+              }
+              dcAppendLine(hKey, "ok", `[1/5] 回读校验通过：${ifUsed} = ${after.type} / PVID ${after.pvid}`, cfg);
             }
             dcAppendLine(hKey, "ok", `[1/5] ${tag} ${port} 单口放行完成`, cfg);
-            if (wbTask) wbFinishCheck(wbTask, activeCheckId, { status: "passed", message: `${tag} ${port} 已放行 VLAN ${cfg.vlan}`, cfg });
+            if (wbTask) wbFinishCheck(wbTask, activeCheckId, { status: "passed", message: swSkipped ? `预检已是 access / VLAN ${cfg.vlan}（跳过下发）` : `${tag} ${port} 已放行 VLAN ${cfg.vlan}`, cfg });
 
             activeCheckId = `${pfx}factory_ping`;
             if (wbTask) wbStartCheck(wbTask, activeCheckId, { currentStage: "阶段一", currentTarget: h.hostname, phase: "stage1_arp_ping", message: `${h.hostname}: 清 ARP 并探测出厂 iBMC (${cfg.factoryIbmcIp})`, cfg });
             hostClient = new DcPtyClient(hKey, cfg);
             hostClient.setFeedNode("pc");
             await hostClient.open(`TaiShan-S1-#${idx}-${h.ibmcIp}`);
+
+            // Pre-check: is this iBMC already on its target address? Lets stage 1 be re-run safely.
+            let doneInfo = null;
+            if (h.ibmcIp && h.ibmcIp !== cfg.factoryIbmcIp) {
+              dcSetHostState(hKey, { pct: 22, step: `[预检] 目标 IP ${h.ibmcIp} 是否已生效` });
+              let targetUp = false;
+              for (let p = 1; p <= 2 && !targetUp; p++) targetUp = await dcPingOnce(hostClient, h.ibmcIp);
+              if (targetUp) {
+                dcAppendLine(hKey, "info", `[预检] 目标 IP ${h.ibmcIp} 已可达，SSH 核对 ipmcget -d ipinfo ...`, cfg);
+                hostClient.setFeedNode("ibmc");
+                try {
+                  await dcSshIbmcInteractive(hostClient, h.ibmcIp, iUser, iPass, cfg);
+                  hostClient.cursor = hostClient.cleanBuf.length;
+                  await hostClient.write("ipmcget -d ipinfo\r");
+                  const pev = await hostClient.waitFor([{ name: "prompt", re: /iBMC:\/->|iBMC:\/>|iBMC:[A-Za-z0-9_/.:-]*>/ }], 10000);
+                  await hostClient.write("exit\r");
+                  await dcSleep(400);
+                  const parsed = dcParseIpInfo(pev.chunk || "", { ...h, ibmcMask: newMask, ibmcGw: newGw });
+                  if (parsed.ok) doneInfo = parsed;
+                  else dcAppendLine(hKey, "warn", `[预检] ${h.ibmcIp} 可达但 ipinfo 不一致 (${parsed.vIp}/${parsed.vMask}/${parsed.vGw})，按出厂流程继续`, cfg);
+                } catch (pe) {
+                  dcAppendLine(hKey, "warn", `[预检] ${h.ibmcIp} 可达但 SSH 核对失败 (${pe.message || pe})，按出厂流程继续`, cfg);
+                  await hostClient.interrupt();
+                  await dcSleep(300);
+                }
+                hostClient.setFeedNode("pc");
+              }
+            }
+            if (doneInfo) {
+              const infoDetail = `IP: ${doneInfo.vIp} ${doneInfo.ipTag}\nMask: ${doneInfo.vMask} ${doneInfo.mkTag}\nGW: ${doneInfo.vGw} ${doneInfo.gwTag}\nInfo: Mode=${doneInfo.vMode} | ${doneInfo.vNet} (${doneInfo.vPort}) | VLAN=${doneInfo.vVlan} | MAC=${doneInfo.vMac}`;
+              dcAppendLine(hKey, "ok", `[预检] iBMC 已是目标地址且 ipinfo 一致，跳过出厂改 IP：\n${infoDetail}`, cfg);
+              if (wbTask) {
+                for (const id of ["factory_ping", "ibmc_set_ip", "new_ip_ping"]) {
+                  wbFinishCheck(wbTask, `${pfx}${id}`, { status: "skipped", durationMs: 0, message: `已是目标地址 ${h.ibmcIp}，跳过`, cfg });
+                }
+                wbFinishCheck(wbTask, `${pfx}ipinfo_verify`, { status: "passed", message: `预检 ipinfo 匹配 (${doneInfo.vIp}, MAC ${doneInfo.vMac})`, cfg });
+              }
+              const elapsed = `${((Date.now() - t0) / 1000).toFixed(1)}s`;
+              dcSetHostState(hKey, { status: "PASS", pct: 100, step: `阶段一 PASS · 已完成 (${elapsed})`, card: `阶段一 PASS（此前已完成，跳过改 IP）| ${tag} ${port} -> VLAN ${cfg.vlan}\n${infoDetail}` });
+              dcLastRunResults.push({ stage: "Stage1", hostname: h.hostname, sw: `${tag} ${port}`, ibmcIp: h.ibmcIp, osIp: `${h.osIp}/${h.prefix}`, status: "PASS", lacp: "-", ssh: "-", ping: "OK", mac: doneInfo.vMac, elapsed, verdict: "AlreadyDone:MATCH" });
+              continue;
+            }
 
             dcSetHostState(hKey, { pct: 28, step: `[2/5] 清 ARP & Ping ${cfg.factoryIbmcIp}` });
             dcAppendLine(hKey, "cmd", `[2/5] arp -d ${cfg.factoryIbmcIp} & Ping 出厂 IP (最多 ${cfg.pingTries} 次)...`, cfg);
@@ -11192,12 +11250,13 @@ bash batch_taishan.sh</div>
             wbStartCheck(wbTask, saveCheckId, { currentStage: "阶段一", currentTarget: tag, phase: "stage1_save", message: `正在保存 ${tag} 交换机配置`, cfg });
           }
           let saveOk = true;
+          const needSave = cfg.saveSw && swChanged.has(tag);
           try {
             if (!dcRunAborted) {
-              dcAppendLine("sw", "cmd", `[${tag}] return${cfg.saveSw ? " -> save -> y" : ""} -> quit`, cfg);
+              dcAppendLine("sw", "cmd", `[${tag}] return${needSave ? " -> save -> y" : ""} -> quit${cfg.saveSw && !needSave ? "（本次无配置改动，跳过 save）" : ""}`, cfg);
               await swCli.write("return\r");
               await dcSleep(400);
-              if (cfg.saveSw) {
+              if (needSave) {
                 swCli.cursor = swCli.cleanBuf.length;
                 await swCli.write("save\r");
                 await dcSleep(700);
@@ -11225,7 +11284,9 @@ bash batch_taishan.sh</div>
           const closeRes = await swCli.close();
           if (wbTask && closeRes?.ok && closeRes.sessionId) wbTask.releasedCount++;
           if (wbTask && !dcRunAborted && cfg.saveSw) {
-            wbFinishCheck(wbTask, saveCheckId, { status: saveOk ? "passed" : "warning", message: saveOk ? `${tag} 配置已保存并安全退出` : `${tag} 保存阶段出现异常，请人工核对`, cfg });
+            wbFinishCheck(wbTask, saveCheckId, needSave
+              ? { status: saveOk ? "passed" : "warning", message: saveOk ? `${tag} 配置已保存并安全退出` : `${tag} 保存阶段出现异常，请人工核对`, cfg }
+              : { status: "skipped", durationMs: 0, message: `${tag} 本次无配置改动，跳过 save`, cfg });
           }
         }
         if (wbTask && !dcRunAborted && cfg.saveSw) {
@@ -11406,10 +11467,10 @@ bash batch_taishan.sh</div>
         dcSetHostState(hKey, { pct: 94, step: `Step 6/6: 本机 -> OS 反向 Ping (${h.osIp})` });
         dcAppendLine(hKey, "info", `[Step 6/6] 本机 -> OS (${h.osIp}) 反向 Ping 验收...`, cfg);
         let revOk = false;
-        for (let p = 1; p <= 3; p++) {
+        for (let p = 1; p <= 10; p++) {
           if (dcRunAborted) throw new Error("用户已停止");
           if (await dcPingOnce(client, h.osIp)) { revOk = true; break; }
-          await dcSleep(700);
+          await dcSleep(1500);
         }
 
         const parsed = dcParseStage2Output(cmdCapture, h, cfg, revOk);
