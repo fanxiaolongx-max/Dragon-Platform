@@ -62,7 +62,7 @@ function pageAgent(bindingName, helpers) {
     window.__dragonVaultInstalled = true;
     const { fields, setValue, loginButton, needsVerification, usable } = helpers();
     const documentId = Array.from(crypto.getRandomValues(new Uint32Array(4)), value => value.toString(16)).join('-');
-    let requested = false, filled = false, capture = false, scanTimer, observer, lastSaved = '';
+    let requested = false, filled = false, capture = null, scanTimer, observer, lastSaved = '';
     const send = (action, credentials) => { try { window[bindingName](JSON.stringify({ action, document: documentId, ...(credentials ? { credentials } : {}) })); } catch (_error) { /* 通道不可用时什么都不做 */ } };
     function scan() { if (!requested && fields()) { requested = true; observer?.disconnect(); send('probe'); } }
     window.__dragonVaultState = state => {
@@ -84,7 +84,8 @@ function pageAgent(bindingName, helpers) {
         }, 700);
     };
     function remember(event) {
-        if (!capture || !event.isTrusted) return;
+        // capture 为 null 表示 probe 尚未返回：先放行到服务端，由服务端 onBinding 再次校验 neverSave
+        if (capture === false || !event.isTrusted) return;
         const form = fields();
         if (!form?.username.value || !form.password.value) return;
         if (event.type === 'click') {
@@ -195,6 +196,9 @@ function createHook(cdp, context) {
             const trustedOrigin = mainFrameId && tracked?.frameId === mainFrameId ? tracked.origin : '';
             const origin = trustedOrigin || originOf(await evaluate('window.top === window ? location.href : ""'));
             if (!origin) return;
+            if (tracked && !tracked.origin && (!mainFrameId || !tracked.frameId || tracked.frameId === mainFrameId)) {
+                tracked.origin = origin;
+            }
             if (message.action === 'probe') {
                 const never = await vault().neverSave(owner, origin);
                 const entry = (await vault().find(owner, origin)).find(item => item.autoFill);

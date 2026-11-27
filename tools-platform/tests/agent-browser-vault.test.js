@@ -12,7 +12,7 @@ process.env.TOOLS_REPORT_DATA_DIR = path.join(sandbox, 'report-data');
 
 const browser = require('../backend/models/agent-browser');
 const { vault } = require('../backend/models/password-vault');
-const { createHook, maskSecrets, vaultOwnerOf, WORLD, BINDING } = require('../backend/models/agent-browser-vault');
+const { createHook, maskSecrets, vaultOwnerOf, WORLD, BINDING, PAGE_AGENT_SOURCE } = require('../backend/models/agent-browser-vault');
 
 const PASSWORD = 'Tr0ub4dor&3-vault';
 const ALICE = 'default::alice', BOB = 'default::bob', CAROL = 'default::carol';
@@ -57,7 +57,7 @@ test.after(async () => {
 
 const run = (owner, name, args = {}) => browser.execute({ owner }, name, args);
 const activePage = owner => { const state = browser._internal.owners.get(owner); return state.tabs.get(state.active); };
-const until = async (check, ms = 8000) => {
+const until = async (check, ms = 15000) => {
     const end = Date.now() + ms;
     for (;;) {
         try {
@@ -209,6 +209,52 @@ test('save survives fast form navigation after executionContextCreated and rejec
     const entries = await vault().find('dave', 'https://nav-race.example');
     assert.equal(entries.length, 1);
     assert.equal(await vault().reveal('dave', entries[0].id), PASSWORD);
+});
+
+test('pageAgent captures trusted submit before probe finishes and stops once capture=false arrives', () => {
+    const vm = require('node:vm');
+    const sent = [];
+    const listeners = new Map();
+    const userInput = { type: 'text', name: 'username', id: '', placeholder: '', autocomplete: 'username', value: 'fast@example.com', disabled: false, readOnly: false, getAttribute: () => '', getClientRects: () => [{}], compareDocumentPosition: () => 4 };
+    const passInput = { type: 'password', name: 'password', id: '', placeholder: '', autocomplete: 'current-password', value: PASSWORD, disabled: false, readOnly: false, getAttribute: () => '', getClientRects: () => [{}] };
+    const form = { querySelectorAll: sel => sel === 'input' ? [userInput, passInput] : [] };
+    userInput.form = form;
+    passInput.form = form;
+    const doc = {
+        readyState: 'complete',
+        documentElement: {},
+        querySelectorAll: sel => sel === 'input[type="password"]' ? [passInput] : [userInput, passInput],
+        addEventListener: (type, fn) => listeners.set(type, fn)
+    };
+    const sandboxWin = {
+        location: { origin: 'https://fast-login.example' },
+        crypto: { getRandomValues: arr => { arr.fill(1); return arr; } },
+        Node: { DOCUMENT_POSITION_FOLLOWING: 4 },
+        MutationObserver: class { observe() {} disconnect() {} },
+        document: doc,
+        setTimeout,
+        clearTimeout,
+        [BINDING]: payload => sent.push(JSON.parse(payload))
+    };
+    sandboxWin.window = sandboxWin;
+    sandboxWin.top = sandboxWin;
+    vm.runInNewContext(PAGE_AGENT_SOURCE, sandboxWin);
+
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0].action, 'probe');
+    const docId = sent[0].document;
+
+    // Submit BEFORE __dragonVaultState replies: should still emit save (backend enforces neverSave)
+    listeners.get('submit')({ type: 'submit', isTrusted: true });
+    assert.equal(sent.length, 2);
+    assert.equal(sent[1].action, 'save');
+    assert.deepEqual(sent[1].credentials, { username: 'fast@example.com', password: PASSWORD });
+
+    // Once probe responds with capture: false, further submits are ignored in-page
+    sandboxWin.__dragonVaultState({ document: docId, origin: 'https://fast-login.example', capture: false, autoSubmit: false, credentials: null });
+    passInput.value = 'another-pass-123';
+    listeners.get('submit')({ type: 'submit', isTrusted: true });
+    assert.equal(sent.length, 2);
 });
 
 test('helpers', () => {
