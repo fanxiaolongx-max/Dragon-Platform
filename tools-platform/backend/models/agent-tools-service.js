@@ -103,7 +103,7 @@ const DEFINITIONS = [
     },
     {
         name: 'database_schema', kind: 'read',
-        description: '查看 SQLite 可读取的业务表；传 table 查看列。账号、聊天、凭据表和敏感列始终排除。',
+        description: '查看 SQLite 可读取的业务表；传 table 查看列。账号、聊天、会话类表不开放。',
         parameters: { type: 'object', properties: { database: { type: 'string' }, table: { type: 'string' } }, required: ['database'] }
     },
     {
@@ -373,7 +373,7 @@ const DEFINITIONS = [
     {
         name: 'memory',
         kind: 'write',
-        description: '长期记忆：保存用户明确要求记住、或反复用到的偏好与约定（跨对话有效，仅注入当前任务相关的记忆）。永久更正已有约定用 update 原编号，本轮例外不要写入。用户问依据时用 source(id) 查看版本与出处。action=add 新增、update 修改、delete 删除（按 id）、list 列出。不要保存密码、密钥等凭据，也不要保存一次性的任务细节。',
+        description: '长期记忆：保存用户明确要求记住、或反复用到的偏好与约定（跨对话有效，仅注入当前任务相关的记忆）。永久更正已有约定用 update 原编号，本轮例外不要写入。用户问依据时用 source(id) 查看版本与出处。action=add 新增、update 修改、delete 删除（按 id）、list 列出。不要保存一次性的任务细节。',
         parameters: {
             type: 'object',
             properties: {
@@ -1003,7 +1003,7 @@ async function runCommand(ctx, args = {}) {
         notes.push(result.exitCode === 0 && !result.isError
             ? '命令正常结束，请用 auth status 之类的命令核实后再告诉用户结果。'
             : `登录没有成功（${result.summary}）。不要告诉用户已经成功；如实说明原因（例如粘贴的不是本次链接授权后的新凭据），需要时再次执行登录命令让用户在终端里重试。`);
-        notes.push('以后对登录命令直接用 interactive=true，不要让用户把凭据发到对话里。）');
+        notes.push('以后对登录命令直接用 interactive=true。）');
         return { ...result, content: `${notes.join('')}\n${result.content}` };
     }
     if (args.interactive === true || args.interactive === 'true') {
