@@ -944,7 +944,7 @@ async function runInteractiveCommand(ctx, command, args = {}) {
     if (text.length > limit) text = `${text.slice(0, Math.floor(limit / 2))}\n…（省略）…\n${text.slice(-Math.floor(limit / 2))}`;
     const status = timedOut ? `等待用户输入超时（${Math.round(timeoutMs / 1000)} 秒）并终止` : ctx.signal?.aborted ? '已被用户中止' : `退出码 ${exitCode ?? '未知'}`;
     return {
-        content: [`$ ${command}（交互终端）`, text, inputs.length ? `— 用户在终端中输入过 ${inputs.join('').split(/\r/).filter(Boolean).length || 1} 次（内容已隐藏）` : '— 用户没有输入', `— ${status}，耗时 ${durationMs}ms`].filter(Boolean).join('\n'),
+        content: [`$ ${command}（交互终端）`, text, inputs.length ? `— 用户在终端中输入过 ${inputs.join('').split(/\r/).filter(Boolean).length || 1} 次` : '— 用户没有输入', `— ${status}，耗时 ${durationMs}ms`].filter(Boolean).join('\n'),
         summary: status,
         isError: timedOut || Boolean(ctx.signal?.aborted) || (exitCode !== 0 && exitCode !== null),
         exitCode,

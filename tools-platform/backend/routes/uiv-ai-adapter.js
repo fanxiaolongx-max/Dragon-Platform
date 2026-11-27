@@ -233,7 +233,7 @@ function cleanGeneratedEnglishName(value) {
 }
 
 function buildScriptNamingPrompt(input) {
-    return `你是自动化脚本命名助手。根据下面经过脱敏和裁剪的脚本摘要，为脚本生成准确、简短、可搜索的中英文名称。
+    return `你是自动化脚本命名助手。根据下面经过裁剪的脚本摘要，为脚本生成准确、简短、可搜索的中英文名称。
 
 要求：
 1. 只返回严格 JSON：{"zhName":"...","enName":"..."}。
@@ -303,8 +303,8 @@ function normalizeHeaders(value) {
 
 function redactHeaders(headers) {
     return Object.fromEntries(Object.entries(headers).map(([key, value]) => {
-        if (SENSITIVE_HEADER_RE.test(key)) return [key, '{{REDACTED_SENSITIVE_VALUE}}'];
-        return [key, SAFE_HEADER_VALUE_RE.test(key) ? value : '{{VALUE_OMITTED}}'];
+        // 脱敏已取消：鉴权类请求头原样交给 AI；其他非白名单请求头仍只为控制长度而省略
+        return [key, SENSITIVE_HEADER_RE.test(key) || SAFE_HEADER_VALUE_RE.test(key) ? value : '{{VALUE_OMITTED}}'];
     }));
 }
 
@@ -313,11 +313,9 @@ function summarizeSearchParams(parsedUrl) {
     for (const [key, rawValue] of parsedUrl.searchParams.entries()) {
         if (Object.keys(summary).length >= 60 && !Object.prototype.hasOwnProperty.call(summary, key)) break;
         const textValue = String(rawValue);
-        const value = SENSITIVE_HEADER_RE.test(key)
-            ? '{{REDACTED_SENSITIVE_VALUE}}'
-            : (/^-?\d+(?:\.\d+)?$/.test(textValue) || /^(?:true|false)$/i.test(textValue)
-                ? textValue.slice(0, 100)
-                : `{{STRING_LENGTH:${textValue.length}}}`);
+        const value = /^-?\d+(?:\.\d+)?$/.test(textValue) || /^(?:true|false)$/i.test(textValue)
+            ? textValue.slice(0, 100)
+            : `{{STRING_LENGTH:${textValue.length}}}`;
         if (!Object.prototype.hasOwnProperty.call(summary, key)) {
             summary[key] = value;
         } else if (Array.isArray(summary[key])) {
@@ -329,15 +327,6 @@ function summarizeSearchParams(parsedUrl) {
     return summary;
 }
 
-function redactSensitiveObject(value, depth = 0) {
-    if (depth > 12) return '{{DEPTH_LIMIT}}';
-    if (Array.isArray(value)) return value.slice(0, 200).map(item => redactSensitiveObject(item, depth + 1));
-    if (!value || typeof value !== 'object') return value;
-    return Object.fromEntries(Object.entries(value).slice(0, 300).map(([key, child]) => {
-        if (SENSITIVE_HEADER_RE.test(key)) return [key, '{{REDACTED_SENSITIVE_VALUE}}'];
-        return [key, redactSensitiveObject(child, depth + 1)];
-    }));
-}
 
 function jsonSize(value) {
     return JSON.stringify(value).length;
@@ -377,7 +366,7 @@ function sampleJsonValue(value, config, depth = 0) {
 function prepareAiSample(value, label) {
     const originalChars = jsonSize(value);
     for (const config of AI_SAMPLE_CONFIGS) {
-        const sampled = sampleJsonValue(redactSensitiveObject(value), config);
+        const sampled = sampleJsonValue(value, config);
         const sampledChars = jsonSize(sampled.value);
         if (sampledChars <= MAX_AI_SAMPLE_CHARS) {
             return {
@@ -801,7 +790,7 @@ function buildPrompt(input) {
 
 规则：
 1. 不得输出 Markdown、代码围栏、函数或额外字段。
-2. 不得猜测或还原已脱敏的 Token、Cookie、密钥。
+2. 不要把请求头里的 Token、Cookie、密钥原值写进配置，鉴权统一按 auth 策略在运行时获取。
 3. rowsPath 必须指向响应样本中的数据数组，而不是包装对象。
 4. 不能可靠判断分页时使用 none，并在 notes 说明。
 5. 请求头中出现认证字段时，只有能可靠判断浏览器存储键时才选择 localStorage/sessionStorage；存储值是 JSON 时用 valuePath 指向 Token。Cookie 自动随 credentials 发送时用 cookie；需要将已知 Cookie 值复制到 CSRF 请求头时用 cookieHeader，并填写 Cookie 名 sourceKey 与 header。已确认存在 Authorization/Token/CSRF 请求头、但无法可靠判断 Cookie 或浏览器存储键时，使用 autoProbe，填写原请求头名 header，sourceKey/valuePath 留空；脚本会在目标页面本地探测常见来源。
@@ -974,8 +963,8 @@ router.post('/analyze', async (req, res) => {
         } else if (responseFocusKeyword) {
             addLog(`已收到关键词“${responseFocusKeyword}”，但未选择聚焦路径，将使用完整响应样本。`, 'info');
         }
-        stage = '样本抽样脱敏';
-        addLog('输入 JSON 解析完成，开始自动抽样和敏感字段脱敏。', 'busy');
+        stage = '样本抽样';
+        addLog('输入 JSON 解析完成，开始自动抽样。', 'busy');
         const requestBodySample = prepareAiSample(requestBody, '请求负载');
         const responseSampleForAi = prepareAiSample(responseSampleForAnalysis, responseFocusPath ? '聚焦响应样本' : '响应样本');
         const secondResponseSampleForAi = secondResponseSampleForAnalysis

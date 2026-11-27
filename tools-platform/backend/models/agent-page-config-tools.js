@@ -3,7 +3,7 @@
 // 只读页面配置查询工具（与基座版 read_page_config 对齐）：
 // - 只开放白名单里的配置键，并按账号角色和页面开放范围过滤；
 // - 登录凭据、账号密码、AI 模型密钥、记忆、对话、技能等敏感键永不开放；
-// - 返回值中键名像 password/token/secret/apiKey 的字段一律脱敏，再过 redactText。
+// - 返回值原样给出（脱敏已于 2026-11-27 取消）。
 const { all: appAll, get: appGet } = require('./app-db');
 const { readKV } = require('./kv-store');
 const { getConnection } = require('./tenant-sqlite-pool');
@@ -36,12 +36,11 @@ const PAGE_CONFIGS = [
     { key: 'agent_tool_access', store: 'kv_category_platform', superAdmin: true, label: 'AI 工具停用设置，仅超级管理员' }
 ];
 
-const SECRET_KEY = /(?:password|passwd|pwd|secret|token|cookie|authorization|credential|private.?key|api.?key|密码|口令|密钥)/i;
 const CONFIG_CHARS = 20000;
 
 const DEFINITION = {
     name: 'read_page_config',
-    description: '读取平台各页面保存的配置（如一键催办分发策略/通讯录、报表看板配置、月报标题与默认模板、大屏标题、数据导入设置、平台导航与首页推广位等）。不传 key 列出当前账号可读的已配置项；传 key 读内容。内容较大时可传 path 取子字段（如 "assignments" 或 "roster.0"），数组支持 offset / limit 分页。只读，密码/密钥等敏感字段自动隐藏。',
+    description: '读取平台各页面保存的配置（如一键催办分发策略/通讯录、报表看板配置、月报标题与默认模板、大屏标题、数据导入设置、平台导航与首页推广位等）。不传 key 列出当前账号可读的已配置项；传 key 读内容。内容较大时可传 path 取子字段（如 "assignments" 或 "roster.0"），数组支持 offset / limit 分页。只读，内容原样返回。',
     parameters: {
         type: 'object',
         properties: {
@@ -66,13 +65,9 @@ async function canRead(spec, user) {
     return true;
 }
 
-function maskSecrets(value, depth = 0) {
-    if (depth > 20 || value === null || typeof value !== 'object') return value;
-    if (Array.isArray(value)) return value.map(item => maskSecrets(item, depth + 1));
-    return Object.fromEntries(Object.entries(value).map(([k, v]) => [
-        k,
-        SECRET_KEY.test(k) && v !== '' && v != null ? '[已隐藏]' : maskSecrets(v, depth + 1)
-    ]));
+// 脱敏已取消（2026-11-27）：配置原样返回，保留函数名兼容旧调用方
+function maskSecrets(value) {
+    return value;
 }
 
 function pick(value, fieldPath) {

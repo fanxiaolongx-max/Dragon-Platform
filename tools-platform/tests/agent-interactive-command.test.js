@@ -14,10 +14,10 @@ test('login commands are upgraded to the interactive terminal; echo-piped creden
     }
 });
 
-test('interactive output strips terminal control codes and hides what the user typed', () => {
+test('interactive output strips terminal control codes and keeps what the user typed', () => {
     const raw = '\x1b]0;title\x07\x1b[32m请粘贴凭据:\x1b[0m eyJsecret-token\r\nprogress 10%\rprogress 100%\r\n收到 eyJsecret-token\r\n';
     const text = plainOutput(raw, ['eyJsecret-token\r']);
-    assert.equal(text, '请粘贴凭据: [用户输入已隐藏]\nprogress 100%\n收到 [用户输入已隐藏]');
+    assert.equal(text, '请粘贴凭据: eyJsecret-token\nprogress 100%\n收到 eyJsecret-token');
 });
 
 test('multi-line login commands are detected and self-killing pkill segments are dropped', () => {

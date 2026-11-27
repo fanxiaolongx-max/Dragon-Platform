@@ -84,7 +84,7 @@
             const ceiling = elapsed < 5000 ? 52 : (elapsed < 15000 ? 72 : 84);
             if (progressValue < ceiling) {
                 const label = elapsed < 5000
-                    ? (window.UIVT ? window.UIVT('uiv.aiAdapter.pulseSample') : '正在抽样脱敏并准备模型输入…')
+                    ? (window.UIVT ? window.UIVT('uiv.aiAdapter.pulseSample') : '正在抽样并准备模型输入…')
                     : (elapsed < 15000
                         ? (window.UIVT ? window.UIVT('uiv.aiAdapter.pulseModel') : 'AI 正在分析请求与响应结构…')
                         : (window.UIVT ? window.UIVT('uiv.aiAdapter.pulseWait') : '模型仍在分析，正在耐心等待…'));
@@ -111,7 +111,7 @@
             const sensitive = result.sensitiveHeaderNames || [];
             const parsedLabel = window.UIVT ? window.UIVT('uiv.aiAdapter.parsed') : '已解析：';
             const headersCountLabel = window.UIVT ? window.UIVT('uiv.aiAdapter.headerCount', { count: Object.keys(parsed.headers || {}).length }) : `${Object.keys(parsed.headers || {}).length} 个请求头`;
-            const warningText = sensitive.length ? `<br><span class="warn">${window.UIVT ? window.UIVT('uiv.aiAdapter.sensitiveHeadersWarning', { headers: sensitive.map(escapeHtml).join('、') }) : `发现敏感请求头：${sensitive.map(escapeHtml).join('、')}，发送给 AI 前会脱敏。`}</span>` : '';
+            const warningText = sensitive.length ? `<br><span class="warn">${window.UIVT ? window.UIVT('uiv.aiAdapter.sensitiveHeadersWarning', { headers: sensitive.map(escapeHtml).join('、') }) : `发现鉴权请求头：${sensitive.map(escapeHtml).join('、')}，将原样发送给 AI 用于判断鉴权方式。`}</span>` : '';
             el('uivAiFetchSummary').innerHTML = `
                 <b>${parsedLabel}</b>${escapeHtml(parsed.method)} · ${escapeHtml(parsed.url)}
                 · ${headersCountLabel}
@@ -415,7 +415,7 @@
             const input = requestInput();
             setProgress(16, window.UIVT ? window.UIVT('uiv.aiAdapter.validatedInput') : '输入校验完成，准备安全分析…', 'busy');
             addAnalyzeLog(window.UIVT ? window.UIVT('uiv.aiAdapter.logLocalValidatePass') : '本地校验通过，准备发送到后端分析。', 'ok');
-            setStatus(window.UIVT ? window.UIVT('uiv.aiAdapter.sentToBackend') : '已发送到后端，正在抽样、脱敏并调用 AI…', 'busy');
+            setStatus(window.UIVT ? window.UIVT('uiv.aiAdapter.sentToBackend') : '已发送到后端，正在抽样并调用 AI…', 'busy');
             startProgressPulse();
             const result = await API.post('/api/uiv-ai-adapter/analyze', input);
             stopProgressPulse();
@@ -454,7 +454,7 @@
                 ${arrayCandidates.length ? `<div class="note"><b>候选数据数组：</b>确定性扫描到 ${arrayCandidates.length} 处，最终采用 ${escapeHtml(adapter.response.rowsPath || '(根数组)')}</div>` : ''}
                 ${focus ? `<div class="note"><b>关键词聚焦：</b>${escapeHtml(focus.keyword || '')} / ${escapeHtml(focus.path || '(根节点)')}</div>` : ''}
                 ${sampled.length ? `<div class="note"><b>已自动抽样：</b>${sampled.join('；')}</div>` : ''}
-                ${sensitive.length ? `<div class="warn"><b>敏感请求头已脱敏：</b>${sensitive.map(escapeHtml).join('、')}</div>` : ''}
+                ${sensitive.length ? `<div class="warn"><b>鉴权请求头（原样发送）：</b>${sensitive.map(escapeHtml).join('、')}</div>` : ''}
                 ${(adapter.notes || []).map(note => `<div class="note">• ${escapeHtml(note)}</div>`).join('')}
                 <details><summary>预览前 5 行</summary><pre>${escapeHtml(JSON.stringify(validation.previewRows || [], null, 2))}</pre></details>`;
             el('uivAiGenerateBtn').disabled = false;

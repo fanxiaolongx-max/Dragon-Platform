@@ -40,7 +40,7 @@ test('platform database IDs always resolve inside the current tenant, even after
     });
 });
 
-test('local SQLite reads exclude credentials and views and use parameterized structured filters', async () => {
+test('local SQLite reads exclude credential tables and views and use parameterized structured filters', async () => {
     await create(path.join(root, 'local.db'), `CREATE TABLE records (id INTEGER, label TEXT, api_token TEXT, payload TEXT);
         INSERT INTO records VALUES (1, 'normal', 'never-return-column', '{"password":"never-return-json"}');
         INSERT INTO records VALUES (2, 'unlabelled-runtime-key-value', 'also-hidden', 'ordinary');
@@ -52,16 +52,16 @@ test('local SQLite reads exclude credentials and views and use parameterized str
     const listed = await service.listDatabases(ctx);
     assert.equal(listed.databases.some(item => item.id === 'local:local.db'), true);
     const schema = await service.schema(ctx, { database: 'local:local.db', table: 'records' });
-    assert.deepEqual(schema.columns.map(item => item.name), ['id', 'label', 'payload']);
+    assert.deepEqual(schema.columns.map(item => item.name), ['id', 'label', 'api_token', 'payload']);
     const result = await service.readTable(ctx, { database: 'local:local.db', table: 'records', limit: 1 });
     assert.equal(result.nextOffset, 1);
-    assert.equal(JSON.stringify(result).includes('never-return-column'), false, 'credential columns stay excluded');
+    assert.equal(JSON.stringify(result).includes('never-return-column'), true, 'credential-named columns are readable again');
     assert.equal(JSON.stringify(result).includes('never-return-json'), true, 'cell text is no longer redacted');
     const second = await service.readTable(ctx, { database: 'local:local.db', table: 'records', offset: 1 });
     assert.equal(second.rows[0].label, 'unlabelled-runtime-key-value');
     assert.equal(second.nextOffset, null);
     const keyValue = await service.readTable(ctx, { database: 'local:local.db', table: 'settings_values', columns: ['value'] });
-    assert.equal(keyValue.rows[0].value, '[REDACTED]', 'omitting key_name from requested columns cannot bypass credential filtering');
+    assert.equal(keyValue.rows[0].value, 'never-return-key-value', 'key/value rows are no longer masked');
     const empty = await service.readTable(ctx, { database: 'local:local.db', table: 'records', filter: { column: 'label', op: 'eq', value: "' OR 1=1 --" } });
     assert.deepEqual(empty.rows, []);
     const unselectedFilter = await service.readTable(ctx, { database: 'local:local.db', table: 'records', columns: ['payload'], filter: { column: 'id', op: 'eq', value: 1 } });
@@ -73,7 +73,7 @@ test('local SQLite reads exclude credentials and views and use parameterized str
     assert.equal(explicitFilters.rows.length, 1);
     const multiFilterMismatch = await service.readTable(ctx, { database: 'local:local.db', table: 'records', filter: [{ column: 'id', op: 'eq', value: 1 }, { column: 'label', op: 'eq', value: 'mismatch' }] });
     assert.equal(multiFilterMismatch.rows.length, 0);
-    for (const args of [{ table: 'disguised' }, { table: 'records; DROP TABLE records' }, { table: 'records', columns: ['api_token'] }, { table: 'records', columns: ['(SELECT password FROM auth_users)'] }, { table: 'records', orderBy: { column: 'api_token', direction: 'desc' } }, { table: 'records', orderBy: { column: 'id', direction: 'desc; DROP TABLE records' } }, { table: 'records', orderBy: 'id' }]) {
+    for (const args of [{ table: 'disguised' }, { table: 'records; DROP TABLE records' }, { table: 'records', columns: ['(SELECT password FROM auth_users)'] }, { table: 'records', orderBy: { column: 'id', direction: 'desc; DROP TABLE records' } }, { table: 'records', orderBy: 'id' }]) {
         await assert.rejects(service.readTable(ctx, { database: 'local:local.db', ...args }), { code: 'AGENT_DATABASE_FORBIDDEN' });
     }
     const desc = await service.readTable(ctx, { database: 'local:local.db', table: 'records', limit: 1, orderBy: { column: 'id', direction: 'desc' } });

@@ -154,7 +154,7 @@ async function read(ctx, args) {
     const limit = Math.min(8000, Math.max(1, Math.floor(Number(args.limit)) || 6000));
     return { id: args.id, revision: source.revision, integrity: source.issues, ...(source.notes.length ? { notes: source.notes } : {}), summary: redactValue(summary({ ...source.script, id: source.row.id }), { secrets: ctx.sensitiveValues }), field, content: text.slice(offset, offset + limit),
         totalCharacters: text.length, offset, nextOffset: offset + limit < text.length ? offset + limit : null,
-        note: 'content 为脱敏后的字段片段，按 nextOffset 继续读取；显示的凭据遮盖不表示禁止保存。clone/rebuild 在服务端保留完整源内容，不要把脱敏片段拼回代码。语法校验接受顶层 return，不执行抓取请求。' };
+        note: 'content 为字段原文片段，按 nextOffset 继续读取；clone/rebuild 在服务端保留完整源内容。语法校验接受顶层 return，不执行抓取请求。' };
 }
 
 function parseChanges(value) {
@@ -211,7 +211,6 @@ async function plan(ctx, args) {
     for (const item of args.replacements || []) {
         if (!item || !CODE_FIELDS.has(item.field) || typeof item.oldText !== 'string' || !item.oldText || typeof item.newText !== 'string'
             || !Number.isInteger(item.expectedOccurrences) || item.expectedOccurrences < 1) throw fail('替换需要 field、非空 oldText、newText 和 expectedOccurrences');
-        if (/\[REDACTED\]/.test(item.oldText + item.newText)) throw fail('不能把读取时的脱敏占位写回脚本；复制/重建请使用源 ID，服务端会保留完整原文');
         const text = next[item.field];
         if (typeof text !== 'string') throw fail('替换字段不是字符串');
         const parts = text.split(item.oldText);
@@ -255,7 +254,6 @@ async function plan(ctx, args) {
     }, 'AGENT_SCRIPT_NAME_CONFLICT');
     next.updatedAt = new Date().toISOString();
     if (!['update', 'rebuild'].includes(args.action)) next.createdAt = next.updatedAt;
-    if (/\[REDACTED\]/.test(JSON.stringify(changes))) throw fail('不能保存脱敏占位内容');
     return { source, baseSource, next, id: next.id };
 }
 

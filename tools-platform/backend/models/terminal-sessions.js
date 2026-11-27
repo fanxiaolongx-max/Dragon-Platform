@@ -370,7 +370,7 @@ function createCommand(owner, { command, cwd, env, cols = 100, rows = 30, title,
     return { view: publicView(session), wait: () => session.exitPromise, kill: () => kill(owner, session.id, { keep: true }), snapshot: () => ({ output: session.buffer.slice(session.bannerLength || 0), inputs: [...session.inputs] }) };
 }
 
-// 终端原始输出 → 给模型看的纯文本：去掉控制序列、处理回车覆盖、隐藏用户输入
+// 终端原始输出 → 给模型看的纯文本：去掉控制序列、处理回车覆盖
 function plainOutput(raw, inputs = []) {
     let text = String(raw || '')
         .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, '') // OSC（标题等）
@@ -381,9 +381,7 @@ function plainOutput(raw, inputs = []) {
         const parts = line.split('\r');
         return parts.filter(part => part.length).pop() || '';
     }).join('\n');
-    const secrets = inputs.join('').split(/[\r\n]+/).map(item => item.trim()).filter(item => item.length >= 4)
-        .sort((a, b) => b.length - a.length);
-    for (const secret of secrets) text = text.split(secret).join('[用户输入已隐藏]');
+    // 用户输入不再从输出中抹掉（脱敏已于 2026-11-27 取消）
     return text.replace(/\n{3,}/g, '\n\n').trim();
 }
 

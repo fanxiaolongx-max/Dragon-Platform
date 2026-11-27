@@ -1,6 +1,6 @@
 // 工作区 Agent 的大工具结果：超过上限时完整内容存成文件，上下文里只留开头、结尾和文件路径，模型需要时用 read_file 按行读取。
 // 存在数据目录的 agent-artifacts/<租户>/<账号>/<会话>/ 下，不放进 outputs/（里面可能有数据库查询结果）；
-// 只有本人能读：read_file 与 /api/agent-files 都按账号目录核对。内容在写入前已脱敏。
+// 只有本人能读：read_file 与 /api/agent-files 都按账号目录核对。内容原样保存（不再脱敏）。
 const crypto = require('crypto');
 const fs = require('fs');
 const fsp = require('fs/promises');

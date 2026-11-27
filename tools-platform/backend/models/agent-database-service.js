@@ -5,7 +5,7 @@ const sqlite3 = require('sqlite3');
 const guard = require('./agent-path-guard');
 const tenant = require('./tenant-context');
 const pool = require('./tenant-sqlite-pool');
-const { redactValue, containsSensitiveText, REDACTED } = require('./ai-sensitive-data');
+const { containsSensitiveText } = require('./ai-sensitive-data');
 
 const EXT = /\.(?:db|sqlite|sqlite3)$/i;
 const PRIVATE_TABLE = /^(?:hosted_adc_|sqlite_|auth_|ai_(?!(?:report_|knowledge_|usage_))|agent_|audit_|desktop_license|desktop_agent_(?:settings|host_bindings)|snapshot_portal_keys|tenants?(?:_|$)|users?(?:_|$)|sessions?(?:_|$)|credentials?(?:_|$)|secrets?(?:_|$)|oauth|settings$)/i;
@@ -229,10 +229,11 @@ async function resolveTableName(all, table) {
     return match.name;
 }
 
-async function columns(all, table) {
+// 读取（schema / readTable）不再隐藏凭据类列（脱敏已于 2026-11-27 取消）；写入仍不允许改这些列。
+async function columns(all, table, { includePrivate = false } = {}) {
     const resolved = await resolveTableName(all, table);
     const rows = await all(`PRAGMA table_info(${quote(resolved)})`);
-    return rows.filter(row => !PRIVATE_COLUMN.test(row.name));
+    return includePrivate ? rows : rows.filter(row => !PRIVATE_COLUMN.test(row.name));
 }
 
 async function listDatabases(ctx, args = {}) {
@@ -282,7 +283,7 @@ async function schema(ctx, args) {
                 databasePurpose: describeDatabase(args.database),
                 table: tableName,
                 tablePurpose: describeTablePurpose(tableName),
-                columns: (await columns(all, tableName)).map(row => ({ name: row.name, type: row.type, primaryKey: Boolean(row.pk) }))
+                columns: (await columns(all, tableName, { includePrivate: true })).map(row => ({ name: row.name, type: row.type, primaryKey: Boolean(row.pk) }))
             };
         }
         const list = await tables(all);
@@ -325,7 +326,7 @@ async function schema(ctx, args) {
 async function readTable(ctx, args) {
     return withDatabase(ctx, args.database, async all => {
         const tableName = await resolveTableName(all, args.table);
-        const available = await columns(all, tableName);
+        const available = await columns(all, tableName, { includePrivate: true });
         const selected = Array.isArray(args.columns) && args.columns.length ? args.columns : available.slice(0, 16).map(row => row.name);
         if (!selected.length || selected.length > 16 || selected.some(name => !available.some(row => row.name === name))) throw fail('列不存在、属于敏感字段，或超过单次 16 列上限');
         const params = [];
@@ -372,17 +373,12 @@ async function readTable(ctx, args) {
         const offset = Math.max(0, Math.floor(Number(args.offset)) || 0);
         // 不把任意大 BLOB/长文本搬进 Node 内存；每个值有明确截断提示。
         const fields = selected.map(name => `CASE WHEN typeof(${quote(name)}) = 'blob' THEN '[BLOB omitted]' WHEN typeof(${quote(name)}) = 'text' AND length(${quote(name)}) > 1000 THEN substr(${quote(name)}, 1, 1000) || '…[cell truncated]' ELSE ${quote(name)} END AS ${quote(name)}`);
-        const keyFields = available.filter(row => /^(?:key|key_name|name|setting|setting_name|config_key)$/i.test(row.name));
-        keyFields.forEach((row, index) => fields.push(`substr(CAST(${quote(row.name)} AS TEXT), 1, 120) AS ${quote(`__agent_key_hint_${index}`)}`));
         const countRows = await all(`SELECT COUNT(1) AS total FROM ${quote(tableName)}${where}`, params);
         const totalRows = Number(countRows[0]?.total || 0);
         const rows = await all(`SELECT ${fields.join(', ')} FROM ${quote(tableName)}${where}${orderClause} LIMIT ? OFFSET ?`, [...params, limit + 1, offset]);
         const safeRows = [];
         for (const row of rows.slice(0, limit)) {
-            // key/value 风格配置即使凭据藏在通用 value 列，也不返回原文。
-            const sensitiveKeyRow = keyFields.some((_item, index) => PRIVATE_COLUMN.test(row[`__agent_key_hint_${index}`] || ''));
-            const values = Object.fromEntries(selected.map(key => [key, row[key]]));
-            const safe = sensitiveKeyRow ? Object.fromEntries(selected.map(key => [key, REDACTED])) : redactValue(values, { secrets: ctx.sensitiveValues });
+            const safe = Object.fromEntries(selected.map(key => [key, row[key]]));
             if (safeRows.length && JSON.stringify([...safeRows, safe]).length > 18000) break;
             safeRows.push(safe);
         }

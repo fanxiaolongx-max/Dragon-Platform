@@ -32,7 +32,7 @@ test.after(async () => {
     fs.rmSync(sandbox, { recursive: true, force: true });
 });
 
-test('read_page_config enforces allowlist, masks secrets, respects page access, and supports path/pagination', async () => {
+test('read_page_config enforces allowlist, returns values verbatim, respects page access, and supports path/pagination', async () => {
     await runWithTenant('default', async () => {
         await writeKV('sys', 'nav_settings', {
             layout: 'home-v2',
@@ -63,11 +63,10 @@ test('read_page_config enforces allowlist, masks secrets, respects page access, 
     const deniedKey = await pageConfigTools.execute({ key: 'ai_settings' }, { user: superAdmin, tenantId: 'default' });
     assert.equal(deniedKey.isError, true);
 
-    // Secrets are masked, path & array pagination work
+    // Values are returned verbatim, path & array pagination work
     const navRes = await pageConfigTools.execute({ key: 'nav_settings' }, { user: superAdmin, tenantId: 'default' });
     const navBody = JSON.parse(navRes.content);
-    assert.notEqual(navBody.value.apiKey, 'sk-super-secret-value');
-    assert.match(String(navBody.value.apiKey), /^\[(?:已隐藏|REDACTED)\]$/);
+    assert.equal(navBody.value.apiKey, 'sk-super-secret-value');
     assert.equal(navBody.value.layout, 'home-v2');
 
     const pagedRes = await pageConfigTools.execute({ key: 'nav_settings', path: 'items', offset: 1, limit: 1 }, { user: superAdmin, tenantId: 'default' });
@@ -85,8 +84,7 @@ test('read_page_config enforces allowlist, masks secrets, respects page access, 
     const allowed = await pageConfigTools.execute({ key: 'welink_policy_v2' }, { user: normalUser, tenantId: 'default' });
     assert.ok(!allowed.isError);
     const allowedBody = JSON.parse(allowed.content);
-    assert.notEqual(allowedBody.value.webhookToken, 'tok-999');
-    assert.match(String(allowedBody.value.webhookToken), /^\[(?:已隐藏|REDACTED)\]$/);
+    assert.equal(allowedBody.value.webhookToken, 'tok-999');
     assert.equal(allowedBody.value.roster[0].name, 'Alice');
 
     // Super-admin-only config is refused for normal users
