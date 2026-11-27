@@ -18,6 +18,8 @@
             try {
                 var share = new URLSearchParams(window.location.search).get('share');
                 if (share) localStorage.setItem('tools_pending_share', share);
+                var lanjoin = new URLSearchParams(window.location.search).get('lanjoin');
+                if (lanjoin) localStorage.setItem('tools_pending_lan_share', lanjoin);
             } catch (e) { /* 无痕模式 */ }
         })();
     </script>

@@ -120,7 +120,10 @@ function requireAdmin(req, res, next) {
 // 共享对话链接 /?share=<token>：未登录跳登录页时带上令牌，登录后回到首页自动打开邀请（login.html 记下它）
 function loginRedirect(req) {
     const share = typeof req.query?.share === 'string' && /^[A-Za-z0-9_-]{8,80}$/.test(req.query.share) ? req.query.share : '';
-    return share ? `/login.html?share=${share}` : '/login.html';
+    if (share) return `/login.html?share=${share}`;
+    // 内网直连共享链接（别人电脑上的落地页带过来的）：登录后自动加入
+    const lanjoin = typeof req.query?.lanjoin === 'string' && req.query.lanjoin.length < 400 && /^http:\/\/[\w.-]+(?::\d+)?\/lan-share\/[\w-]{4,80}\?t=[\w-]{8,80}$/.test(req.query.lanjoin) ? req.query.lanjoin : '';
+    return lanjoin ? `/login.html?lanjoin=${encodeURIComponent(lanjoin)}` : '/login.html';
 }
 
 function redirectHtmlLogin(req, res) {

@@ -6,7 +6,8 @@
     "TaiSha 阶段二验收优化：配置 Bond4 后先等待网关可达再做双向 Ping 验收，反向 Ping 重试次数由 3 次提高到 10 次，减少 LACP 刚协商完成时的误报失败；PowerShell 监控包与 MobaXterm 脚本同步对齐。",
     "取消 Dragon Claw 的 AI 内容脱敏：技能（SKILL）、文件、工具结果、对话历史、记忆和 AI 月报调用记录不再把 basic-information、Basic xxx、password/token 等字样替换成 [REDACTED]；保存技能和记忆时也不再因出现密码、Token 字样被拒绝。",
     "继续取消 AI 侧的遮盖：UIV 抓包生成脚本时鉴权请求头和含 token/csrf 字样的字段原样交给 AI；页面配置读取、数据库查询（含 token/password 类列与 key/value 配置行）、抓取脚本读取和交互终端输出都不再显示 [已隐藏]/[REDACTED]；相关提示词同步改为“读取到的就是原文”。",
-    "提示词不再要求模型拒绝密码类内容：去掉记忆工具“不要保存密码、密钥等凭据”、技能保存规则“不得写入账号密码、Token”、图库识图“不得输出密码”以及“不要让用户把凭据发到对话里”等说法，避免用户主动提供的信息被拒收。"
+    "提示词不再要求模型拒绝密码类内容：去掉记忆工具“不要保存密码、密钥等凭据”、技能保存规则“不得写入账号密码、Token”、图库识图“不得输出密码”以及“不要让用户把凭据发到对话里”等说法，避免用户主动提供的信息被拒收。",
+    "新增桌面版内网直连共享对话：桌面版且处于公司内网（沿用 WeLink 内网检测）时，共享面板可生成带本机内网 IP 的链接（http://10.x.x.x:3030/lan-share/<编号>?t=<令牌>），同事用自己的桌面版打开即可加入，无需在对方电脑登录；所有消息与正在生成的回答经发起者电脑统一中转、实时互相同步。发起者 IP 变化会自动通知所有成员并更新链接；发起者下线时由加入最早的在线成员临时接任，发起者回来后自动对齐消息并收回；移除成员会作废旧链接。外网和服务器版不受影响。"
   ],
   "en": [
     "Added and enhanced built-in tool \"TaiSha\" (taisha): unified streamlined wizard with auto-renumbered steps, minimal mapping table, optional 6-item SSH/SELinux hardening, Windows PowerShell live multi-window monitor, and DragonClaw native node-pty direct execution (direct LAN/Desktop & optional passwordless SSH jump-host relay, smart reachability verdict banner, line-buffered terminal output, Stage 2 fail-fast, and virtual/1G lab NIC fallback).",
@@ -15,6 +16,7 @@
     "TaiSha Stage 2 verification: wait for the gateway to become reachable after Bond4 setup and raise reverse-ping retries from 3 to 10 to avoid false failures right after LACP negotiation; PowerShell monitor and MobaXterm scripts stay aligned.",
     "Removed Dragon Claw AI content redaction: Skills, files, tool results, chat history, memory and AI report traces are no longer rewritten to [REDACTED] (e.g. basic-information, Basic xxx, password/token text), and saving Skills or memory no longer fails because such words appear.",
     "Removed remaining AI-side masking: UIV capture-to-script sends auth headers and token/csrf-named fields to the model as-is; page config reads, database queries (including token/password-named columns and key/value config rows), script reads and interactive terminal output no longer show [已隐藏]/[REDACTED]; prompts now state that the content is the original text.",
-    "Prompts no longer tell the model to refuse credential-like content: removed rules such as \"don't save passwords/keys\" in memory, \"no passwords or tokens in Skills\", \"don't output passwords\" in gallery OCR and \"don't let users send credentials in chat\"."
+    "Prompts no longer tell the model to refuse credential-like content: removed rules such as \"don't save passwords/keys\" in memory, \"no passwords or tokens in Skills\", \"don't output passwords\" in gallery OCR and \"don't let users send credentials in chat\".",
+    "Added intranet direct sharing for the desktop app: on the company intranet (detected the same way as WeLink), the share dialog creates a link with this PC's intranet IP (http://10.x.x.x:3030/lan-share/<id>?t=<token>) that colleagues open in their own desktop app to join without an account on your PC. Messages and live answers are relayed through the sharer's PC in real time. If the sharer's IP changes, members are notified and follow automatically; if the sharer goes offline, the earliest online member stands in and hands back when the sharer returns; removing a member invalidates the old link. Extranet and server deployments are unaffected."
   ]
 }

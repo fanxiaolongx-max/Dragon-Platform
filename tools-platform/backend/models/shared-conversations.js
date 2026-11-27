@@ -142,12 +142,15 @@ async function userMap() {
 async function displayNames(usernames) {
     const map = await userMap();
     const result = {};
-    for (const name of usernames) result[name] = map[name]?.displayName || name;
+    // 内网桌面版互联的远端成员（lan:<节点>[:<账号>]）：名字由 lan-share 记录
+    const lanName = name => { try { return require('./lan-share').displayName(name); } catch { return ''; } };
+    for (const name of usernames) result[name] = map[name]?.displayName || (String(name).startsWith('lan:') && lanName(name)) || name;
     return result;
 }
 
 // 共享关系变化通知（shared-live.js 据此断开被移除成员的实时围观连接）：
 // 'revoked' { shareId, username }，username 为空表示整个共享已停止
+// 'appended' { shareId }：中转表有了新消息（lan-share 据此通知其他电脑上的成员拉取）
 const shareEvents = new EventEmitter();
 shareEvents.setMaxListeners(50);
 const notifyRevoked = (shareId, username = '') => { try { shareEvents.emit('revoked', { shareId: String(shareId || ''), username: String(username || '') }); } catch { /* 通知失败不影响主流程 */ } };
@@ -549,7 +552,10 @@ async function pushMember(share, member) {
         await run('INSERT OR IGNORE INTO shared_conversation_pushed (share_id, username, local_message_id, seq) VALUES (?, ?, ?, ?)', [share.id, member.username, row.id, result.lastID]);
         count += 1;
     }
-    if (count) await run('UPDATE shared_conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', [share.id]);
+    if (count) {
+        await run('UPDATE shared_conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', [share.id]);
+        try { shareEvents.emit('appended', { shareId: share.id }); } catch { /* 通知失败不影响主流程 */ }
+    }
     return count;
 }
 

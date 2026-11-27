@@ -127,6 +127,9 @@ app.set('trust proxy', true);
 // 托管 Python 应用：反向代理与应用数据接口须在 CORS、JSON 解析和页面登录拦截之前，请求体原样转发
 app.use('/apps', hostedAppsProxy.handler);
 app.use('/hosted-api', require('./models/hosted-apps/data-api').createRouter());
+// 内网直连共享：落地页探测本机桌面版端口（需在 cors() 之前，才能回应私有网络预检）
+const lanPeerRoutes = require('./routes/lan-peer');
+app.all('/api/lan-share/ping', lanPeerRoutes.ping);
 app.use(cors());
 app.use('/api/custom-tools/import-upload', express.json({ limit: 850000 }));
 app.use('/api/topic-snapshots/import-upload', express.json({ limit: 850000 }));
@@ -163,7 +166,12 @@ app.use((req, res, next) => {
     return res.status(403).send(`<!doctype html><meta charset="utf-8"><title>License</title><style>body{font-family:Segoe UI,"Microsoft YaHei";background:#0f172a;color:#e2e8f0;display:grid;place-items:center;min-height:100vh;margin:0}main{max-width:560px;padding:32px;border:1px solid #334155;border-radius:18px;background:#111827;text-align:center}</style><main><h1>Dragon Claw License 已失效</h1><p>请联系管理员续期或恢复授权，然后重新启动 EXE。</p><small>${String(status.reasonCode || 'LICENSE_REQUIRED')}</small></main>`);
 });
 
+// 内网直连共享：节点之间的接口与共享链接落地页（不登录；只在桌面版启用，只接受内网请求，按链接令牌 / 节点密钥校验）
+app.use('/api/lan-peer', lanPeerRoutes.api);
+app.get('/lan-share/:shareId', lanPeerRoutes.landing);
+
 const SENSITIVE_LOG_KEYS = new Set([
+    't', // 内网共享链接令牌
     'authorization',
     'password',
     'token',
@@ -525,6 +533,7 @@ app.use('/api', (req, res, next) => {
     if (req.path.startsWith('/agent-mcp/')) return next(); // 智能体工具在路由内按操作校验权限
     if (/^\/vault(?:\/.*)?$/.test(req.path)) return next(); // 保险箱：每个登录账号只读写自己的条目，路由内按账号隔离
     if (/^\/shared-conversations(?:\/.*)?$/.test(req.path)) return next(); // 共享对话：只操作本人的对话、邀请与常用群组，路由内按账号与团队校验
+    if (/^\/lan-share(?:\/.*)?$/.test(req.path)) return next(); // 内网直连共享：只操作本人的对话与本人加入的共享，路由内按账号与团队校验
     if (req.method !== 'GET') {
         return requireAdmin(req, res, next);
     }
@@ -586,6 +595,7 @@ app.use('/api/agent-files', require('./routes/agent-files')); // 对话里引用
 app.use('/api/channels', require('./routes/channels')); // 频道对接（WeLink / 微信助理）：配置、连通性、名单、主动推送
 app.use('/api/digital-human', superAdminOnly(), requireAdmin, require('./routes/digital-human')); // 数字人基座对接：NetCare 业务库只读查询、应用库读写、表目录（第一期仅管理员）
 app.use('/api/agent-mcp', require('./routes/agent-mcp'));
+app.use('/api/lan-share', require('./routes/lan-share')); // 内网直连共享：桌面版 + 内网时生成带本机内网 IP 的共享链接、用别人的链接加入
 app.use('/api/shared-conversations', require('./routes/shared-conversations')); // 共享对话：跨账号接力同一段对话上下文（控制库中转，各自团队库保存本地副本）
 app.use('/api/vault', require('./routes/vault')); // 保险箱：本人网站登录凭据，Dragon 浏览器自动填充与 AI 代填
 app.use('/api/dragon-tac', superAdminOnly({ '/jobs': { items: [] } }), require('./routes/dragon-tac'));
@@ -917,6 +927,7 @@ async function startServer() {
 
     const server = app.listen(PORT, () => {
         require('./models/desktop-agents/telemetry').start().catch(() => console.warn('[desktop-agents] 本机计时采集器未启动，请检查 4319 端口'));
+        require('./models/lan-share').start().catch(error => console.warn('[lan-share] 启动失败：', error.message || error));
         require('./models/agent-mcp').warmup().catch(error => console.warn('[agent] MCP 预连接失败：', error.message || error));
         console.log(`\n✅ Dragon Claw 已启动`);
         console.log(`   🌐 访问地址: http://localhost:${PORT}`);

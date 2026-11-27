@@ -5,6 +5,8 @@
 // - 只转发展示需要的字段（不带工具参数 / 结果、文件路径），最终内容仍以推送 / 拉取落库的消息为准。
 // - 这一轮结束时先立即推送提问者的新消息，再通知围观端结束，围观端随即拉取，用落库消息替换实时气泡。
 // - 只在本进程内存里：提问者与围观者需连到同一实例（当前单实例部署）；多实例时退化为轮询拉取。
+// - 内网桌面版互联（lan-share）：别的电脑上成员的一轮经主共享者转发过来，用 ingestRemote 注入本机频道，
+//   同样支持中途打开时的 catchup；by 形如 lan:<节点>:<账号>，不会与本机账号混淆。
 const { EventEmitter } = require('events');
 const chatLiveRuns = require('./chat-live-runs');
 const shared = require('./shared-conversations');
@@ -18,6 +20,8 @@ const MAX_CATCHUP_EVENTS = 200;
 const hub = new EventEmitter();
 hub.setMaxListeners(0);
 const active = new Map(); // shareId → Map(runId → entry)
+const remote = new Map(); // shareId → Map(by → { remote: true, by, name, question, startedAt, text, events, touchedAt })
+const REMOTE_IDLE_MS = 3 * 60 * 1000;
 
 const channel = shareId => `share:${shareId}`;
 
@@ -54,17 +58,25 @@ function snapshot(entry, type = 'catchup') {
         name: entry.name,
         question: entry.question,
         startedAt: entry.startedAt,
-        text: textOf(entry.run),
-        events: eventsOf(entry.run)
+        text: entry.remote ? entry.text : textOf(entry.run),
+        events: entry.remote ? entry.events.slice(-MAX_CATCHUP_EVENTS) : eventsOf(entry.run)
     };
+}
+
+function remoteEntries(shareId) {
+    const map = remote.get(String(shareId || ''));
+    if (!map) return [];
+    const now = Date.now();
+    for (const [by, entry] of map) if (now - entry.touchedAt > REMOTE_IDLE_MS) map.delete(by); // 远端断线没收到结束：过期丢弃
+    if (!map.size) remote.delete(String(shareId || ''));
+    return [...map.values()];
 }
 
 /** 进行中最早开始的一轮（排除自己发起的：自己的回复由本人页面直接接上） */
 function current(shareId, viewer = '') {
     const runs = active.get(String(shareId || ''));
-    if (!runs) return null;
     let found = null;
-    for (const entry of runs.values()) {
+    for (const entry of [...(runs ? runs.values() : []), ...remoteEntries(shareId)]) {
         if (viewer && entry.by === viewer) continue;
         if (!found || entry.startedAt < found.startedAt) found = entry;
     }
@@ -115,6 +127,58 @@ async function track(run) {
     else run.emitter.once('end', onEnd);
 }
 
+/** 进行中的全部轮次快照（内网主共享者给新连上的成员补发；skip 过滤掉该成员自己发起的） */
+function snapshots(shareId, skip = () => false) {
+    const runs = active.get(String(shareId || ''));
+    return [...(runs ? runs.values() : []), ...remoteEntries(shareId)].filter(entry => !skip(entry.by)).map(entry => snapshot(entry, 'catchup'));
+}
+
+/** 远端（另一台电脑）成员这一轮的实时事件：记下进度供 catchup，并广播到本机频道 */
+function ingestRemote(shareId, event) {
+    const id = String(shareId || '');
+    const by = String(event?.by || '');
+    if (!id || !by.startsWith('lan:') || !event?.type) return;
+    if (!remote.has(id)) remote.set(id, new Map());
+    const map = remote.get(id);
+    const out = { ...event };
+    if (event.type === 'stream_start' || event.type === 'catchup') {
+        map.set(by, {
+            remote: true, by, name: String(event.name || by).slice(0, 120), question: String(event.question || '').slice(0, 2000),
+            startedAt: Number(event.startedAt) || Date.now(), text: String(event.text || ''),
+            events: Array.isArray(event.events) ? event.events.slice(-MAX_CATCHUP_EVENTS).map(compact) : [], touchedAt: Date.now()
+        });
+        out.type = 'stream_start';
+    } else if (event.type === 'turn_ended') {
+        map.delete(by);
+    } else if (FORWARD_TYPES.has(event.type) || event.type === 'stream_finish') {
+        const entry = map.get(by);
+        if (entry) {
+            entry.touchedAt = Date.now();
+            if (event.type === 'delta' && typeof event.delta === 'string') entry.text += event.delta;
+            else if (event.type === 'stream_finish' && typeof event.text === 'string') entry.text = event.text;
+            else if (event.type !== 'delta') { entry.events.push(compact(event)); if (entry.events.length > MAX_CATCHUP_EVENTS) entry.events.shift(); }
+        }
+    } else if (!['idle', 'ping'].includes(event.type)) {
+        return;
+    }
+    if (!map.size) remote.delete(id);
+    if (out.type === 'idle') return;
+    hub.emit(channel(id), out);
+}
+
+/** 远端连接断了：收掉 prefix（lan:<节点>）开头的所有进行中轮次，围观端随即解锁 */
+function clearRemote(shareId, prefix = 'lan:') {
+    const id = String(shareId || '');
+    const map = remote.get(id);
+    if (!map) return;
+    for (const by of [...map.keys()]) {
+        if (!by.startsWith(prefix)) continue;
+        map.delete(by);
+        hub.emit(channel(id), { type: 'turn_ended', by });
+    }
+    if (!map.size) remote.delete(id);
+}
+
 chatLiveRuns.lifecycle.on('session', run => { track(run).catch(error => console.warn('[shared-live] track failed:', error?.message || error)); });
 
 // 成员被移除 / 退出 / 共享停止：断开对应的围观连接
@@ -162,4 +226,4 @@ async function attach(req, res, { tenantId, username }) {
     res.on('close', close);
 }
 
-module.exports = { attach, activeTurn, _active: active, _hub: hub };
+module.exports = { attach, activeTurn, snapshots, ingestRemote, clearRemote, channel, hub, _active: active, _remote: remote, _hub: hub };
