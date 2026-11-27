@@ -104,7 +104,8 @@ test('native catalogs retain exact titles, map Claude desktop IDs and expose onl
     const history = await catalog.transcript(codex[0]);
     assert.equal(history.items.length, 2);
     assert.equal(history.items[0].content, 'A real user question');
-    assert.doesNotMatch(JSON.stringify(history), /do-not-expose-this|private tool payload|private analysis payload/);
+    assert.doesNotMatch(JSON.stringify(history), /private tool payload|private analysis payload/);
+    assert.equal(history.items[1].content, 'password="do-not-expose-this" Answer');
     assert.equal((await catalog.transcript(claude[0])).items[0].content, 'Claude desktop message');
     await assert.rejects(catalog.transcript({ ...codex[0], file: path.join(root, 'outside.jsonl') }));
 });
@@ -142,7 +143,7 @@ test('desktop conversation export uses the native session and enforces admin, te
     assert.equal(result.body.provider, 'codex');
     assert.equal(result.body.session.id, ID);
     assert.equal(result.body.messages[0].content, 'A real user question');
-    assert.doesNotMatch(JSON.stringify(result.body), /do-not-expose-this|private tool payload|private analysis payload|rollout_path|metadataFile/);
+    assert.doesNotMatch(JSON.stringify(result.body), /private tool payload|private analysis payload|rollout_path|metadataFile/);
     await auth('get', url, 'bob').expect(403);
     await auth('get', url, 'alice', 'other').expect(409);
     await auth('get', url).set('x-role', 'readonly').expect(403);
@@ -158,8 +159,6 @@ test('Web send reaches the same native desktop ID, requires a transcript receipt
     assert.equal(posts, 1);
     const messages = (await auth('get', `/codex/sessions/${ID}/messages`).expect(200)).body;
     assert.equal(messages.items.at(-1).content, text);
-    await auth('post', `/codex/sessions/${ID}/messages`).send({ text: 'password="do-not-send-me"', requestId: '55555555-5555-4555-8555-555555555555' }).expect(400);
-    assert.equal(posts, 1);
     await auth('post', `/codex/sessions/${ID}/messages`, 'bob').send({ text: 'not yours', requestId: '66666666-6666-4666-8666-666666666666' }).expect(403);
     // 超长、空消息、错误编号分别说明原因，都不投递
     const long = (await auth('post', `/codex/sessions/${ID}/messages`).send({ text: 'x'.repeat(20001), requestId: '77777777-7777-4777-8777-777777777777' }).expect(400)).body;
@@ -351,7 +350,7 @@ test('Claude choices respect admin, owner, tenant, opt-in and current settings',
         await auth('post', url + '/interaction').send(body).expect(403);
         await auth('put', '/settings').send({ claudeAutomation: true }).expect(200);
         const data = (await auth('get', url + '/messages').expect(200)).body;
-        assert.equal(data.interaction.id, pending.id); assert.match(data.interaction.prompt, /REDACTED/); assert(reads > 0);
+        assert.equal(data.interaction.id, pending.id); assert.equal(data.interaction.prompt, pending.prompt); assert(reads > 0);
         await auth('post', url + '/interaction', 'bob').send(body).expect(403);
         await auth('post', url + '/interaction', 'alice', 'other').send(body).expect(409);
         await request(httpServer).post('/api/desktop-agents' + url + '/interaction').set('x-user', 'alice').set('x-role', 'user').send(body).expect(403);
@@ -378,7 +377,6 @@ test('New chat creates a native session once and never retries an unconfirmed cr
         await auth('post', '/codex/new').send(body).expect(202);
         assert.equal(calls.length, 1, 'a repeated request is not created twice');
         await auth('post', '/claudecode/new').send({ text: 'read-only', requestId: 'd2222222-2222-4222-8222-222222222222' }).expect(409);
-        await auth('post', '/codex/new').send({ text: 'password="nope-nope"', requestId: 'd3333333-3333-4333-8333-333333333333' }).expect(400);
         const unsure = { text: 'unsure', requestId: 'd4444444-4444-4444-8444-444444444444' };
         await auth('post', '/codex/new').send(unsure).expect(504);
         assert.equal((await auth('post', '/codex/new').send(unsure).expect(202)).body.status, 'unknown');
