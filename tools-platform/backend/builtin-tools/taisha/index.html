@@ -10500,6 +10500,8 @@ bash batch_taishan.sh</div>
                 { name: "pass", re: /password:|ssword:/i },
                 { name: "denied", re: /Permission denied|Authentication failed/i },
                 { name: "connerr", re: /Connection refused|No route to host|Connection timed out|Could not resolve/i },
+                { name: "closed", re: DC_SSH_CLOSED_RE },
+                { name: "negotiate", re: DC_SSH_NEGOTIATE_RE },
                 { name: "shell", re: jumpShellRe }
               ], 16000);
               if (ev.name === "hostkey") { await this.write("yes\r"); continue; }
@@ -10513,7 +10515,7 @@ bash batch_taishan.sh</div>
               }
               if (ev.name === "shell") { jumpOk = true; break; }
               if (ev.name === "aborted") throw new Error("用户已停止");
-              throw new Error(`跳板机 (${jump.ip}) SSH 连接失败 (${ev.name})`);
+              throw new Error(dcSshFailReason(ev, `跳板机 (${jump.ip})`));
             }
             if (dcRunAborted || !jumpOk) throw new Error("用户已停止");
             // Inside Linux Jump Host (Debian/Ubuntu/CentOS/openEuler): switch client dialect to Linux POSIX!
@@ -10739,6 +10741,33 @@ bash batch_taishan.sh</div>
       await client.runLocalCmd(cmd, 3500);
     }
 
+    // Extra SSH login-failure patterns shared by the jump host / switch / iBMC logins.
+    // They only make a failure surface faster and with a clearer reason; success paths are untouched.
+    const DC_SSH_CLOSED_RE = /(?:Connection closed by|Connection reset by|kex_exchange_identification|ssh_exchange_identification)[^\r\n]*[\r\n]/i;
+    const DC_SSH_NEGOTIATE_RE = /(?:Unable to negotiate|Bad server host key)[^\r\n]*[\r\n]|Invalid key length/i;
+
+    function dcSshFailReason(ev, target, { isSwitch = false } = {}) {
+      const text = String(ev?.match?.[0] || "").trim();
+      switch (ev?.name) {
+        case "connerr":
+          if (/refused/i.test(text)) return `${target} 拒绝 SSH 连接（22 端口未开放）${isSwitch ? "，请经 Console 配置 stelnet server enable" : ""}`;
+          if (/resolve/i.test(text)) return `${target} 地址无法解析（${text}）`;
+          return `${target} 网络不可达（${text}），请检查 IP / VLAN / 网线`;
+        case "closed":
+          return isSwitch
+            ? `${target} SSH 被对端断开（${text}），请检查 VTY 是否允许 SSH（user-interface vty 0 4 → protocol inbound ssh/all）以及用户 service-type 是否包含 ssh/stelnet`
+            : `${target} SSH 被对端断开（${text}），可能会话数已满、账号被锁定或未开启 SSH`;
+        case "negotiate":
+          return `${target} SSH 算法或密钥不兼容（${text}），请检查设备 SSH 算法与主机密钥长度`;
+        case "denied":
+          return `${target} SSH 认证失败（用户名/密码错误或账号无 SSH 权限）`;
+        case "timeout":
+          return `${target} SSH 登录超时（未出现密码提示或命令行提示符）`;
+        default:
+          return `${target} SSH 登录失败 (${ev?.name})`;
+      }
+    }
+
     async function dcConnectSwitch(tag, cfg) {
       const ip = tag === "SW2" ? cfg.sw2Ip : cfg.swIp;
       const user = tag === "SW2" ? cfg.sw2User : cfg.swUser;
@@ -10750,6 +10779,7 @@ bash batch_taishan.sh</div>
       client.setFeedNode(tag === "SW2" ? "sw2" : "sw1");
       try {
         dcSetSwStatus(`CONNECTING ${tag}`, "dc-pill-run");
+        await dcSwitchSshPrecheck(client, tag, ip, cfg);
         dcAppendLine("sw", "info", `[${tag}] 建立持久 SSH 长连接 ${user}@${ip} ...`, cfg);
 
         let useLegacy = true;
@@ -10770,7 +10800,9 @@ bash batch_taishan.sh</div>
               { name: "prompt", re: /<[A-Za-z0-9_~*./:@-]+>/ },
               { name: "sysprompt", re: /\[[A-Za-z0-9_~*./:@-]+\]/ },
               { name: "denied", re: /authentication failed|permission denied|access denied|login failed/i },
-              { name: "connerr", re: /Connection refused|No route to host|Connection timed out|Could not resolve/i }
+              { name: "connerr", re: /Connection refused|No route to host|Connection timed out|Could not resolve/i },
+              { name: "closed", re: DC_SSH_CLOSED_RE },
+              { name: "negotiate", re: DC_SSH_NEGOTIATE_RE }
             ], 14000);
             if (ev.name === "badopt" && useLegacy) { useLegacy = false; needRetryPlain = true; break; }
             if (ev.name === "hostkey") { await client.write("yes\r"); continue; }
@@ -10784,7 +10816,7 @@ bash batch_taishan.sh</div>
             }
             if (ev.name === "prompt" || ev.name === "sysprompt") { loggedIn = true; break; }
             if (ev.name === "aborted") throw new Error("用户已停止");
-            throw new Error(`${tag} SSH 登录失败 (${ev.name})`);
+            throw new Error(dcSshFailReason(ev, `${tag} (${ip})`, { isSwitch: true }));
           }
           if (dcRunAborted) throw new Error("用户已停止");
           if (needRetryPlain) { await dcSleep(300); continue; }
@@ -10981,7 +11013,9 @@ bash batch_taishan.sh</div>
             { name: "pass", re: /password:|ssword:/i },
             { name: "prompt", re: /iBMC:\/->|iBMC:\/>|iBMC:[A-Za-z0-9_/.:-]*>/ },
             { name: "denied", re: /authentication failed|permission denied|access denied|login failed/i },
-            { name: "connerr", re: /Connection refused|No route to host|Connection timed out|Could not resolve/i }
+            { name: "connerr", re: /Connection refused|No route to host|Connection timed out|Could not resolve/i },
+            { name: "closed", re: DC_SSH_CLOSED_RE },
+            { name: "negotiate", re: DC_SSH_NEGOTIATE_RE }
           ], 15000);
           if (ev.name === "badopt" && useLegacy) { useLegacy = false; retryPlain = true; break; }
           if (ev.name === "hostkey") { await client.write("yes\r"); continue; }
@@ -10993,7 +11027,7 @@ bash batch_taishan.sh</div>
             continue;
           }
           if (ev.name === "prompt") return true;
-          throw new Error(`iBMC (${ip}) SSH 登录失败 (${ev.name})`);
+          throw new Error(dcSshFailReason(ev, `iBMC (${ip})`));
         }
         if (retryPlain) { await dcSleep(300); continue; }
       }
@@ -11635,16 +11669,39 @@ bash batch_taishan.sh</div>
       if (!dcRunAborted) dcAppendLine("sw", "ok", "[阶段二完成] [SOP提醒] 请勿手动重启服务器，请尽快进行后台软件安装！", cfg);
     }
 
-    async function dcTcpCheck22(client, ip) {
+    async function dcTcpProbe22(client, ip) {
       if (client.isWin) {
-        const r = await client.runLocalCmd(`powershell -NoProfile -Command "try{$c=New-Object Net.Sockets.TcpClient;$ok=$c.ConnectAsync('${ip}',22).Wait(1500);$c.Close();if($ok){exit 0}else{exit 1}}catch{exit 1}"`, 4500);
-        return r.ok;
+        return client.runLocalCmd(`powershell -NoProfile -Command "try{$c=New-Object Net.Sockets.TcpClient;$ok=$c.ConnectAsync('${ip}',22).Wait(1500);$c.Close();if($ok){exit 0}else{exit 1}}catch{exit 1}"`, 4500);
       }
       const cmd = client.platform === "darwin"
         ? `nc -z -G 2 ${ip} 22 >/dev/null 2>&1`
         : `(nc -z -w 2 ${ip} 22 2>/dev/null || timeout 2 bash -c "</dev/tcp/${ip}/22" 2>/dev/null)`;
-      const r = await client.runLocalCmd(cmd, 4500);
-      return r.ok;
+      return client.runLocalCmd(cmd, 4500);
+    }
+
+    async function dcTcpCheck22(client, ip) {
+      return (await dcTcpProbe22(client, ip)).ok;
+    }
+
+    // Stage-1 pre-check before the switch SSH login: fail fast with a clear reason when port 22 is
+    // definitely closed. An inconclusive probe (shell timeout / probe tool missing) never blocks the login.
+    async function dcSwitchSshPrecheck(client, tag, ip, cfg) {
+      dcAppendLine("sw", "info", `[${tag}] SSH 预检：探测 ${ip}:22 ...`, cfg);
+      const r = await dcTcpProbe22(client, ip);
+      if (dcRunAborted) throw new Error("用户已停止");
+      if (r.ok) {
+        dcAppendLine("sw", "ok", `[${tag}] SSH 预检：${ip}:22 开放`, cfg);
+        return;
+      }
+      if (r.status !== "done" || r.rc === 127) {
+        dcAppendLine("sw", "warn", `[${tag}] SSH 预检结果不确定（探测命令未正常返回），继续尝试 SSH 登录`, cfg);
+        return;
+      }
+      const pingOk = await dcPingOnce(client, ip);
+      if (dcRunAborted) throw new Error("用户已停止");
+      throw new Error(pingOk
+        ? `${tag} (${ip}) 未开启 SSH：Ping 通但 22 端口不通，请经 Console 配置 stelnet server enable，并确认 VTY 允许 SSH`
+        : `${tag} (${ip}) 不可达：Ping 和 SSH 22 都不通，请检查 IP / VLAN / 网线`);
     }
 
     function dcHideReachBanner() {
