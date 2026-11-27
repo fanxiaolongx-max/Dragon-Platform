@@ -84,7 +84,7 @@ async function collect(slug, { demoLevel, demoBudget } = {}) {
     }
     if (slug === 'uivf12') {
         await add('/api/uiv', 'uiv', '/scripts');
-        responses['/api/uiv/scripts'] = require('./ai-sensitive-data').redactValue(responses['/api/uiv/scripts']);
+        responses['/api/uiv/scripts'] = require('./export-redaction').redactValue(responses['/api/uiv/scripts']);
         const { items } = await require('./uiv-categories-repository').listCategories();
         responses['/api/uiv/categories'] = items;
     }

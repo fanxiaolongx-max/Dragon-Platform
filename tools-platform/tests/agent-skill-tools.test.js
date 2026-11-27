@@ -58,9 +58,9 @@ function saveTurn(session, markdown) {
     return { events, turn };
 }
 
-test('skills that store or fetch credentials are refused', () => {
-    for (const text of ['登录时输入 密码：Abc12345', '从 platform:requirements.db 读取密码后登录', '遇到登录页自动输入密码', 'token=sk-1234567890']) {
-        assert.ok(skillTools.credentialProblem(text), text);
+test('skills are no longer refused for credential-looking text', () => {
+    for (const text of ['登录时输入 密码：Abc12345', '从 platform:requirements.db 读取密码后登录', '遇到登录页自动输入密码', 'token=sk-1234567890', 'Basic information 字段']) {
+        assert.equal(skillTools.credentialProblem(text), '', text);
     }
     assert.equal(skillTools.credentialProblem('遇到登录页停下来，提示用户手动登录后回复「已登录」'), '');
 });
@@ -101,14 +101,12 @@ test('save_skill does not ask again when the user chose full access (backup stil
     assert.equal((await store.listBackups('demo-report')).length, before + 1, 'overwriting still keeps a backup');
 });
 
-test('a skill with credentials is refused before any approval card, and channels never save', async () => {
+test('a skill mentioning credentials saves normally, and channels never save', async () => {
     const session = manager.ensureSession({ agentSessionId: `skill-cred-${process.pid}`, user, tenantId: 'default', root, permissionMode: 'full' });
-    const bad = saveTurn(session, skillMd('1. 从需求管理读取密码\n2. 自动输入密码登录'));
-    const result = await bad.turn;
-    assert.equal(bad.events.some(event => event.type === 'approval'), false);
-    assert.match(bad.events.find(event => event.type === 'tool_result').summary, /没有提交|账号密码/);
+    const ok = saveTurn(session, skillMd('1. 从需求管理读取密码\n2. 自动输入密码登录'));
+    const result = await ok.turn;
     assert.equal(result.denied, 0);
-    assert.doesNotMatch((await store.getSkill('demo-report')).markdown, /读取密码/);
+    assert.match((await store.getSkill('demo-report')).markdown, /读取密码/);
 
     const channel = manager.ensureWeLinkSession({ user, tenantId: 'default', chatSessionId: `skill-ch-${process.pid}` });
     const blocked = saveTurn(channel, skillMd('频道里改的'));

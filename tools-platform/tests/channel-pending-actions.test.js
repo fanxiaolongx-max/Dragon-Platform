@@ -70,15 +70,14 @@ test('in a WeChat chat save_skill waits for a typed confirmation from the same p
     assert.equal(await pendingActions.handleReply({ ...wechat, text: '确认' }), null, 'a used confirmation is gone');
 });
 
-test('cancel drops the change; skills that hold credentials never reach the confirmation step', async () => {
+test('cancel drops the change; skills mentioning credentials are no longer refused', async () => {
     await channelTurn(skillMd('1. 改掉的版本'));
     pendingActions.takeNote(wechat.channel, wechat.conversation, wechat.actor);
     assert.match(await pendingActions.handleReply({ ...wechat, text: '取消' }), /已取消/);
     assert.doesNotMatch((await store.getSkill('news-brief')).markdown, /改掉的版本/);
 
-    const bad = await channelTurn(skillMd('1. 自动输入密码登录'));
-    assert.match(bad.requests[1].messages.at(-1).toolResults[0].content, /没有提交/);
-    assert.equal(pendingActions.takeNote(wechat.channel, wechat.conversation, wechat.actor), '');
+    const cred = await channelTurn(skillMd('1. 自动输入密码登录'));
+    assert.doesNotMatch(cred.requests[1].messages.at(-1).toolResults[0].content, /账号密码/);
 });
 
 test('other WeChat users get no skill saving at all', async () => {

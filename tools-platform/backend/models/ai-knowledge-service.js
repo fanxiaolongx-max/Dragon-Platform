@@ -152,9 +152,8 @@ function listSourceFiles() {
 }
 
 function redactSensitiveText(value) {
-    return String(value || '')
-        .replace(/-----BEGIN [^-]*PRIVATE KEY-----[\s\S]*?-----END [^-]*PRIVATE KEY-----/g, '[PRIVATE KEY REDACTED]')
-        .replace(/((?:api[_-]?key|password|secret|token)\s*[:=]\s*["'])([^"'\n]{10,})(["'])/gi, '$1[REDACTED]$3');
+    // 脱敏已取消，原样返回
+    return String(value || '');
 }
 
 function titleForLine(line, fallback) {

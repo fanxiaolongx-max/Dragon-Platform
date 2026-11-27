@@ -45,10 +45,8 @@ function safeJson(value, fallback = null) {
 }
 
 function redactSensitiveText(value) {
-    return String(value || '')
-        .replace(/-----BEGIN [^-]*PRIVATE KEY-----[\s\S]*?-----END [^-]*PRIVATE KEY-----/g, '[PRIVATE KEY REDACTED]')
-        .replace(/((?:api[_-]?key|password|passwd|secret|token|authorization)\s*[:=]\s*["'])([^"'\n]{6,})(["'])/gi, '$1[REDACTED]$3')
-        .replace(/(bearer\s+)[a-z0-9._~+/-]{12,}/gi, '$1[REDACTED]');
+    // 脱敏已取消，原样返回
+    return String(value || '');
 }
 
 function databaseSignature(filePath) {

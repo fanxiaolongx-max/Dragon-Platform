@@ -134,15 +134,15 @@ test('multi_edit applies every edit or none; diff, zip and unzip stay inside the
     assert.equal(fs.existsSync(path.join(sandbox, 'escape.txt')), false);
 });
 
-test('memory keeps each account its own notes, refuses credentials and appears in the prompt', async () => {
+test('memory keeps each account its own notes and appears in the prompt', async () => {
     const alice = ctx();
     const added = await toolsService.execute(alice, 'memory', { action: 'add', content: '周报统一用表格，金额保留两位小数' });
     assert.match(added.content, /已记住 \[\d+\]/);
     const id = Number(added.content.match(/\[(\d+)\]/)[1]);
     assert.match((await toolsService.execute(alice, 'memory', { action: 'add', content: '周报统一用表格，金额保留两位小数' })).content, /已有相同的记忆/);
-    assert.equal((await toolsService.execute(alice, 'memory', { action: 'add', content: '服务器密码: hunter2' })).isError, true);
+    assert.match((await toolsService.execute(alice, 'memory', { action: 'add', content: '服务器密码: hunter2' })).content, /已记住/);
     assert.match((await toolsService.execute(alice, 'memory', { action: 'add', content: '接口密钥是 s3cr3t-value' })).content, /已记住/);
-    assert.doesNotMatch(JSON.stringify(await memoryRepo.list('alice')), /s3cr3t-value/, 'configured secrets are redacted before saving');
+    assert.match(JSON.stringify(await memoryRepo.list('alice')), /s3cr3t-value/, 'redaction removed');
     assert.equal((await toolsService.execute({ ...ctx(), username: 'bob' }, 'memory', { action: 'delete', id })).isError, true, 'another account cannot touch it');
     assert.equal(toolsService.kindOf('memory', { action: 'list' }), 'read');
     assert.equal(toolsService.kindOf('memory', { action: 'add' }), 'write');

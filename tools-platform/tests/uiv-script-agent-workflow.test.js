@@ -203,7 +203,7 @@ test('the actual browser save flow uses shared site definitions for all three sc
     }
 });
 
-test('script saves preserve runtime CSRF logic and embedded credentials while model outputs stay redacted', async () => {
+test('script saves preserve runtime CSRF logic and embedded credentials, and model output is no longer redacted', async () => {
     const credential = 'fixture-static-credential-value';
     const runtime = `return (async function () {
         const cStr = localStorage.getItem('globalConfig'); let csrfToken = "";
@@ -219,15 +219,14 @@ test('script saves preserve runtime CSRF logic and embedded credentials while mo
     const outcome = await tools.execute(context, 'save_uiv_script', { action: 'clone', sourceId: source.id,
         expectedRevision: read.revision, targetSite: 'ae', changes: '{"name":"Token中东副本"}' });
     assert.equal(Boolean(outcome.isError), false, outcome.content);
-    assert.equal(outcome.content.includes(credential), false);
-    const saved = JSON.parse(outcome.content);
+        const saved = JSON.parse(outcome.content);
     const payload = JSON.parse((await db.get('SELECT payload_json FROM uiv_scripts WHERE id=?', [saved.id])).payload_json);
     assert.ok(payload.code.includes('csrfToken=m[0]'));
     assert.ok(payload.code.includes('o.configData.csrfToken'));
     assert.ok(payload.code.includes(credential), 'script storage preserves the source credential');
     assert.ok(payload.code.includes(`${ae}/api/list`));
     const redacted = await tools.execute(context, 'read_uiv_script', { id: saved.id, field: 'code' });
-    assert.equal(redacted.content.includes(credential), false, 'no plaintext credential goes to model output');
+    assert.equal(redacted.content.includes(credential), true, 'redaction removed');
     const generic = require('../backend/models/agent-database-service');
     await assert.rejects(generic.writeTable(context, { database: 'platform:tools.db', table: 'uiv_scripts', operation: 'update',
         scriptContent: true, values: { payload_json: JSON.stringify(source) }, filters: [{ column: 'id', op: 'eq', value: saved.id }] }), /凭据/,

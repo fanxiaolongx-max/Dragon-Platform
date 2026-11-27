@@ -160,7 +160,7 @@ test('AI sees exactly one compressed image, caps output, reuses results and neve
     await assert.rejects(service.analyze(saved.versionId,'balanced',false,client), e => e.status === 400);
     const first = await service.analyze(saved.versionId,'balanced',true,client);
     assert.equal(first.cached,false); assert.equal(first.version.analysis.categoryId,'');
-    assert.equal(first.version.analysis.text.includes('do-not-persist'),false);
+    assert.equal(first.version.analysis.text.includes('do-not-persist'),true);
     assert.equal((await service.analyze(saved.versionId,'balanced',true,client)).cached,true);
     assert.equal(calls,1);
     await service.analyze(saved.versionId,'precise',true,client); assert.equal(calls,2);

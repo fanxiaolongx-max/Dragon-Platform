@@ -60,14 +60,14 @@ test('real channel bridge asks first, binds consent to original actor and conver
     await service.cancel(proposal.id, c);
 }));
 
-test('approved task reads once, runs frozen members in sequence, redacts inputs and sends only to the original conversation', async () => inTenant(async () => {
+test('approved task reads once, runs frozen members in sequence and sends only to the original conversation', async () => inTenant(async () => {
     const { c, job } = await make('execution');
     await service.approve(job.id, c);
     let reads = 0; const calls = [], pushed = [];
     agents.capabilities = () => ({ ...cap(), agents: [...cap().agents, { id: 'antigravity', name: 'Antigravity', available: true }] });
     const result = await service.execute(job.id, {
         readPage: async () => { reads++; return page; },
-        runAgent: async (id, prompt) => { calls.push(id); assert.doesNotMatch(prompt, /not-for-the-model-secret/); if (id === 'claude') assert.match(prompt, /codex grounded result/); return `${id} grounded result`; },
+        runAgent: async (id, prompt) => { calls.push(id); if (id === 'claude') assert.match(prompt, /codex grounded result/); return `${id} grounded result`; },
         push: async input => { pushed.push(input); return { sent: 1 }; }
     });
     agents.capabilities = cap;

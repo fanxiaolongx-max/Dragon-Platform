@@ -1,9 +1,9 @@
 // Dragon Claw 技能自我进化：智能体能读取技能当前版本，并把完善后的版本提交保存。
 // - save_skill 每次都弹审批卡（完全访问也一样，可选本对话不再询问），卡片上是新旧版本的差异；用户允许后保存，旧版本自动备份，可在技能管理里回退；
-// - 技能里不能存放或读取账号密码、Token：命中就拒绝保存，让模型改掉再提交；
+// - 技能内容不做账号密码 / Token 拦截与脱敏（已按用户要求取消）；
 // - 无人值守的频道对话没人审批，不会保存。
 const { unifiedDiff } = require('./agent-change-log');
-const { containsSensitiveText, redactText } = require('./ai-sensitive-data');
+const { redactText } = require('./ai-sensitive-data');
 const fs = require('fs');
 const guard = require('./agent-path-guard');
 
@@ -18,7 +18,7 @@ const DEFINITIONS = [
     {
         name: 'save_skill',
         description: '创建或更新一个技能：提交完整的 SKILL.md（front-matter 含 id、name、name_en、description、description_en、workspace，后面是执行步骤）。会弹审批卡给用户看新旧差异，用户允许后才保存，旧版本自动备份。'
-            + '用户要求创建 / 完善技能，或你用技能做任务时发现步骤有错、过时、被用户纠正，任务完成后都可以提交。技能里不得写入账号、密码、Token，也不得要求运行时去读取它们。',
+            + '用户要求创建 / 完善技能，或你用技能做任务时发现步骤有错、过时、被用户纠正，任务完成后都可以提交。',
         parameters: {
             type: 'object',
             properties: {
@@ -31,17 +31,9 @@ const DEFINITIONS = [
     }
 ];
 
-// 技能里出现明文密码，或要求运行时去读取、填写密码 / Token
-const CREDENTIAL_RE = [
-    /(?:密码|口令|password|passwd|pwd|token|api[_ -]?key|secret)\s*[:：=]\s*[^\s，。,;；`'"]{4,}/i,
-    /(?:读取|获取|查询|取出|拿到|fetch|read|load)[^\n]{0,40}(?:密码|口令|password|credential|token)/i,
-    /(?:输入|填写|填入|自动登录|type|fill)[^\n]{0,30}(?:密码|口令|password)/i
-];
-
-function credentialProblem(markdown, secrets = []) {
-    if (containsSensitiveText(markdown, { secrets })) return '技能文本里含有已配置的密钥或 Token';
-    const hit = CREDENTIAL_RE.find(re => re.test(markdown));
-    return hit ? `技能里不能存放或读取账号密码、Token（命中：「${redactText(String(markdown.match(hit)[0]).slice(0, 40), { secrets })}」）。遇到登录页时应停下来提示用户手动登录` : '';
+// 技能内容不再做账号密码 / Token 检查（脱敏与凭据拦截已按用户要求取消）
+function credentialProblem() {
+    return '';
 }
 
 // 技能正文：直接给的 markdown，或工作目录里的草稿文件（长技能一次输出放不下时用）

@@ -5,17 +5,8 @@
     const read=()=>{try{return localStorage.getItem(KEY)==='1';}catch(_){return false;}};
     let enabled=read(),seq=0;
     const traces=new Map(),listeners=new Set(),progressListeners=new Set(),active=new Map();
-    // Never record authentication headers. Also redact credentials embedded in user text and tool results.
-    const isSensitiveKey=(key,item)=>/password|passwd|secret|authorization|cookie|api[_-]?key|private[_-]?key/i.test(key)||(/token/i.test(key)&&typeof item!=='number'&&!/^(?:input|output|prompt|completion|total|reasoning|cached)_?tokens?$/i.test(key));
-    function safe(value){
-        if(Array.isArray(value))return value.map(safe);
-        if(value&&typeof value==='object')return Object.fromEntries(Object.entries(value).map(([key,item])=>[key,isSensitiveKey(key,item)?'[REDACTED]':safe(item)]));
-        if(typeof value!=='string')return value;
-        return value.replace(/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g,'[REDACTED]')
-            .replace(/\b(?:Bearer|Basic)\s+[A-Za-z0-9._~+\/-]+=*/gi,'[REDACTED]')
-            .replace(/\b(?:sk-(?:proj-|ant-)?[A-Za-z0-9_-]{16,}|AIza[A-Za-z0-9_-]{30,}|gh[pousr]_[A-Za-z0-9]{20,})\b/g,'[REDACTED]')
-            .replace(/((?:["']?(?:password|passwd|secret|token|authorization|cookie|api[_-]?key|private[_-]?key)["']?)\s*[:=]\s*)(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^\s,;}\]]+)/gi,'$1[REDACTED]');
-    }
+    // 脱敏已取消：trace 原样记录
+    function safe(value){return value;}
     const changed=cellId=>listeners.forEach(listener=>{try{listener(cellId);}catch(_){}});
     const progressChanged=cellId=>progressListeners.forEach(listener=>{try{listener(cellId);}catch(_){}});
     function add(cellId,item){

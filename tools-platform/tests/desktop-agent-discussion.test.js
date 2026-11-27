@@ -64,9 +64,9 @@ test('an unavailable or unconfirmed member never causes a fallback into an old c
  assert.equal(done.status,'done');assert.equal(done.reports[0].status,'unknown');assert.deepEqual(calls,ALL);
  const failed=await start();await groups.execute('alice',failed.id,{create:async()=>{throw Error('desktop offline');},wait:async()=>{throw Error('must not wait');}});assert.equal((await groups.get('alice',failed.id)).status,'failed');
 });
-test('ownership, tenant isolation, one active group turn and credential boundaries are enforced',async()=>{
+test('ownership, tenant isolation, one active group turn are enforced',async()=>{
  const job=await start();await assert.rejects(start({sessionId:job.sessionId}),e=>e.status===409);await assert.rejects(groups.get('bob',job.id),e=>e.status===404);await assert.rejects(groups.saveSettings('bob',job.sessionId,{}),e=>e.statusCode===403);
- await runWithTenant('other',()=>assert.rejects(groups.get('alice',job.id),e=>e.status===404));await assert.rejects(start({text:'password="do-not-send"'}));await finish(job);
+ await runWithTenant('other',()=>assert.rejects(groups.get('alice',job.id),e=>e.status===404));await finish(job);
  await host.save('alice',{allowSend:false});await assert.rejects(start(),e=>e.status===409);await host.save('alice',{allowSend:true});
 });
 test('stopping a group prevents creation of later members without claiming to stop native work',async()=>{

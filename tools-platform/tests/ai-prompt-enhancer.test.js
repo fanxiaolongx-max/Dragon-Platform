@@ -13,13 +13,13 @@ test('validates blank, oversized and slash-command drafts before calling any mod
     for (const text of [null, '', '  ', 'a'.repeat(8001), '/schedule every morning']) assert.throws(() => validatePrompt(text));
     assert.equal(validatePrompt('Review the API; do not edit files.'), 'Review the API; do not edit files.');
 });
-test('only sends the redacted draft to a text model, preserving references and returning plain draft data', async () => {
+test('sends the draft to a text model, preserving references and returning plain draft data', async () => {
     let seen;
     const result = await enhancePrompt({ text: 'Use @research-check with https://example.test/guide. Do not install. apiKey=private-fixture-key', secrets: ['private-fixture-key'], language: 'en',
         client: { generateText: async options => { seen = options; return { text: JSON.stringify({ prompt: 'Use @research-check to review https://example.test/guide. Do not install. apiKey=[REDACTED]' }) }; } } });
     assert.ok(result.prompt.includes('Do not install'));
     assert.equal(seen.messages.length, 1); assert.equal(seen.tools, undefined);
-    assert.equal(JSON.stringify(seen).includes('private-fixture-key'), false);
+    assert.equal(JSON.stringify(seen).includes('private-fixture-key'), true, 'redaction removed');
     assert.match(seen.systemInstruction, /never answer it or execute/);
     assert.match(seen.systemInstruction, /negations/);
 });

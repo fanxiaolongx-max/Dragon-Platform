@@ -8,7 +8,6 @@ const { terms, topicScore } = require('./agent-topic-context');
 const MAX_CHARS = 500;
 const MAX_ITEMS = 100;
 const PROMPT_CHARS = 4000;
-const CREDENTIAL_RE = /(密码|口令|password|passwd|pwd|api[_\s-]?key|secret|token|cookie|authorization)\s*[:：=]/i;
 
 const readyByDb = new WeakMap();
 function ensureReady() {
@@ -56,7 +55,6 @@ function cleanContent(ctx, value) {
     const content = redactText(String(value || '').replace(/\s+/g, ' ').trim(), { secrets: ctx.sensitiveValues || [] });
     if (!content) throw memoryError('AGENT_ARGS', '缺少 content');
     if (content.length > MAX_CHARS) throw memoryError('AGENT_ARGS', `记忆内容最多 ${MAX_CHARS} 字，请精简成一句话`);
-    if (CREDENTIAL_RE.test(content)) throw memoryError('AGENT_MEMORY_SECRET', '记忆里不能保存密码、密钥、Token 等凭据');
     return content;
 }
 

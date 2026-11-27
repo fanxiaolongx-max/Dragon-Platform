@@ -1,7 +1,7 @@
 const JSZip = require('jszip');
 const db = require('./app-db');
 const { getTenantId } = require('./tenant-context');
-const { redactText, redactValue } = require('./ai-sensitive-data');
+const { redactText, redactValue } = require('./export-redaction');
 
 function badRange() {
     return Object.assign(new Error('请选择有效的起止日期，结束日期不能早于开始日期'), { statusCode: 400, code: 'INVALID_LOG_EXPORT_RANGE' });

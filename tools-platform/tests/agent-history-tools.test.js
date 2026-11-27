@@ -71,7 +71,7 @@ test('search and read own past conversations only', async () => {
     assert.doesNotMatch(denied.content, /私密/);
 });
 
-test('long history pages backwards with a cursor and secrets are redacted', async () => {
+test('long history pages backwards with a cursor and keeps message text verbatim', async () => {
     await inDefault(async () => {
         const pairs = [];
         for (let index = 1; index <= 30; index += 1) pairs.push(['user', `第 ${index} 个问题`], ['model', `第 ${index} 个回答`]);
@@ -82,7 +82,7 @@ test('long history pages backwards with a cursor and secrets are redacted', asyn
     const first = await run(set, 'read_my_conversation', { sessionId: ids.S_carol, limit: 10 });
     assert.equal(first.data.messages.length, 10);
     assert.equal(first.data.hasMore, true);
-    assert.doesNotMatch(first.content, /sk-abcdefghijklmnopqrstuvwxyz123456/, 'api keys are redacted');
+    assert.match(first.content, /sk-abcdefghijklmnopqrstuvwxyz123456/, 'redaction removed: text is kept verbatim');
     const second = await run(set, 'read_my_conversation', { sessionId: ids.S_carol, limit: 10, before: first.data.before });
     assert.equal(second.data.messages.length, 10);
     assert.ok(second.data.messages.every(item => !first.data.messages.some(other => other.messageId === item.messageId)), 'pages do not overlap');

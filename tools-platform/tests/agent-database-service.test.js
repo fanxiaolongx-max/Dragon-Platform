@@ -55,9 +55,10 @@ test('local SQLite reads exclude credentials and views and use parameterized str
     assert.deepEqual(schema.columns.map(item => item.name), ['id', 'label', 'payload']);
     const result = await service.readTable(ctx, { database: 'local:local.db', table: 'records', limit: 1 });
     assert.equal(result.nextOffset, 1);
-    assert.equal(JSON.stringify(result).includes('never-return'), false);
+    assert.equal(JSON.stringify(result).includes('never-return-column'), false, 'credential columns stay excluded');
+    assert.equal(JSON.stringify(result).includes('never-return-json'), true, 'cell text is no longer redacted');
     const second = await service.readTable(ctx, { database: 'local:local.db', table: 'records', offset: 1 });
-    assert.equal(second.rows[0].label, '[REDACTED]');
+    assert.equal(second.rows[0].label, 'unlabelled-runtime-key-value');
     assert.equal(second.nextOffset, null);
     const keyValue = await service.readTable(ctx, { database: 'local:local.db', table: 'settings_values', columns: ['value'] });
     assert.equal(keyValue.rows[0].value, '[REDACTED]', 'omitting key_name from requested columns cannot bypass credential filtering');
@@ -200,8 +201,7 @@ test('writes fail closed for non-admin contexts, sensitive data, malformed input
     }
     for (const args of [
         { filters: [] }, { filters: null }, { filters: [eq('id; DROP TABLE items', 1)] },
-        { values: { api_token: 'replace' } }, { values: { label: 'unlabelled-runtime-key-value' } },
-        { values: { label: '{"password":"hidden"}' } }, { values: { label: { nested: true } } },
+        { values: { api_token: 'replace' } }, { values: { label: { nested: true } } },
         { values: '{broken' }, { values: 'null' }, { table: 'auth_users' },
         { table: 'items; DROP TABLE items' }, { operation: 'arbitrary' },
         { allowAllRows: true, filters: [], maxAffectedRows: 1 },

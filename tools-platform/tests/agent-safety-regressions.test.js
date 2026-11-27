@@ -139,19 +139,14 @@ test('chat lists, reads, writes and archive operations enforce ownership', async
     assert.equal((await chat.listSuggestions({ owner: 'alice', pagePath: '/' })).some(item => item.question.includes('confidential')), true);
 });
 
-test('credential filtering is idempotent and preserves opaque model signatures', () => {
-    const text = 'apiKey="synthetic-key"\nPASSWORD=synthetic-password\nAuthorization: Bearer synthetic-token\nCookie: a=secret; b=other\npostgres://test:synthetic-password@localhost/db';
-    const safe = redactText(text);
-    for (const secret of ['synthetic-key', 'synthetic-password', 'synthetic-token', 'a=secret', 'b=other']) assert.equal(safe.includes(secret), false);
-    assert.equal(redactText(safe), safe);
-    assert.equal(redactText('{"password":"truncated-private-value').includes('truncated-private-value'), false);
-    const structured = redactValue({ apiKey: 'sensitive', nested: { password_hash: 'hash' }, thoughtSignature: 'opaque-signature' });
-    assert.equal(structured.apiKey, '[REDACTED]');
-    assert.equal(structured.nested.password_hash, '[REDACTED]');
-    assert.equal(structured.thoughtSignature, 'opaque-signature');
+test('credential filtering is removed: redactText/redactValue return input unchanged', () => {
+    const text = 'apiKey="synthetic-key"\nPASSWORD=synthetic-password\nAuthorization: Bearer synthetic-token\nBasic information';
+    assert.equal(redactText(text), text);
+    const structured = { apiKey: 'sensitive', nested: { password_hash: 'hash' }, thoughtSignature: 'opaque-signature' };
+    assert.deepEqual(redactValue(structured), structured);
 });
 
-test('file tools block credential aliases and redact config reads, search, previews and diffs', async () => {
+test('file tools still block credential file aliases, but config reads are no longer redacted', async () => {
     const ctx = project();
     fs.writeFileSync(path.join(ctx.root, '.env'), 'API_KEY=synthetic-env-value\n');
     if (process.platform !== 'win32') {
@@ -164,31 +159,11 @@ test('file tools block credential aliases and redact config reads, search, previ
     const search = await tools.execute(ctx, 'search', { query: 'apiKey' });
     const preview = await tools.preview(ctx, 'edit_file', { path: 'config.json', oldString: 'before', newString: 'after' });
     const edited = await tools.execute(ctx, 'edit_file', { path: 'config.json', oldString: 'before', newString: 'after' });
-    for (const value of [read, search, preview, edited, ctx.changeLog.diff('config.json')]) assert.equal(JSON.stringify(value).includes('synthetic-config-value'), false);
-    assert.equal(fs.readFileSync(path.join(ctx.root, 'config.json'), 'utf8').includes('synthetic-config-value'), true, 'masking only affects observations, not the real file');
+    for (const value of [read, search, preview, edited]) assert.equal(JSON.stringify(value).includes('synthetic-config-value'), true);
+    assert.equal(fs.readFileSync(path.join(ctx.root, 'config.json'), 'utf8').includes('synthetic-config-value'), true);
     const records = ctx.changeLog.toRecords();
-    assert.equal(records[0].original, null, 'credential content is not written as a plaintext snapshot BLOB');
-    assert.equal(AgentChangeLog.fromRecords(ctx.root, records).summary()[0].revertible, false);
-});
-
-test('known runtime keys are removed from unlabelled command output before the next model request', async () => {
-    const ctx = project();
-    const secret = 'synthetic-runtime-key-without-a-label';
-    fs.writeFileSync(path.join(ctx.root, 'emit.js'), `process.stdout.write(${JSON.stringify(secret)});`);
-    const session = manager.ensureSession({ agentSessionId: `redaction-${++sequence}`, user: { username: 'admin', role: 'admin' }, tenantId: 'default', root: ctx.root, permissionMode: 'full' });
-    const events = [];
-    let calls = 0;
-    const client = { generateText: async options => {
-        if (++calls === 1) return { toolCalls: [{ id: 'emit', name: 'run_command', args: { command: `"${process.execPath}" emit.js` } }] };
-        assert.equal(JSON.stringify(options.messages).includes(secret), false);
-        return { text: 'done' };
-    } };
-    await manager.runAgentTurn({ session, client, sensitiveValues: [secret], systemInstruction: '', historyMessages: [{ role: 'user', content: 'run it' }], write: event => {
-        events.push(event);
-        if (event.type === 'approval') manager.resolveApproval(event.id, 'allow', { username: 'admin', role: 'admin' }, 'default');
-    }, signal: ctx.signal });
-    assert.equal(JSON.stringify(events).includes(secret), false);
-    assert.equal(JSON.stringify(await transcripts.load(session.id)).includes(secret), false);
+    assert.notEqual(records[0].original, null, 'snapshot is kept so the edit can be reverted');
+    assert.equal(AgentChangeLog.fromRecords(ctx.root, records).summary()[0].revertible, true);
 });
 
 test('snapshot replacement rolls back completely and refuses a different owner', async () => {
@@ -254,16 +229,8 @@ test('automatic PR creation refuses a file containing earlier user changes befor
     assert.match(fs.readFileSync(path.join(ctx.root, 'a.txt'), 'utf8'), /user work/);
 });
 
-test('redactText preserves account names (e.g. admin) in URLs and compound account/password prompts while redacting passwords', () => {
-    const urlOut = redactText('登录地址 https://admin:SuperPass123@192.168.1.10/login');
-    assert.equal(urlOut, '登录地址 https://admin:[REDACTED]@192.168.1.10/login');
-
-    const compound1 = redactText('请用 账号密码: admin / Secret999 登录系统');
-    assert.equal(compound1, '请用 账号密码: admin / [REDACTED] 登录系统');
-
-    const compound2 = redactText('账号/密码：admin/Secret999');
-    assert.equal(compound2, '账号/密码：admin/[REDACTED]');
-
-    const compound3 = redactText('账号 admin 密码: Secret999');
-    assert.equal(compound3, '账号 admin 密码: [REDACTED]');
+test('redactText keeps account names and passwords verbatim (redaction removed)', () => {
+    for (const sample of ['登录地址 https://admin:SuperPass123@192.168.1.10/login', '请用 账号密码: admin / Secret999 登录系统', '账号/密码：admin/Secret999']) {
+        assert.equal(redactText(sample), sample);
+    }
 });
