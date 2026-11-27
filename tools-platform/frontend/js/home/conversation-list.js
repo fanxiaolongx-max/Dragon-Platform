@@ -112,9 +112,17 @@
             if(current!==identity()||value===null||value===undefined||!String(value).trim())return;return save(source,id,{title:String(value).trim()});
         }
         if(config.onDelete)return config.onDelete(item);
+        return hide(config,item);
+    }
+    // 从平台列表移除（原客户端的对话保留）；移除后广播，打开中的对话视图据此退出，不留残影
+    async function hide(config,item){
+        const current=identity(),source=sourceOf(config,item),id=config.id(item),title=get(source,id).title||config.title(item);
         const message=L(`从平台列表移除「${title}」？原客户端的对话和消息会保留。`,`Remove “${title}” from this platform list? The original client's conversation and messages are kept.`);
         const ok=window.AppDialog?.confirm?await window.AppDialog.confirm(message,{title:L('移除对话','Remove conversation'),confirmText:L('移除','Remove'),tone:'danger'}):false;
-        if(ok&&current===identity())await save(source,id,{hidden:true});
+        if(!ok||current!==identity())return false;
+        await save(source,id,{hidden:true});
+        window.dispatchEvent(new CustomEvent('home:conversation-hidden',{detail:{source,id,item}}));
+        return true;
     }
     function open(row,config,item,x,y){
         close();anchor=row;row.classList.add('is-menu-open');
@@ -291,7 +299,7 @@
         {const binding=bindings.get(list);if(binding){binding.paging={hasMore,loading,onMore};renderBatch(list);}return;}
 
     }
-    window.HomeConversationList={stamp,sections,comparePins,deferRender:(list,render)=>{const binding=bindings.get(list);if(!binding?.sorting)return false;binding.pendingRender=render;return true;},getFilter,setFilter,getSources,matchesSource,passesFilter,enhance,bucket,get,latest,healthDot,close,refresh:load,pager,reset:list=>{const binding=bindings.get(list);if(binding){binding.limit=6;binding.limits?.clear();renderBatch(list);}},
+    window.HomeConversationList={stamp,sections,comparePins,deferRender:(list,render)=>{const binding=bindings.get(list);if(!binding?.sorting)return false;binding.pendingRender=render;return true;},getFilter,setFilter,getSources,matchesSource,passesFilter,enhance,bucket,get,latest,hide,healthDot,close,refresh:load,pager,reset:list=>{const binding=bindings.get(list);if(binding){binding.limit=6;binding.limits?.clear();renderBatch(list);}},
         // 分区「展开更多」计数清零：match(key) 为真的分区（如 'spaces' 及其下的 'project:…'）回到默认条数
         resetScopes:(list,match)=>{const binding=bindings.get(list);if(binding?.limits)for(const key of [...binding.limits.keys()])if(match(key))binding.limits.delete(key);},toggleArchived:source=>{views.set(source,views.get(source)==='archived'?'active':'archived');signal(source);},isArchived:source=>views.get(source)==='archived',_action:action};
     document.addEventListener('pointerdown',event=>{if(menu&&!menu.contains(event.target)&&!event.target.closest('[data-conversation-more]'))close();},true);

@@ -260,3 +260,37 @@ test('older pinned conversations remain on page 1 when newer unpinned sessions e
  assert.equal(mobActive !== mobArch, true);
  await localDb.closeDatabase();
 });
+
+test('removing a third-party conversation persists hidden and announces it so the open view can exit', async () => {
+ const events = [], puts = [];
+ let confirmAnswer = false;
+ const window = {
+  addEventListener() {},
+  dispatchEvent: event => events.push(event),
+  AppDialog: { confirm: async () => confirmAnswer },
+  fetch: async (url, opts) => { if (opts.method === 'PUT') puts.push(JSON.parse(opts.body)); return { ok: true, json: async () => ({ item: opts.body ? JSON.parse(opts.body) : {} }) }; }
+ };
+ const storage = { getItem: k => k === 'tools_user' ? 'alice' : null };
+ class CustomEvent { constructor(type, init) { this.type = type; this.detail = init?.detail; } }
+ vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../frontend/js/home/conversation-list.js'), 'utf8'), {
+  window, fetch: window.fetch, localStorage: storage, sessionStorage: storage, Date, Map, WeakMap, Set, CustomEvent,
+  document: { readyState: 'complete', documentElement: { dataset: {} }, addEventListener: () => {} }
+ });
+ const api = window.HomeConversationList;
+ await new Promise(r => setImmediate(r));
+ const item = { id: 'desktop:codex:t1', _sourceType: 'codex', title: '1+1' };
+ const config = { source: 'mine', items: [item], id: s => s.id, title: s => s.title };
+ const hidden = () => events.filter(e => e.type === 'home:conversation-hidden');
+ assert.equal(await api.hide(config, item), false);
+ assert.equal(puts.length, 0); assert.equal(hidden().length, 0);
+ confirmAnswer = true;
+ assert.equal(await api.hide(config, item), true);
+ assert.deepEqual(puts.at(-1), { source: 'mine', id: 'desktop:codex:t1', hidden: true });
+ assert.equal(hidden().length, 1);
+ assert.equal(hidden()[0].detail.id, 'desktop:codex:t1');
+ assert.equal(hidden()[0].detail.item, item);
+ // 没有 onDelete 的列表（桌面 Agent / 频道自己的列表）走同一个移除流程
+ await api._action({ source: 'desktop:codex', items: [item], id: s => 't2', title: s => s.title }, item, 'remove');
+ assert.deepEqual(puts.at(-1), { source: 'desktop:codex', id: 't2', hidden: true });
+ assert.equal(hidden().at(-1).detail.source, 'desktop:codex');
+});
