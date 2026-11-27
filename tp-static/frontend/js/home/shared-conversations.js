@@ -6,7 +6,9 @@
     'use strict';
     if (window.HomeSharedConversations) return;
     const API = '/api/shared-conversations';
+    const LAN_API = '/api/lan-share';
     const PENDING_KEY = 'tools_pending_share';
+    const LAN_PENDING_KEY = 'tools_pending_lan_share';
     const BANNER_KEY = 'tools_shared_banner_seen';
     const en = () => (window.ToolsI18n?.getLanguage?.() || localStorage.getItem('tools_lang') || '').startsWith('en');
     const L = (zh, english) => (en() ? english : zh);
@@ -27,13 +29,20 @@
             url.searchParams.delete('share');
             history.replaceState(history.state, '', `${url.pathname}${url.search}${url.hash}`);
         }
+        // 内网直连共享：别人电脑上的落地页把链接带到本机桌面版 /?lanjoin=<链接>
+        const lanLink = url.searchParams.get('lanjoin');
+        if (lanLink) {
+            localStorage.setItem(LAN_PENDING_KEY, lanLink);
+            url.searchParams.delete('lanjoin');
+            history.replaceState(history.state, '', `${url.pathname}${url.search}${url.hash}`);
+        }
     } catch { /* 无痕模式 */ }
 
-    const state = { available: null, inbox: [], skillRequests: [], mine: [], bySession: new Map(), sessionDetails: new Map(), sessionFetching: new Set(), closedLocally: new Set(), accounts: null, groups: [], recent: { users: [], groups: [] }, host: null, banner: null, bannerQueue: [], dialog: null, syncing: false, timers: {} };
+    const state = { lan: null, available: null, inbox: [], skillRequests: [], mine: [], bySession: new Map(), sessionDetails: new Map(), sessionFetching: new Set(), closedLocally: new Set(), accounts: null, groups: [], recent: { users: [], groups: [] }, host: null, banner: null, bannerQueue: [], dialog: null, syncing: false, timers: {} };
 
-    async function api(method, path, body) {
+    async function api(method, path, body, base = API) {
         const token = localStorage.getItem('tools_token') || sessionStorage.getItem('tools_token');
-        const res = await fetch(`${API}${path}`, { method, credentials: 'same-origin', cache: 'no-store', headers: { ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: body === undefined ? undefined : JSON.stringify(body) });
+        const res = await fetch(`${base}${path}`, { method, credentials: 'same-origin', cache: 'no-store', headers: { ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: body === undefined ? undefined : JSON.stringify(body) });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw Object.assign(new Error(data.error || `HTTP ${res.status}`), { status: res.status, code: data.code });
         return data;
@@ -137,6 +146,13 @@ html[data-theme="dark"] .shc-avatar{color:hsl(var(--shc-h) 70% 82%);background:h
 .shc-link input{flex:1;min-width:0;border:0;outline:0;background:transparent;color:var(--v2-ink2,#4b5563);font:12.5px ui-monospace,SFMono-Regular,Menlo,monospace;text-overflow:ellipsis}
 .shc-link.is-error{border-color:color-mix(in srgb,var(--v2-danger,#ef4444) 45%,transparent);background:color-mix(in srgb,var(--v2-danger,#ef4444) 5%,var(--v2-bg,#fff))}
 .shc-link.is-error>.shc-ico,.shc-link.is-error input{color:var(--v2-danger,#ef4444)}
+.shc-lan-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:6px 2px 0;font-size:11.5px;color:var(--v2-ink3,#8a9099)}
+.shc-lan-meta b{color:var(--v2-ink2,#4b5563);font-weight:600}
+.shc-dot{width:7px;height:7px;border-radius:50%;background:var(--v2-ink3,#8a9099);display:inline-block;flex:none}
+.shc-dot.is-on{background:var(--v2-accent,#10a37f)}
+.shc-lan-join{display:flex;gap:6px;margin-top:8px}
+.shc-lan-join input{flex:1;min-width:0;border:1px solid var(--v2-line,#e7e7ea);border-radius:9px;padding:6px 9px;background:var(--v2-bg,#fff);color:var(--v2-ink,#1f2328);font:12px ui-monospace,SFMono-Regular,Menlo,monospace;outline:0}
+.shc-lan-join input:focus{border-color:var(--v2-accent,#10a37f)}
 .shc-hint{margin:7px 2px 0;font-size:11.5px;line-height:1.55;color:var(--v2-ink3,#8a9099)}
 .shc-actions{display:flex;align-items:center;gap:8px;margin-top:12px}
 .shc-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:32px;padding:0 14px;border:1px solid var(--v2-line-strong,#d6d6db);border-radius:9px;background:var(--v2-bg,#fff);color:var(--v2-ink,#1f2328);font:inherit;font-size:13px;cursor:pointer;transition:background .15s,transform .1s,filter .15s,opacity .15s;white-space:nowrap}
@@ -392,6 +408,16 @@ body:not(.dc-chatting) .shc-cap-bar{display:none}
             state.host = host;
             inboxLimit = 3;
             host.addEventListener('click', async event => {
+                const lanJoinBtn = event.target.closest('[data-shc-lan-join]');
+                if (lanJoinBtn) {
+                    const input = host.querySelector('[data-shc-lan-input]');
+                    const link = input?.value.trim();
+                    if (!link) { input?.focus(); return; }
+                    lanJoinBtn.disabled = true;
+                    if (await joinLanLink(link) && input) input.value = '';
+                    lanJoinBtn.disabled = false;
+                    return;
+                }
                 if (event.target.closest('[data-shc-inbox-more]')) {
                     inboxLimit += 5;
                     renderInbox();
@@ -426,9 +452,11 @@ body:not(.dc-chatting) .shc-cap-bar{display:none}
         const host = state.host;
         if (!host?.isConnected) return;
         host.classList.add('shc-inbox');
+        const lanJoin = state.lan?.available ? `<div class="shc-inbox-head"><span class="shc-ico">${icon.link}</span>${esc(L('通过内网链接加入共享对话', 'Join via intranet link'))}</div>
+            <div class="shc-lan-join"><input type="text" data-shc-lan-input spellcheck="false" autocomplete="off" placeholder="http://10.x.x.x:3030/lan-share/…" aria-label="${esc(L('内网共享链接', 'Intranet share link'))}"><button type="button" class="shc-btn primary sm" data-shc-lan-join>${esc(L('加入', 'Join'))}</button></div>` : '';
         const hasAny = state.inbox.length > 0 || state.skillRequests.length > 0;
-        host.hidden = !hasAny;
-        if (!hasAny) { host.innerHTML = ''; return; }
+        host.hidden = !hasAny && !lanJoin;
+        if (!hasAny && !lanJoin) { host.innerHTML = ''; return; }
         const inviteHtml = state.inbox.length ? `<div class="shc-inbox-head"><span class="shc-ico">${icon.people}</span>${esc(L('共享对话邀请', 'Shared conversation invites'))}<b>${state.inbox.length}</b></div>` + state.inbox.slice(0, inboxLimit).map((item, index) => `
             <div class="shc-card" data-share-id="${esc(item.shareId)}" style="animation-delay:${index * 30}ms">${avatar(item.invitedBy || item.owner, item.invitedByName || item.ownerName, 'lg')}
                 <div class="shc-banner-text"><strong>「${esc(item.title)}」</strong><p>${esc(inviteLine(item))} · ${esc(inviteMeta(item))}</p></div>
@@ -440,7 +468,10 @@ body:not(.dc-chatting) .shc-cap-bar{display:none}
                 <div class="shc-actions"><button type="button" class="shc-btn primary sm" data-shc-skill-respond="approve">${esc(L('同意并共享', 'Approve'))}</button><button type="button" class="shc-btn sm" data-shc-skill-respond="reject">${esc(L('拒绝', 'Reject'))}</button></div>
             </div>`).join('') : '';
         const more = Math.max(state.inbox.length, state.skillRequests.length) > inboxLimit;
-        host.innerHTML = inviteHtml + skillHtml + (more ? `<button type="button" class="shc-btn sm" data-shc-inbox-more>${esc(L('查看更多待处理请求', 'Show more requests'))}</button>` : '');
+        const draft = host.querySelector('[data-shc-lan-input]')?.value || '';
+        host.innerHTML = inviteHtml + skillHtml + (more ? `<button type="button" class="shc-btn sm" data-shc-inbox-more>${esc(L('查看更多待处理请求', 'Show more requests'))}</button>` : '') + lanJoin;
+        const lanInput = host.querySelector('[data-shc-lan-input]');
+        if (lanInput && draft) lanInput.value = draft;
     }
 
     // ── 共享链接加入 ──
@@ -459,6 +490,34 @@ body:not(.dc-chatting) .shc-cap-bar{display:none}
             try { localStorage.removeItem(PENDING_KEY); } catch { /* ignore */ }
             window.AppDialog?.alert ? window.AppDialog.alert(error.message, { title: L('无法打开共享对话', 'Cannot open shared conversation'), tone: 'error' }) : toast(error.message);
         }
+    }
+
+    // ── 内网直连共享：用别人电脑上的链接加入 ──
+    async function refreshLanStatus() {
+        try { state.lan = await api('GET', '/status', undefined, LAN_API); } catch { state.lan = { available: false }; }
+        renderInbox();
+        return state.lan;
+    }
+    async function joinLanLink(link) {
+        try {
+            toast(L('正在连接共享者的电脑…', 'Connecting to the sharer’s computer…'));
+            const result = await api('POST', '/join', { link }, LAN_API);
+            await refreshMine();
+            if (result.sessionId) openSession(result.sessionId);
+            toast(result.own ? L('这是你自己发起的共享对话', 'This is your own shared conversation') : L('已加入内网共享对话', 'Joined the shared conversation'));
+            return true;
+        } catch (error) {
+            if (error.status === 401) return false;
+            window.AppDialog?.alert ? window.AppDialog.alert(error.message, { title: L('无法加入内网共享对话', 'Cannot join shared conversation'), tone: 'error' }) : toast(error.message);
+            return false;
+        }
+    }
+    async function consumePendingLanLink() {
+        let link = '';
+        try { link = localStorage.getItem(LAN_PENDING_KEY) || ''; } catch { link = ''; }
+        if (!link || !me()) return;
+        try { localStorage.removeItem(LAN_PENDING_KEY); } catch { /* ignore */ }
+        await joinLanLink(link);
     }
 
     // ── 侧栏：共享对话分类 ──
@@ -850,6 +909,7 @@ body:not(.dc-chatting) .shc-cap-bar{display:none}
             </div>
             <div class="shc-foot">
                 <div class="shc-link"><span class="shc-ico">${icon.link}</span><input type="text" readonly value="${esc(L('正在读取共享状态…', 'Loading sharing status…'))}" aria-label="${esc(L('共享链接', 'Share link'))}"><button type="button" class="shc-btn sm" data-shc-copy disabled>${esc(L('复制链接', 'Copy link'))}</button></div>
+                <div class="shc-lan-wrap" data-shc-lan hidden></div>
                 <p class="shc-hint">${esc(L('对方点开链接、登录平台后即可接受共享。对话上下文、历史附件、工具生成的 HTML/文件及图片都会同步为对方可读的副本；之后的提问与生成各自在自己账号下执行，并实时互相可见。', 'Anyone with an account can open the link and accept after signing in. Conversation history, attachments, generated HTML/files and images sync as readable copies; new questions and edits run under each person’s own account and sync live.'))}</p>
                 <div class="shc-actions"><span class="shc-leave"></span><span class="shc-spacer"></span><button type="button" class="shc-btn ghost" data-shc-close>${esc(L('取消', 'Cancel'))}</button><button type="button" class="shc-btn primary" data-shc-send disabled>${esc(L('发送邀请', 'Send invites'))}</button></div>
             </div></div>`;
@@ -857,12 +917,14 @@ body:not(.dc-chatting) .shc-cap-bar{display:none}
         d.overlay = overlay;
         d.input = overlay.querySelector('.shc-picker input');
         d.list = overlay.querySelector('.shc-list');
+        if (state.lan?.available) overlay.querySelector('.shc-link').style.display = 'none'; // 内网可用：等内网链接一栏出来，不闪一下账号链接
         requestAnimationFrame(() => requestAnimationFrame(() => overlay.classList.add('show')));
         setTimeout(() => d.input.focus({ preventScroll: true }), 60);
         bindDialog(d);
         loadPinyin().then(() => {
             if (state.dialog === d && d.query.trim()) renderList(d, true);
         });
+        loadLan(d);
         const [accounts, groups, recent, current] = await Promise.allSettled([
             state.accounts ? Promise.resolve({ items: state.accounts }) : api('GET', '/accounts'),
             api('GET', '/groups'), api('GET', '/recent'),
@@ -883,9 +945,78 @@ body:not(.dc-chatting) .shc-cap-bar{display:none}
         if (accounts.status === 'rejected') d.list.innerHTML = `<div class="shc-empty">${esc(accounts.reason?.message || L('账号列表加载失败', 'Could not load accounts'))}</div>`;
     }
 
+    // ── 共享面板：内网直连链接（桌面版 + 内网） ──
+    async function loadLan(d, refresh = false) {
+        try {
+            const info = await api('GET', `/session/${encodeURIComponent(d.sessionId)}${refresh ? '?refresh=1' : ''}`, undefined, LAN_API);
+            if (state.dialog !== d) return;
+            d.lanInfo = info;
+        } catch { d.lanInfo = null; }
+        if (state.dialog === d) { renderLan(d); renderMembers(d); }
+    }
+    function renderLan(d) {
+        const host = d.overlay.querySelector('[data-shc-lan]');
+        if (!host) return;
+        const info = d.lanInfo;
+        const lan = info?.lan;
+        host.hidden = !(info?.available || lan);
+        // 桌面版在内网：只给内网直连链接，不再显示本机 127.0.0.1 的账号邀请链接（对方打不开，多一行反而看不懂）
+        const regular = d.overlay.querySelector('.shc-link:not(.is-lan)');
+        if (regular) regular.style.display = host.hidden ? '' : 'none';
+        const hint = d.overlay.querySelector('.shc-hint');
+        if (hint) {
+            if (!hint.dataset.accountHint) hint.dataset.accountHint = hint.textContent;
+            hint.textContent = host.hidden ? hint.dataset.accountHint : L('同在公司内网的同事用自己的 Dragon Claw 桌面版打开这个链接即可加入，不需要在你的电脑上登录。之后大家的提问与回答经你的电脑实时互相同步；你的 IP 变了，已加入的成员会自动跟随。', 'Colleagues on the intranet open this link in their own Dragon Claw desktop app to join; no account on your PC is needed. Questions and answers sync live through your PC, and members follow automatically if your IP changes.');
+        }
+        if (host.hidden) { host.innerHTML = ''; return; }
+        const online = (lan?.members || []).filter(member => member.online).length;
+        const hostMember = lan?.members?.find(member => member.host);
+        const meta = lan
+            ? `<span class="shc-dot is-on"></span><span>${esc(L('内网直连', 'Intranet'))} · ${lan.isHost ? `<b>${esc(L('本机主持', 'Hosted on this PC'))}</b>` : `${esc(L('当前主持', 'Host'))} <b>${esc(hostMember?.name || lan.hostName || '')}</b>`}${lan.isHost && !lan.isOrigin ? esc(L('（发起者离线，临时接任）', ' (standing in for the owner)')) : ''}</span><span>· ${esc(L(`${online}/${lan.members.length} 台电脑在线`, `${online}/${lan.members.length} online`))}</span>`
+            : `<span class="shc-dot"></span><span>${esc(L(`检测到内网环境（${info.address}），可生成同事直接访问的内网链接`, `Intranet detected (${info.address}); create a direct link for colleagues`))}</span>`;
+        host.innerHTML = `<div class="shc-link is-lan"><span class="shc-ico">${icon.people}</span><input type="text" readonly value="${esc(lan?.link || (d.lanCreating ? L('正在生成内网链接…', 'Creating intranet link…') : L('同事用桌面版打开即可加入，无需在本机登录', 'Colleagues open it in their desktop app; no account here needed')))}" aria-label="${esc(L('内网共享链接', 'Intranet share link'))}"><button type="button" class="shc-btn sm" data-shc-lan-copy ${d.lanCreating ? 'disabled' : ''}>${esc(lan?.link ? L('复制内网链接', 'Copy') : L('生成内网链接', 'Create link'))}</button></div>
+            <div class="shc-lan-meta">${meta}</div>`;
+    }
+    async function handleLanAction(d, button) {
+        if (d.lanCreating) return;
+        const lan = d.lanInfo?.lan;
+        if (!lan?.link) {
+            d.lanCreating = true;
+            renderLan(d);
+            try {
+                const result = await api('POST', `/session/${encodeURIComponent(d.sessionId)}/link`, { title: d.title }, LAN_API);
+                d.lanInfo = { ...(d.lanInfo || {}), available: true, lan: result.lan };
+                state.closedLocally.delete(d.sessionId);
+                const current = await api('GET', `/session/${encodeURIComponent(d.sessionId)}`).catch(() => null);
+                if (current?.share?.status === 'active') d.share = current.share;
+            } catch (error) {
+                toast(error.message);
+            } finally {
+                d.lanCreating = false;
+                if (state.dialog === d) renderDialog(d);
+            }
+            return;
+        }
+        // 每次复制前刷新一次：IP 变了会拿到新地址的链接
+        await loadLan(d, true);
+        const value = d.lanInfo?.lan?.link || lan.link;
+        try { await navigator.clipboard.writeText(value); }
+        catch { const input = d.overlay.querySelector('[data-shc-lan] input'); input.select(); document.execCommand?.('copy'); }
+        const fresh = d.overlay.querySelector('[data-shc-lan-copy]');
+        if (fresh) { fresh.classList.add('is-done'); fresh.innerHTML = `${icon.check}${esc(L('已复制', 'Copied'))}`; }
+        clearTimeout(d.lanCopyTimer);
+        d.lanCopyTimer = setTimeout(() => { if (state.dialog === d) renderLan(d); }, 1800);
+    }
+    function lanMember(d, username) {
+        if (!String(username).startsWith('lan:')) return null;
+        const peerId = String(username).split(':')[1];
+        return d.lanInfo?.lan?.members?.find(member => member.peerId === peerId) || null;
+    }
+
     function memberStatus(username, d) { return d.share?.members?.find(member => member.username === username && ['accepted', 'pending'].includes(member.status))?.status || ''; }
 
     function renderDialog(d) {
+        renderLan(d);
         renderChips(d);
         renderSuggest(d);
         renderList(d);
@@ -977,7 +1108,7 @@ body:not(.dc-chatting) .shc-cap-bar{display:none}
         const host = d.overlay.querySelector('.shc-members-wrap');
         const members = (d.share?.members || []).filter(member => ['accepted', 'pending'].includes(member.status));
         if (members.length < 2 && !members.some(member => member.username !== me())) { host.innerHTML = ''; return; }
-        host.innerHTML = `<div class="shc-label"><span class="shc-ico">${icon.share}</span>${esc(L('共享成员', 'Members'))}<em>${members.length}</em></div><div class="shc-members">${members.map(member => `<div class="shc-member">${avatar(member.username, member.name, 'sm')}<span>${esc(member.name)}${member.username === me() ? ` <span class="shc-n">(${esc(L('我', 'me'))})</span>` : ''}</span><span class="shc-tag${member.status === 'accepted' ? ' is-ok' : ''}">${esc(member.role === 'owner' ? L('发起者', 'Owner') : member.status === 'accepted' ? L('已加入', 'Joined') : L('待接受', 'Pending'))}</span>${d.share.isOwner && member.username !== me() ? `<button type="button" class="shc-x" data-shc-remove="${esc(member.username)}" aria-label="${esc(L('移除', 'Remove'))}">${icon.close}</button>` : ''}</div>`).join('')}</div>`;
+        host.innerHTML = `<div class="shc-label"><span class="shc-ico">${icon.share}</span>${esc(L('共享成员', 'Members'))}<em>${members.length}</em></div><div class="shc-members">${members.map(member => `<div class="shc-member">${avatar(member.username, member.name, 'sm')}<span>${esc(member.name)}${member.username === me() ? ` <span class="shc-n">(${esc(L('我', 'me'))})</span>` : ''}</span><span class="shc-tag${member.status === 'accepted' ? ' is-ok' : ''}">${esc(member.role === 'owner' ? L('发起者', 'Owner') : member.status === 'accepted' ? L('已加入', 'Joined') : L('待接受', 'Pending'))}</span>${lanMember(d, member.username) ? `<span class="shc-tag" title="${esc(lanMember(d, member.username).url || '')}"><span class="shc-dot${lanMember(d, member.username).online ? ' is-on' : ''}"></span> ${esc(lanMember(d, member.username).host ? L('主持', 'Host') : lanMember(d, member.username).online ? L('在线', 'Online') : L('离线', 'Offline'))}</span>` : ''}${d.share.isOwner && member.username !== me() ? `<button type="button" class="shc-x" data-shc-remove="${esc(member.username)}" aria-label="${esc(L('移除', 'Remove'))}">${icon.close}</button>` : ''}</div>`).join('')}</div>`;
     }
 
     function toggle(d, username, force) {
@@ -1030,6 +1161,8 @@ body:not(.dc-chatting) .shc-cap-bar{display:none}
             }
             if (target.closest('[data-shc-cancelgroup]')) { d.creatingGroup = false; return renderSuggest(d); }
             if (target.closest('[data-shc-savegroup]')) return saveGroup(d);
+            const lanButton = target.closest('[data-shc-lan-copy]');
+            if (lanButton) return handleLanAction(d, lanButton);
             const linkButton = target.closest('[data-shc-copy]');
             if (linkButton) return handleLinkAction(d, linkButton);
             if (target.closest('[data-shc-send]')) return send(d);
@@ -1173,7 +1306,7 @@ body:not(.dc-chatting) .shc-cap-bar{display:none}
     // ── 启动 ──
     function init() {
         ensureStyle();
-        refreshInbox().then(() => { if (state.available) { refreshMine(); consumePendingLink(); } });
+        refreshInbox().then(() => { if (state.available) { refreshMine(); consumePendingLink(); refreshLanStatus().then(consumePendingLanLink); } });
         const loop = () => {
             clearTimeout(state.timers.loop);
             state.timers.loop = setTimeout(async () => { await syncActive(); loop(); }, isShared(currentSession()) ? 4000 : 8000);
@@ -1187,7 +1320,7 @@ body:not(.dc-chatting) .shc-cap-bar{display:none}
             state.accounts = null; state.mine = []; state.bySession.clear(); state.sessionDetails.clear(); state.sessionFetching.clear(); state.closedLocally.clear(); state.inbox = []; state.skillRequests = []; state.bannerQueue = []; state.available = null;
             window.DragonClawWorkspace?.setSharedWorkspace?.(null);
             if (hadMine) window.dispatchEvent(new CustomEvent('home:conversation-list-changed', { detail: { source: 'mine' } }));
-            refreshInbox().then(() => { if (state.available) { refreshMine(); consumePendingLink(); } });
+            refreshInbox().then(() => { if (state.available) { refreshMine(); consumePendingLink(); refreshLanStatus().then(consumePendingLanLink); } });
         };
         window.addEventListener('tools:authchange', resetForAuth);
         window.addEventListener('storage', event => { if (!event.key || ['tools_user', 'tools_tenant_id', 'tools_token'].includes(event.key)) resetForAuth(); });
@@ -1207,7 +1340,7 @@ body:not(.dc-chatting) .shc-cap-bar{display:none}
 
     window.HomeSharedConversations = {
         openDialog, renderInto, count, isShared, info, items: listItems, rowIcon, decorateMessage, refresh: () => Promise.all([refreshInbox(), refreshMine()]),
-        promptSkillRequest, checkSkillBeforeSend, onSessionDeleted,
+        promptSkillRequest, checkSkillBeforeSend, onSessionDeleted, joinLanLink,
         // 侧栏右键「共享」只给 Dragon Claw 自己的对话：第三方 Agent、频道对话不共享
         available: () => state.available !== false,
         beforeOpen: async sessionId => {

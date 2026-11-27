@@ -84,7 +84,7 @@
     },
     "/api/app-version": {
       "name": "tools-platform",
-      "version": "1.0.716"
+      "version": "1.0.719"
     }
   },
   "proof": {
@@ -434,8 +434,8 @@
     },
     "datacom-protocol-expert/index.html": {
       "url": "tp-static/payload/350b556c16e392b0cc02319227bdbc6d6890a508d6bd9b1e85082d7619b87ac2.bin",
-      "iv": "jLAZSw+S5LJezZur",
-      "hash": "70f23e27c275a8397f8b3812e5823dd1e1b5c2bb42114a8e3e1485ef31cff518",
+      "iv": "PIiNpslQ71DTaWUT",
+      "hash": "ebe46b03eb696712b441c0a4ec84866e18fa96d69324323e72d1592e8dc949ae",
       "type": "text/html; charset=utf-8"
     },
     "datacom-protocol-expert/THIRD_PARTY_NOTICES.md": {
@@ -470,8 +470,8 @@
     },
     "department-reward-penalty/data/state.json": {
       "url": "tp-static/payload/059c0ac3a82bdb481462b9822d9d26303f893cb4fbe5ac3bbb466f742f30cc6e.bin",
-      "iv": "DcBSOjVwialVm8dQ",
-      "hash": "ffb431609e989602b31acb5ac21487d6d7a23efb012872e41f72e4847513c5b4",
+      "iv": "DToCHB6yNgl/4qEh",
+      "hash": "5edfbbcb84992ff99b6977a89a334554e23148f7bc3677db0b2ee7446c33d063",
       "type": "application/json; charset=utf-8"
     },
     "department-reward-penalty/index.html": {
@@ -500,14 +500,14 @@
     },
     "expedite/index.html": {
       "url": "tp-static/payload/fb7b83b7aba3086334d49373a1da5c202190cd8aef10d3dbb255e06c9dbfe19a.bin",
-      "iv": "LHuACbu+TUovfB1l",
-      "hash": "e0b8e575a651d288d1d845c683abf5cf129dd7ad33c9d842fb2487e25386bce1",
+      "iv": "3xBf3lJiCnpahnKU",
+      "hash": "cc3981ba1795602335d51707b68a8dd1b5499b528e3b724bb7d10ba419a3b1db",
       "type": "text/html; charset=utf-8"
     },
     "index.html": {
       "url": "tp-static/payload/0eb547304658805aad788d320f10bf1f292797b5e6d745a3bf617584da017051.bin",
-      "iv": "2fg2VQ1TRR/vNckS",
-      "hash": "b4b44fcc05faf3f70ecd3d56c8d9ad852567fdd2816d64e3766484757810ae1a",
+      "iv": "uyPirAz+TiyqpfYR",
+      "hash": "b5f6a5d4a27ec13e2a4bb034060b665612792b7a75824c1619a00ce3d19c889e",
       "type": "text/html; charset=utf-8"
     },
     "mayrig/index.html": {
@@ -518,8 +518,8 @@
     },
     "monthly/index.html": {
       "url": "tp-static/payload/b60ee55bb750024b57d9421ea1caaefe17080b2c22c984d1a4b5d61b777ac6fd.bin",
-      "iv": "ZWwfdolLZaqiTb4u",
-      "hash": "524a3e75755d22f16d6d5ef4295f2dd03cca5ff3fdca5bbbf4c8558347aa950f",
+      "iv": "HKzVsBZiWz2xcDa0",
+      "hash": "7de1a6fa108b527dbb31c6b922623eef8a0cdd657dfbbc04ae6d5041986bfc6b",
       "type": "text/html; charset=utf-8"
     },
     "monthly/legacy.html": {
@@ -721,8 +721,8 @@
     },
     "portal-data.json": {
       "url": "tp-static/payload/4187a00828abb3180acbb34476f6daf7e5f48cabcd5296e625824e9757bf3d25.bin",
-      "iv": "5MUwpdNt2/hlUJsn",
-      "hash": "fd0cb6c694d74bde6f535e716c9f9a88e07f63a96d64200647362be9e260c3a9",
+      "iv": "Q8nwIhtva5L9BdcT",
+      "hash": "d12d5d1108e0beb0f737e4b68efef1c974a52aadbbc1ec9b768e48270b52c606",
       "type": "application/json; charset=utf-8"
     },
     "pr-2/index.html": {
@@ -764,8 +764,8 @@
       "parts": [
         {
           "url": "tp-static/payload/a342e184b9f5f7853146b8b4d1ecb54b32359a99502d61c5b9a4f15fc4b8990a.bin",
-          "iv": "FYY0UNJUaFjTLWFR",
-          "hash": "6b35ab71eecfee3251989905fc82a345ef5b8acded043ccc369758ac3ac7e8a1"
+          "iv": "2/drwFIZaz1Oc0wm",
+          "hash": "ed1956b2f013aabf87602f6844d997641aea42f2930ddb6f700d3fc102ba4a87"
         },
         {
           "url": "tp-static/payload/da8413d1675396fd53b30039ec93df78cefa3a7ffe0085b85e2d0cb387175967.bin",
@@ -773,7 +773,7 @@
           "hash": "f4d55951645ba59cf3870734d07435cbc6aa66fef54f3f661ea05fedff343fdd"
         }
       ],
-      "hash": "7905e0a47d7d42193d0b63a6cb371738610414792d09d9f29f72ac6e231b638e",
+      "hash": "b48e35c595e46ac6ec0e3321bbccead389450238a7c5153d2fd74a575e6adbff",
       "type": "text/html; charset=utf-8"
     },
     "reward-program/data/applications.json": {
@@ -804,8 +804,8 @@
       "parts": [
         {
           "url": "tp-static/payload/568abe62624785c8feaddc6239da5fa41778b2a10a3ff8a150cf06dcd8bbe6f7.bin",
-          "iv": "uTs/P3PMRX/6uoZn",
-          "hash": "8417a0843d24a289ddcc4ca301c3c115cbc34fbf72529be7bfb9a5aaecaa174a"
+          "iv": "Od7fRlLS8/pbyDnZ",
+          "hash": "a8f756cfbd3becb11c1d0c75ba68d97a6d3a4bfc1fb5bd503cdb29ce3447d207"
         },
         {
           "url": "tp-static/payload/ca90bcdf16e2ace99cf12653ecf830e93c1d831348a3dbb5bb95d406e130171a.bin",
@@ -813,7 +813,7 @@
           "hash": "e2986f5d90d756ffd64b592c68d8ac7974b39e43120d1068d7ad600b8acb1f13"
         }
       ],
-      "hash": "ca4f106eae6a836cf305ff757340cdba095247435056afe88eb213615989bad8",
+      "hash": "b377f939c37d624ee369d4e1bf1e8f133f2e05ec5c0cb4dc0e0d201a638a92d4",
       "type": "text/html; charset=utf-8"
     },
     "supplier-quotation-comparison/app.js": {
@@ -11099,8 +11099,8 @@
     },
     "tool-mumxi3px/index.html": {
       "url": "tp-static/payload/75d15759f83fc8f0e3a6cc7c39574b5443a39eabe4bc8bd9a60591224eac6eda.bin",
-      "iv": "GnEuKqOyQLZK5iCD",
-      "hash": "21eb27c78525117613280edc77459b521317c47a875663dc3fd5cfb5790b069c",
+      "iv": "XByHerR1e3pC8h7g",
+      "hash": "506f40317b251492fa03ebb906dd2f55e1d58dc1204694cd3090992fd1fc8f35",
       "type": "text/html; charset=utf-8"
     },
     "tool-mv9strpn/index.html": {
@@ -11119,16 +11119,16 @@
       "parts": [
         {
           "url": "tp-static/payload/30f5dfac9be824457b348a68e56346e98e3892225a9f16f38d25051df48b42c7.bin",
-          "iv": "eS4IVbqikNcxNA9n",
-          "hash": "c9367b0a4a63562cf1077f13685ccd7c800a7bea5d855bd0a46ccd073dedd6f2"
+          "iv": "FJDlmcw5m9vKK+kK",
+          "hash": "0879580449646a2fa74cb38f4ab3f4315b22dab93f59e811e7fd33457a6ee52f"
         },
         {
           "url": "tp-static/payload/b3ec7a6f678a7de724affda91226a3b0ce112093932b78085a3797280544ee6a.bin",
-          "iv": "3KNl0vYsjjAt/Pfj",
-          "hash": "5b03f5598dfdc350a35cd731cd44a7e20dbe0a06bf063f96ee92f2179dd17a17"
+          "iv": "YWQhHsnspC/YB0jo",
+          "hash": "ccfb1fe05e694420121fad9ad49fef9ff144659e6d27ab8772d1ea213d10a650"
         }
       ],
-      "hash": "2bfdae8441890e2d49ad448774efa75edd27fc49357a41397143e87f0df0f0b9",
+      "hash": "c0859971d2b1fd27b3b7206bd86f3e99236c3638bb14c455e8b5ceb8a405dc30",
       "type": "text/html; charset=utf-8"
     }
   }
