@@ -1,10 +1,12 @@
 {
   "zh": [
     "TaiSha 网页工作台阶段一连管理交换机前自动预检 SSH 22 端口：端口不通时立即给出「未开启 SSH（经 Console 配置 stelnet server enable）」或「Ping 与 22 都不通（检查 IP/VLAN/网线）」，不再等待十几秒超时；预检结果不确定时照常继续登录。",
-    "TaiSha 交换机、iBMC 与跳板机 SSH 登录报错更细：可识别对端断开（Connection closed/reset，提示检查 VTY 与用户 service-type）、算法或密钥不兼容（Unable to negotiate / Invalid key length），不再统一报成 timeout。"
+    "TaiSha 交换机、iBMC 与跳板机 SSH 登录报错更细：可识别对端断开（Connection closed/reset，提示检查 VTY 与用户 service-type）、算法或密钥不兼容（Unable to negotiate / Invalid key length），不再统一报成 timeout。",
+    "桌面 Agent 设置里 Codex 卡片提示的修复命令改为脚本的完整绝对路径，在任意目录下打开终端都能直接复制运行；网页发送失败时的报错提示同样给出完整路径。"
   ],
   "en": [
     "TaiSha web workbench now pre-checks SSH port 22 before stage-one logs in to the management switch: a closed port fails fast with \"SSH not enabled (configure stelnet server enable via Console)\" or \"neither ping nor port 22 reachable (check IP/VLAN/cabling)\" instead of a long timeout; an inconclusive probe still proceeds with the login.",
-    "TaiSha switch, iBMC and jump-host SSH logins report clearer failures: peer disconnects (Connection closed/reset, check VTY and user service-type) and algorithm or key incompatibility (Unable to negotiate / Invalid key length) are no longer all reported as timeout."
+    "TaiSha switch, iBMC and jump-host SSH logins report clearer failures: peer disconnects (Connection closed/reset, check VTY and user service-type) and algorithm or key incompatibility (Unable to negotiate / Invalid key length) are no longer all reported as timeout.",
+    "The Codex fix command shown in Desktop Agent settings now uses the script's full absolute path, so it runs as-is from any Terminal directory; the send-failure message shows the same full path."
   ]
 }

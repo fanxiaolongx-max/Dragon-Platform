@@ -101,7 +101,7 @@
                         help.textContent = L('ChatGPT 桌面端未接入共用 app-server daemon，桌面正打开的历史会话将无法从网页发送。请在终端运行下方命令，然后完全退出并重开 ChatGPT.app（Cmd+Q）：', 'ChatGPT desktop is not sharing the app-server daemon, so open desktop threads reject web replies. Run this command in Terminal, then quit (Cmd+Q) and reopen ChatGPT.app:');
                         if (!help.hidden) {
                             const code = document.createElement('code');
-                            code.textContent = 'sh tools-platform/scripts/codex-daemon-login-agent.sh';
+                            code.textContent = p.desktopFixCommand || 'sh tools-platform/scripts/codex-daemon-login-agent.sh';
                             help.append(document.createElement('br'), code);
                         }
                     }

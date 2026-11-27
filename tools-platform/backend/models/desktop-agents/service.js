@@ -44,10 +44,10 @@ async function scan(owner, cfg) {
             if (provider === 'codex') {
                 const link = await codex.available(1500);
                 canSend = link.canSend;
-                if (link.mode === 'daemon') extra.desktopOnDaemon = link.desktopOnDaemon;
+                if (link.mode === 'daemon') { extra.desktopOnDaemon = link.desktopOnDaemon; if (link.desktopOnDaemon === false) extra.desktopFixCommand = link.fixCommand; }
                 reason = !canSend ? 'Codex 桌面与 app-server daemon 均未运行，可查看已保存记录'
                     : link.mode === 'ipc' ? '原生桌面 IPC 连接'
-                        : link.desktopOnDaemon === false ? 'app-server daemon 已连接，但 ChatGPT 桌面未接入共用 daemon；桌面打开中的历史会话将无法从网页发送（请运行 codex-daemon-login-agent.sh 并重开 ChatGPT.app）'
+                        : link.desktopOnDaemon === false ? 'app-server daemon 已连接，但 ChatGPT 桌面未接入共用 daemon；桌面打开中的历史会话将无法从网页发送（请在终端运行 ' + link.fixCommand + ' 并重开 ChatGPT.app）'
                             : 'app-server daemon 连接 · 与桌面共享会话';
             }
             if (provider === 'claudecode') {

@@ -184,7 +184,7 @@ module.exports = {
     send: (...args) => viaDaemon() ? daemon.send(...args) : send(...args),
     steer: (...args) => viaDaemon() ? daemon.steer(...args) : steer(...args),
     async available(timeout = 1500) {
-        if (await daemon.available(timeout)) return { canSend: true, mode: 'daemon', desktopOnDaemon: await daemon.desktopOnDaemon() };
+        if (await daemon.available(timeout)) return { canSend: true, mode: 'daemon', desktopOnDaemon: await daemon.desktopOnDaemon(), fixCommand: daemon.loginAgentCommand };
         let ipc;
         try { ipc = new module.exports.DesktopIPC(undefined, timeout); await ipc.initialize(); return { canSend: true, mode: 'ipc' }; }
         catch { return { canSend: false, mode: '' }; }

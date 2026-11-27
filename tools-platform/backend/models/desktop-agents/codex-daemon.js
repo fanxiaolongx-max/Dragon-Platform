@@ -6,6 +6,9 @@ const os = require('node:os');
 const path = require('node:path');
 const { execFile } = require('node:child_process');
 const WebSocket = require('ws');
+// 提示给用户的命令必须是绝对路径：用户在终端里通常不在仓库目录下
+const loginAgentScript = path.resolve(__dirname, '../../../scripts/codex-daemon-login-agent.sh');
+const loginAgentCommand = `sh '${loginAgentScript.replace(/'/g, `'\\''`)}'`;
 const failure = (code, message) => Object.assign(new Error(message), { code });
 const codexHome = () => process.env.CODEX_HOME || path.join(os.homedir(), '.codex');
 const socketPath = () => path.join(codexHome(), 'app-server-control', 'app-server-control.sock');
@@ -83,7 +86,7 @@ async function loaded(client, id) {
         if (/already has an active writer/i.test(e.message)) {
             const shared = await desktopOnDaemon();
             throw failure('DESKTOP_UNAVAILABLE', shared === false
-                ? '这段会话正被 ChatGPT 桌面端独占（桌面未接入共用 app-server daemon）。请在终端运行 sh tools-platform/scripts/codex-daemon-login-agent.sh 并完全退出重开 ChatGPT.app（Cmd+Q）后重试'
+                ? '这段会话正被 ChatGPT 桌面端独占（桌面未接入共用 app-server daemon）。请在终端运行 ' + loginAgentCommand + ' 并完全退出重开 ChatGPT.app（Cmd+Q）后重试'
                 : '这段会话正被另一个 Codex 进程独占，请先关闭占用该会话的 Codex 窗口或 CLI 后重试');
         }
         throw failure('DESKTOP_UNAVAILABLE', 'Codex 找不到这段会话：' + e.message);
@@ -168,4 +171,4 @@ function desktopOnDaemon() {
         resolve(!lines.some(l => /CodexCLI\.app\/Contents\/MacOS\/codex .*app-server --analytics/.test(l)));
     }));
 }
-module.exports = { DaemonClient, socketPath, exists, read, create, send, steer, available, desktopOnDaemon };
+module.exports = { DaemonClient, socketPath, exists, read, create, send, steer, available, desktopOnDaemon, loginAgentCommand };
