@@ -1,8 +1,8 @@
-const { run, all, get } = require('./app-db');
+const { run, all, get, getDbPath } = require('./app-db');
 
 const MAX_ALERT_ROWS = 10000;
 
-let initPromise = null;
+const initPromises = new Map();
 
 function buildId(prefix = 'alert') {
     return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
@@ -29,8 +29,9 @@ function parseJson(value, fallback) {
 }
 
 async function ensureReady() {
-    if (!initPromise) {
-        initPromise = (async () => {
+    const dbPath = getDbPath();
+    if (!initPromises.has(dbPath)) {
+        const promise = (async () => {
             await run(`
                 CREATE TABLE IF NOT EXISTS alert_center_events (
                     id TEXT PRIMARY KEY,
@@ -59,12 +60,13 @@ async function ensureReady() {
             await run(`CREATE INDEX IF NOT EXISTS idx_alert_center_type_created ON alert_center_events(event_type, created_at DESC)`);
             await ensureBootstrapEvent();
         })().catch(err => {
-            initPromise = null;
+            initPromises.delete(dbPath);
             throw err;
         });
+        initPromises.set(dbPath, promise);
     }
 
-    return initPromise;
+    return initPromises.get(dbPath);
 }
 
 async function ensureBootstrapEvent() {

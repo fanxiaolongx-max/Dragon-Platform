@@ -10331,6 +10331,7 @@ bash batch_taishan.sh</div>
         this.streamError = null;
         this.uiLineBuf = "";
         this.feedNodeId = null;
+        this.feedHost = null;
         this.feedRunId = wbCurrentTask ? wbCurrentTask.runId : null;
         this._idleTimer = null;
         this._retainedIdleMs = 0;
@@ -10343,15 +10344,15 @@ bash batch_taishan.sh</div>
         if (!this.feedRunId && wbCurrentTask) this.feedRunId = wbCurrentTask.runId;
         if (this.sessionId) {
           if (prev && prev !== nodeId) {
-            wbFeedMarkNodeStatusIfOwner(prev, this.sessionId, "closed");
+            wbFeedMarkNodeStatusIfOwner(prev, this.sessionId, "closed", this.feedHost);
           }
-          wbFeedEnsureStream(nodeId, this.sessionId, this.feedRunId, "running");
+          wbFeedEnsureStream(nodeId, this.sessionId, this.feedRunId, "running", this.feedHost);
         }
       }
 
       markFeedRetained() {
         if (this.feedNodeId && this.sessionId) {
-          wbFeedMarkNodeStatusIfOwner(this.feedNodeId, this.sessionId, "retained");
+          wbFeedMarkNodeStatusIfOwner(this.feedNodeId, this.sessionId, "retained", this.feedHost);
         }
       }
 
@@ -10460,7 +10461,7 @@ bash batch_taishan.sh</div>
         this.viaJump = false;
         if (!this.feedRunId && wbCurrentTask) this.feedRunId = wbCurrentTask.runId;
         if (this.feedNodeId) {
-          wbFeedEnsureStream(this.feedNodeId, this.sessionId, this.feedRunId, "running");
+          wbFeedEnsureStream(this.feedNodeId, this.sessionId, this.feedRunId, "running", this.feedHost);
         }
         dcActiveClients.set(this.targetKey, this);
         const rowId = (this.targetKey === "sw" || this.targetKey === "sw2") ? "dcSwInputRow" : `dcInputRow-${this.targetKey}`;
@@ -10571,7 +10572,7 @@ bash batch_taishan.sh</div>
                     this._feedUiChunk(clean);
                   }
                   if (this.feedNodeId && this.sessionId) {
-                    wbFeedAppendData(this.feedNodeId, this.sessionId, this.feedRunId, ev.data || "", this.cfg);
+                    wbFeedAppendData(this.feedNodeId, this.sessionId, this.feedRunId, ev.data || "", this.cfg, this.feedHost);
                   }
                   this._notifyWaiters();
                 }
@@ -11099,6 +11100,7 @@ bash batch_taishan.sh</div>
             activeCheckId = `${pfx}factory_ping`;
             if (wbTask) wbStartCheck(wbTask, activeCheckId, { currentStage: "阶段一", currentTarget: h.hostname, phase: "stage1_arp_ping", message: `${h.hostname}: 清 ARP 并探测出厂 iBMC (${cfg.factoryIbmcIp})`, cfg });
             hostClient = new DcPtyClient(hKey, cfg);
+            hostClient.feedHost = h.hostname;
             hostClient.setFeedNode("pc");
             await hostClient.open(`TaiShan-S1-#${idx}-${h.ibmcIp}`);
 
@@ -11341,6 +11343,7 @@ bash batch_taishan.sh</div>
       const allowLabNicFallback = Boolean(el("dcLabNicFallback")?.checked);
       const cmds = buildSopOsCommands(h, cfg, { isV20, allowLabNicFallback });
       const client = new DcPtyClient(hKey, cfg);
+      client.feedHost = h.hostname;
       const pfx = `s2_h${idx}_`;
       let activeCheckId = `${pfx}ibmc_ssh`;
 
@@ -12113,6 +12116,11 @@ bash batch_taishan.sh</div>
     const WB_CHECK_STATUSES = new Set(["pending", "running", "passed", "warning", "failed", "skipped"]);
     const WB_TERM_NODE_ORDER = ["pc", "sw1", "sw2", "ibmc", "os"];
     const WB_TERM_NODE_IDS = new Set(WB_TERM_NODE_ORDER);
+    // The iBMC / OS cards show one server at a time, so each host keeps its own stream there.
+    const WB_TERM_PER_HOST = new Set(["ibmc", "os"]);
+    function wbTermStreamKey(nodeId, host) {
+      return host && WB_TERM_PER_HOST.has(nodeId) ? `${nodeId}@${host}` : nodeId;
+    }
     const WB_TERM_MAX_CHARS = 16000;
     let wbHeartbeatMs = 2500;
     let wbTermNotifyMs = 150;
@@ -12158,10 +12166,11 @@ bash batch_taishan.sh</div>
     function wbCloneTerminalSnapshot() {
       const streams = [];
       for (const nodeId of WB_TERM_NODE_ORDER) {
-        const rec = wbTermStreams.get(nodeId);
-        if (!rec || !rec.redacted) continue;
+        for (const rec of wbTermStreams.values()) {
+        if (rec.nodeId !== nodeId || !rec.redacted) continue;
         streams.push({
           nodeId: rec.nodeId,
+          host: rec.host || null,
           sessionId: rec.sessionId,
           runId: rec.runId,
           seq: rec.seq,
@@ -12169,6 +12178,7 @@ bash batch_taishan.sh</div>
           text: rec.text,
           redacted: true
         });
+        }
       }
       return { streams };
     }
@@ -12209,13 +12219,15 @@ bash batch_taishan.sh</div>
       if (hadAny) wbScheduleTerminalNotify(true);
     }
 
-    function wbFeedEnsureStream(nodeId, sessionId, runId, status = "running") {
+    function wbFeedEnsureStream(nodeId, sessionId, runId, status = "running", host = null) {
       if (!WB_TERM_NODE_IDS.has(nodeId) || !sessionId) return null;
       const resolvedRunId = runId || (wbCurrentTask ? wbCurrentTask.runId : "");
-      let rec = wbTermStreams.get(nodeId);
+      const key = wbTermStreamKey(nodeId, host);
+      let rec = wbTermStreams.get(key);
       if (!rec) {
         rec = {
           nodeId,
+          host: key === nodeId ? null : host,
           sessionId: String(sessionId),
           runId: String(resolvedRunId),
           seq: 1,
@@ -12223,7 +12235,7 @@ bash batch_taishan.sh</div>
           text: "",
           redacted: true
         };
-        wbTermStreams.set(nodeId, rec);
+        wbTermStreams.set(key, rec);
         wbScheduleTerminalNotify(true);
         return rec;
       }
@@ -12238,15 +12250,17 @@ bash batch_taishan.sh</div>
       return rec;
     }
 
-    function wbFeedAppendData(nodeId, sessionId, runId, rawChunk, cfg) {
+    function wbFeedAppendData(nodeId, sessionId, runId, rawChunk, cfg, host = null) {
       if (!WB_TERM_NODE_IDS.has(nodeId) || !sessionId) return;
       const chunkStr = String(rawChunk == null ? "" : rawChunk);
       if (!chunkStr) return;
       const resolvedRunId = runId || (wbCurrentTask ? wbCurrentTask.runId : "");
-      let rec = wbTermStreams.get(nodeId);
+      const key = wbTermStreamKey(nodeId, host);
+      let rec = wbTermStreams.get(key);
       if (!rec) {
         rec = {
           nodeId,
+          host: key === nodeId ? null : host,
           sessionId: String(sessionId),
           runId: String(resolvedRunId),
           seq: 0,
@@ -12254,7 +12268,7 @@ bash batch_taishan.sh</div>
           text: "",
           redacted: false
         };
-        wbTermStreams.set(nodeId, rec);
+        wbTermStreams.set(key, rec);
       }
       const prevText = rec.text || "";
       const prevStatus = rec.status;
@@ -12271,9 +12285,9 @@ bash batch_taishan.sh</div>
       }
     }
 
-    function wbFeedMarkNodeStatusIfOwner(nodeId, sessionId, status) {
+    function wbFeedMarkNodeStatusIfOwner(nodeId, sessionId, status, host = null) {
       if (!WB_TERM_NODE_IDS.has(nodeId) || !sessionId) return;
-      const rec = wbTermStreams.get(nodeId);
+      const rec = wbTermStreams.get(wbTermStreamKey(nodeId, host));
       if (!rec || rec.sessionId !== String(sessionId)) return;
       if (rec.status === status) return;
       rec.status = status;

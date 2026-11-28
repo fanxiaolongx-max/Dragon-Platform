@@ -66,6 +66,7 @@ function readSamples(filename, owner) {
     return new Promise((resolve, reject) => {
         const db = new sqlite3.Database(filename, sqlite3.OPEN_READONLY, error => {
             if (error) return reject(error);
+            db.configure('busyTimeout', 5000);
             db.get("SELECT 1 AS present FROM sqlite_master WHERE type='table' AND name='desktop_pet_quota_details'", (schemaError, table) => {
                 if (schemaError) { db.close(); return reject(schemaError); }
                 const details = table ? `d.credits_balance, d.extra_enabled, d.extra_used, d.extra_limit, d.extra_currency` :

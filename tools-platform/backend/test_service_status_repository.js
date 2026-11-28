@@ -99,6 +99,29 @@ async function main() {
 
     const fallback = await repo.getHistory(365);
     assert.strictEqual(fallback.days, 90);
+
+    // Concurrent write bursts serialize cleanly and transient SQLITE_BUSY retries succeed
+    let busyAttempts = 0;
+    const retryResult = await repo.runWithBusyRetry(async () => {
+        busyAttempts += 1;
+        if (busyAttempts < 3) {
+            const err = new Error('SQLITE_BUSY: database is locked');
+            err.code = 'SQLITE_BUSY';
+            throw err;
+        }
+        return 'recovered';
+    });
+    assert.strictEqual(retryResult, 'recovered');
+    assert.strictEqual(busyAttempts, 3);
+    await Promise.all(Array.from({ length: 20 }, (_, idx) => repo.trackRequest({
+        method: 'GET',
+        pathname: `/api/health?burst=${idx}`,
+        statusCode: idx % 5 === 0 ? 404 : 200,
+        durationMs: 5 + idx,
+        timestamp: dateAt(0)
+    })));
+    const afterBurst = await repo.getHistory(30);
+    assert.strictEqual(afterBurst.overall.requests, 24);
     console.log('service status repository tests passed');
 }
 

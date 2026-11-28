@@ -1,10 +1,14 @@
 {
   "zh": [
-    "桌面 Agent 设置里 Codex 卡片提示的修复命令改为脚本的完整绝对路径，在任意目录下打开终端都能直接复制运行；网页发送失败时的报错提示同样给出完整路径。",
-    "删除侧栏「任务」里正打开的对话（含 Codex、Claude Code 等第三方 Agent 和频道对话）后，中间区域会立即回到新对话，不再残留已删除的内容；第三方 Agent 对话的移除会先确认，并在刷新后保持隐藏。"
+    "全局备份改用流式 ZIP 写入并排除缓存与浏览器运行目录，大幅降低大库备份时的内存占用；定时备份改为串行排队并自动清理超过 6 小时的遗留快照。",
+    "修复多租户并发写入时的 SQLite 锁冲突：服务状态记录改为按库串行排队并支持 SQLITE_BUSY 退避重试，告警中心初始化按租户库隔离，Kindle 额度同步只读连接增加忙等超时。",
+    "修复共享对话中拒绝邀请与拒绝技能授权请求时的用户昵称与通知目标读取异常。",
+    "泰山服务器开局工具的 iBMC 与 OS 实时终端流按主机独立隔离，避免多机并发执行时输出互相覆盖。"
   ],
   "en": [
-    "The Codex fix command shown in Desktop Agent settings now uses the script's full absolute path, so it runs as-is from any Terminal directory; the send-failure message shows the same full path.",
-    "Removing a conversation that is open in the Tasks sidebar (including Codex, Claude Code and other third-party agent or channel chats) now returns the main area to a new chat instead of leaving the removed content on screen; removing a third-party chat asks for confirmation and stays hidden after a refresh."
+    "Global backups now use a streaming ZIP writer and exclude cache and live browser profile directories to lower memory usage; scheduled backups serialize cleanly and prune stale snapshots older than 6 hours.",
+    "Fixed SQLite lock contention under multi-tenant concurrency by serializing service-status writes with SQLITE_BUSY backoff retries, scoping alert-center initialization per tenant database, and adding a busy timeout to Kindle quota sync reads.",
+    "Fixed display-name and target-user resolution when declining a shared conversation invite or rejecting a shared skill request.",
+    "Isolated per-host iBMC and OS live terminal streams in the TaiShan provisioning tool so concurrent server runs do not overwrite each other's output."
   ]
 }

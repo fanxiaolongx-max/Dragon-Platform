@@ -1,4 +1,5 @@
 const { run, all, getDbPath } = require('./app-db');
+const { getTenantId, runWithTenant } = require('./tenant-context');
 
 const ALLOWED_WINDOWS = new Set([30, 90, 180]);
 const LICENSE_WARNING_MS = 7 * 24 * 60 * 60 * 1000;
@@ -6,8 +7,11 @@ const LICENSE_CRITICAL_MS = 24 * 60 * 60 * 1000;
 const FAILURE_RETENTION_DAYS = 180;
 const FAILURE_DETAIL_LIMIT = 16000;
 const MAX_FAILURE_RECORDS = 5000;
+const FAILURE_CLEANUP_INTERVAL_MS = 10 * 60 * 1000;
 const RUNTIME_LOG_RETENTION_DAYS = 30;
 const MAX_RUNTIME_LOG_RECORDS = 50000;
+const SQLITE_BUSY_MAX_RETRIES = 4;
+const SQLITE_BUSY_BASE_DELAY_MS = 50;
 const EXPECTED_AUTH_CODES = new Set(['AUTH_REQUIRED', 'AUTH_EXPIRED']);
 // 旧记录没有分类标记，只识别平台明确返回的登录/会话过期错误码。
 const LEGACY_EXPECTED_AUTH_SQL = `(status_code = 401 AND COALESCE(json_extract(
@@ -84,6 +88,43 @@ const SERVICE_DEFINITIONS = [
 
 const initPromises = new Map();
 const nextRuntimeLogCleanupAt = new Map();
+const nextFailureCleanupAt = new Map();
+const dbWriteQueues = new Map();
+
+function isSqliteBusyError(error) {
+    if (!error) return false;
+    const code = String(error.code || '');
+    const message = String(error.message || '');
+    return code === 'SQLITE_BUSY' || code === 'SQLITE_LOCKED'
+        || /SQLITE_BUSY|SQLITE_LOCKED|database is locked/i.test(message);
+}
+
+async function runWithBusyRetry(operation, maxRetries = SQLITE_BUSY_MAX_RETRIES) {
+    for (let attempt = 0; ; attempt += 1) {
+        try {
+            return await operation();
+        } catch (error) {
+            if (!isSqliteBusyError(error) || attempt >= maxRetries) throw error;
+            const delayMs = SQLITE_BUSY_BASE_DELAY_MS * Math.pow(2, attempt) + Math.floor(Math.random() * 35);
+            await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
+    }
+}
+
+function enqueueDbWrite(task) {
+    const tenantId = getTenantId();
+    const dbPath = getDbPath(tenantId);
+    const previous = dbWriteQueues.get(dbPath) || Promise.resolve();
+    const current = previous
+        .catch(() => {})
+        .then(() => runWithTenant(tenantId, () => runWithBusyRetry(task)));
+    const tail = current.catch(() => {});
+    dbWriteQueues.set(dbPath, tail);
+    tail.then(() => {
+        if (dbWriteQueues.get(dbPath) === tail) dbWriteQueues.delete(dbPath);
+    });
+    return current;
+}
 
 async function ensureReady() {
     const dbPath = getDbPath();
@@ -187,63 +228,69 @@ function isExpectedAuthResponse(statusCode, responseBody) {
 
 async function trackRequest({ method, pathname, statusCode, durationMs, timestamp = new Date(), requestId, requestBody, responseBody }) {
     if (!shouldTrackRequest(method, pathname)) return { tracked: false };
-    await ensureReady();
-    const service = resolveService(pathname);
-    const status = Number(statusCode) || 0;
-    const duration = Math.max(0, Math.round(Number(durationMs) || 0));
-    const success = status >= 200 && status < 400 ? 1 : 0;
-    const clientError = status >= 400 && status < 500 ? 1 : 0;
-    const expectedAuth = isExpectedAuthResponse(status, responseBody) ? 1 : 0;
-    const serverError = status >= 500 ? 1 : 0;
-    const requestTime = timestamp instanceof Date ? timestamp : new Date(timestamp);
-    const safeTime = Number.isFinite(requestTime.getTime()) ? requestTime : new Date();
-    const iso = safeTime.toISOString();
-    const date = iso.slice(0, 10);
+    return enqueueDbWrite(async () => {
+        await ensureReady();
+        const service = resolveService(pathname);
+        const status = Number(statusCode) || 0;
+        const duration = Math.max(0, Math.round(Number(durationMs) || 0));
+        const success = status >= 200 && status < 400 ? 1 : 0;
+        const clientError = status >= 400 && status < 500 ? 1 : 0;
+        const expectedAuth = isExpectedAuthResponse(status, responseBody) ? 1 : 0;
+        const serverError = status >= 500 ? 1 : 0;
+        const requestTime = timestamp instanceof Date ? timestamp : new Date(timestamp);
+        const safeTime = Number.isFinite(requestTime.getTime()) ? requestTime : new Date();
+        const iso = safeTime.toISOString();
+        const date = iso.slice(0, 10);
 
-    await run(`
-        INSERT INTO service_status_daily (
-            service_key, status_date, request_count, success_count,
-            client_error_count, expected_auth_count, server_error_count, total_duration_ms,
-            max_duration_ms, last_status_code, last_request_at
-        ) VALUES (?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(service_key, status_date) DO UPDATE SET
-            request_count = service_status_daily.request_count + 1,
-            success_count = service_status_daily.success_count + excluded.success_count,
-            client_error_count = service_status_daily.client_error_count + excluded.client_error_count,
-            expected_auth_count = service_status_daily.expected_auth_count + excluded.expected_auth_count,
-            server_error_count = service_status_daily.server_error_count + excluded.server_error_count,
-            total_duration_ms = service_status_daily.total_duration_ms + excluded.total_duration_ms,
-            max_duration_ms = MAX(service_status_daily.max_duration_ms, excluded.max_duration_ms),
-            last_status_code = excluded.last_status_code,
-            last_request_at = excluded.last_request_at
-    `, [service.id, date, success, clientError, expectedAuth, serverError, duration, duration, status, iso]);
-    if (clientError || serverError) {
         await run(`
-            INSERT INTO service_status_failures (
-                service_key, request_at, request_id, method, request_path,
-                status_code, duration_ms, request_body, response_body, expected_auth
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `, [
-            service.id,
-            iso,
-            String(requestId || ''),
-            String(method || 'GET').toUpperCase(),
-            String(pathname || ''),
-            status,
-            duration,
-            normalizeFailureDetail(requestBody),
-            normalizeFailureDetail(responseBody),
-            expectedAuth
-        ]);
-        const cutoff = new Date(safeTime.getTime() - FAILURE_RETENTION_DAYS * 86400000).toISOString();
-        await run('DELETE FROM service_status_failures WHERE request_at < ?', [cutoff]);
-        await run(`DELETE FROM service_status_failures WHERE id IN (
-            SELECT id FROM service_status_failures
-            ORDER BY request_at DESC, id DESC
-            LIMIT -1 OFFSET ?
-        )`, [MAX_FAILURE_RECORDS]);
-    }
-    return { tracked: true, serviceKey: service.id, date };
+            INSERT INTO service_status_daily (
+                service_key, status_date, request_count, success_count,
+                client_error_count, expected_auth_count, server_error_count, total_duration_ms,
+                max_duration_ms, last_status_code, last_request_at
+            ) VALUES (?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(service_key, status_date) DO UPDATE SET
+                request_count = service_status_daily.request_count + 1,
+                success_count = service_status_daily.success_count + excluded.success_count,
+                client_error_count = service_status_daily.client_error_count + excluded.client_error_count,
+                expected_auth_count = service_status_daily.expected_auth_count + excluded.expected_auth_count,
+                server_error_count = service_status_daily.server_error_count + excluded.server_error_count,
+                total_duration_ms = service_status_daily.total_duration_ms + excluded.total_duration_ms,
+                max_duration_ms = MAX(service_status_daily.max_duration_ms, excluded.max_duration_ms),
+                last_status_code = excluded.last_status_code,
+                last_request_at = excluded.last_request_at
+        `, [service.id, date, success, clientError, expectedAuth, serverError, duration, duration, status, iso]);
+        if (clientError || serverError) {
+            await run(`
+                INSERT INTO service_status_failures (
+                    service_key, request_at, request_id, method, request_path,
+                    status_code, duration_ms, request_body, response_body, expected_auth
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `, [
+                service.id,
+                iso,
+                String(requestId || ''),
+                String(method || 'GET').toUpperCase(),
+                String(pathname || ''),
+                status,
+                duration,
+                normalizeFailureDetail(requestBody),
+                normalizeFailureDetail(responseBody),
+                expectedAuth
+            ]);
+            const dbPath = getDbPath();
+            if (Date.now() >= Number(nextFailureCleanupAt.get(dbPath) || 0)) {
+                nextFailureCleanupAt.set(dbPath, Date.now() + FAILURE_CLEANUP_INTERVAL_MS);
+                const cutoff = new Date(safeTime.getTime() - FAILURE_RETENTION_DAYS * 86400000).toISOString();
+                await run('DELETE FROM service_status_failures WHERE request_at < ?', [cutoff]);
+                await run(`DELETE FROM service_status_failures WHERE id IN (
+                    SELECT id FROM service_status_failures
+                    ORDER BY request_at DESC, id DESC
+                    LIMIT -1 OFFSET ?
+                )`, [MAX_FAILURE_RECORDS]);
+            }
+        }
+        return { tracked: true, serviceKey: service.id, date };
+    });
 }
 
 async function getFailures(filters = {}) {
@@ -305,32 +352,34 @@ function nullableRuntimeLogNumber(value, { duration = false } = {}) {
 }
 
 async function recordRuntimeLog({ timestamp = new Date(), level, source, detail, requestId, serviceKey, statusCode, durationMs }) {
-    await ensureReady();
-    const loggedAt = timestamp instanceof Date ? timestamp : new Date(timestamp);
-    const safeTime = Number.isFinite(loggedAt.getTime()) ? loggedAt : new Date();
-    await run(`INSERT INTO service_runtime_logs (
-        logged_at, level, source, detail, request_id, service_key, status_code, duration_ms
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [
-        safeTime.toISOString(),
-        normalizeRuntimeLogLevel(level),
-        String(source || 'backend/unknown'),
-        String(detail || ''),
-        String(requestId || ''),
-        String(serviceKey || ''),
-        nullableRuntimeLogNumber(statusCode),
-        nullableRuntimeLogNumber(durationMs, { duration: true })
-    ]);
-    const dbPath = getDbPath();
-    if (Date.now() >= Number(nextRuntimeLogCleanupAt.get(dbPath) || 0)) {
-        nextRuntimeLogCleanupAt.set(dbPath, Date.now() + 60 * 60 * 1000);
-        const cutoff = new Date(safeTime.getTime() - RUNTIME_LOG_RETENTION_DAYS * 86400000).toISOString();
-        await run('DELETE FROM service_runtime_logs WHERE logged_at < ?', [cutoff]);
-        await run(`DELETE FROM service_runtime_logs WHERE id IN (
-            SELECT id FROM service_runtime_logs
-            ORDER BY logged_at DESC, id DESC
-            LIMIT -1 OFFSET ?
-        )`, [MAX_RUNTIME_LOG_RECORDS]);
-    }
+    return enqueueDbWrite(async () => {
+        await ensureReady();
+        const loggedAt = timestamp instanceof Date ? timestamp : new Date(timestamp);
+        const safeTime = Number.isFinite(loggedAt.getTime()) ? loggedAt : new Date();
+        await run(`INSERT INTO service_runtime_logs (
+            logged_at, level, source, detail, request_id, service_key, status_code, duration_ms
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [
+            safeTime.toISOString(),
+            normalizeRuntimeLogLevel(level),
+            String(source || 'backend/unknown'),
+            String(detail || ''),
+            String(requestId || ''),
+            String(serviceKey || ''),
+            nullableRuntimeLogNumber(statusCode),
+            nullableRuntimeLogNumber(durationMs, { duration: true })
+        ]);
+        const dbPath = getDbPath();
+        if (Date.now() >= Number(nextRuntimeLogCleanupAt.get(dbPath) || 0)) {
+            nextRuntimeLogCleanupAt.set(dbPath, Date.now() + 60 * 60 * 1000);
+            const cutoff = new Date(safeTime.getTime() - RUNTIME_LOG_RETENTION_DAYS * 86400000).toISOString();
+            await run('DELETE FROM service_runtime_logs WHERE logged_at < ?', [cutoff]);
+            await run(`DELETE FROM service_runtime_logs WHERE id IN (
+                SELECT id FROM service_runtime_logs
+                ORDER BY logged_at DESC, id DESC
+                LIMIT -1 OFFSET ?
+            )`, [MAX_RUNTIME_LOG_RECORDS]);
+        }
+    });
 }
 
 async function getRuntimeLogs(filters = {}) {
@@ -556,5 +605,6 @@ module.exports = {
     summarizeLicenseStatus,
     getHistory,
     getFailures,
-    getRuntimeLogs
+    getRuntimeLogs,
+    runWithBusyRetry
 };

@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const JSZip = require('jszip');
 const sqlite3 = require('sqlite3').verbose();
 
+const { writeStreamingZip } = require('./streaming-zip-writer');
 const { getDataDir } = require('./store');
 const { getReportDataDir } = require('./report-store');
 const { DEFAULT_TENANT_ID, getTenantId, runWithTenant } = require('./tenant-context');
@@ -32,6 +33,9 @@ const DEFAULT_SCHEDULE_SETTINGS = {
 
 const schedulerTimers = new Map();
 const schedulerRunning = new Set();
+let scheduledBackupQueue = Promise.resolve();
+
+const STALE_BACKUP_SNAPSHOT_MAX_AGE_MS = 6 * 60 * 60 * 1000;
 
 const REPORT_OWNED_FILES = ['report.db', 'report.db-wal', 'report.db-shm'];
 const WAREHOUSE_DATABASE_FILE = 'ezscan-warehouse.db';
@@ -43,10 +47,10 @@ const CONTROL_PLANE_TABLES = ['auth_users', 'tenants', 'user_tenants', 'auth_ses
 // `tenants` is a sibling workspace collection when operating on the legacy
 // default tenant. A backup/restore for one tenant must never absorb or replace it.
 const PRIMARY_PRESERVED_DIRS = ['images', 'slide-library', 'tenants'];
-// Operational history, caches and temporary imports are not business source
-// data. Excluding these also prevents a backup from recursively carrying older
-// backup copies and large abandoned upload files.
-const PRIMARY_OPERATIONAL_DIRS = ['backups', 'tmp', 'quarantine', 'runtime'];
+// Operational history, caches, browser runtime profiles and temporary imports are
+// not business source data. Excluding these also prevents a backup from recursively
+// carrying older backup copies, large promo-video caches, and live Chromium profiles.
+const PRIMARY_OPERATIONAL_DIRS = ['backups', 'tmp', 'quarantine', 'runtime', 'cache', 'agent-browser'];
 const DEFAULT_MACHINE_FILES = [
     'vault', // 保险箱（密文库 + 本机密钥）：绑定这台机器，不随备份外流
     'desktop-license-registry.json',
@@ -343,24 +347,32 @@ function isTargetPathExcluded(target, absPath) {
     return !!(included && !included.has(topLevelName));
 }
 
-function addPathToZip(zip, absPath, relPath, target) {
+function collectZipEntries(absPath, relPath, target, list) {
     if (!fs.existsSync(absPath)) return;
     if (isTargetPathExcluded(target, absPath)) return;
     const stat = fs.statSync(absPath);
     if (stat.isDirectory()) {
         const entries = fs.readdirSync(absPath, { withFileTypes: true });
         entries.forEach(entry => {
-            addPathToZip(zip, path.join(absPath, entry.name), path.join(relPath, entry.name), target);
+            const childAbs = path.join(absPath, entry.name);
+            const childRel = path.join(relPath, entry.name);
+            if (isTargetPathExcluded(target, childAbs)) return;
+            if (entry.isDirectory()) {
+                collectZipEntries(childAbs, childRel, target, list);
+            } else if (entry.isFile()) {
+                const fileStat = fs.statSync(childAbs);
+                list.push({ zipPath: toZipPath(childRel), absPath: childAbs, mtime: fileStat.mtime });
+            }
         });
         return;
     }
     if (stat.isFile()) {
-        zip.file(toZipPath(relPath), fs.readFileSync(absPath));
+        list.push({ zipPath: toZipPath(relPath), absPath, mtime: stat.mtime });
     }
 }
 
 async function writeZip(outputPath, manifest, databaseSnapshots = []) {
-    const zip = new JSZip();
+    const entries = [];
     getDataTargets().forEach(target => {
         const absPath = target.absPath;
         if (fs.existsSync(absPath)) {
@@ -369,19 +381,23 @@ async function writeZip(outputPath, manifest, databaseSnapshots = []) {
             const zipTarget = target.id === 'primary_data'
                 ? { ...target, excludeTopLevel: [...target.excludeTopLevel, WAREHOUSE_DATABASE_FILE] }
                 : target;
-            addPathToZip(zip, absPath, target.id, zipTarget);
+            collectZipEntries(absPath, target.id, zipTarget, entries);
         }
     });
     databaseSnapshots.forEach(snapshot => {
-        zip.file(`${snapshot.targetId}/${snapshot.filename}`, fs.readFileSync(snapshot.filePath));
+        const stat = fs.statSync(snapshot.filePath);
+        entries.push({
+            zipPath: toZipPath(`${snapshot.targetId}/${snapshot.filename}`),
+            absPath: snapshot.filePath,
+            mtime: stat.mtime
+        });
     });
-    zip.file('manifest.json', JSON.stringify(manifest, null, 2));
-    const content = await zip.generateAsync({
-        type: 'nodebuffer',
-        compression: 'DEFLATE',
-        compressionOptions: { level: 6 }
+    entries.push({
+        zipPath: 'manifest.json',
+        buffer: Buffer.from(JSON.stringify(manifest, null, 2), 'utf8'),
+        mtime: new Date()
     });
-    fs.writeFileSync(outputPath, content);
+    await writeStreamingZip(outputPath, entries, { level: 6 });
 }
 
 async function extractZip(zipPath, extractDir) {
@@ -623,6 +639,32 @@ function scheduleNextAutoBackup(settings = normalizeScheduleSettings()) {
     console.log(`[GLOBAL BACKUP] Tenant ${tenantId} next scheduled backup: ${nextRunAt.toLocaleString('zh-CN', { hour12: false })}`);
 }
 
+function pruneStaleBackupSnapshots(maxAgeMs = STALE_BACKUP_SNAPSHOT_MAX_AGE_MS) {
+    const restoreTmpDir = getRestoreTmpDir();
+    if (!fs.existsSync(restoreTmpDir)) return 0;
+    const cutoff = Date.now() - Math.max(0, Number(maxAgeMs) || 0);
+    let removed = 0;
+    try {
+        for (const entry of fs.readdirSync(restoreTmpDir, { withFileTypes: true })) {
+            if (!entry.isDirectory() || !entry.name.startsWith('backup-snapshot-')) continue;
+            const fullPath = path.join(restoreTmpDir, entry.name);
+            try {
+                const stat = fs.statSync(fullPath);
+                if (stat.mtimeMs <= cutoff && removeRestoreDirBestEffort(fullPath, { scheduleRetry: false })) {
+                    removed += 1;
+                }
+            } catch (_) {}
+        }
+    } catch (_) {}
+    return removed;
+}
+
+function enqueueScheduledBackup(task) {
+    const run = scheduledBackupQueue.catch(() => {}).then(task);
+    scheduledBackupQueue = run.catch(() => {});
+    return run;
+}
+
 async function runScheduledBackup(options = {}) {
     const tenantId = getTenantId();
     if (schedulerRunning.has(tenantId)) {
@@ -630,31 +672,35 @@ async function runScheduledBackup(options = {}) {
         return { skipped: true, reason: 'already-running', schedule: getScheduleStatus(settings) };
     }
     schedulerRunning.add(tenantId);
-    const settings = await getScheduleSettings();
-    const startedAt = new Date().toISOString();
-    let nextSettings = { ...settings, lastRunAt: startedAt, lastError: '' };
-    try {
-        const backup = await createBackup({ reason: options.reason || AUTO_BACKUP_REASON });
-        const retentionCleanup = pruneScheduledBackups(settings.retentionDays);
-        const capacityCleanup = pruneBackupsByCapacity(settings.maxTotalSizeGB, { protectNames: [backup.name] });
-        nextSettings = {
-            ...nextSettings,
-            lastSuccessAt: new Date().toISOString(),
-            lastBackupName: backup.name,
-            lastError: ''
-        };
-        await writeKV(SCHEDULE_KV_CATEGORY, SCHEDULE_KV_KEY, normalizeScheduleSettings(nextSettings));
-        return { success: true, backup, cleanup: { retention: retentionCleanup, capacity: capacityCleanup }, schedule: getScheduleStatus(nextSettings) };
-    } catch (err) {
-        nextSettings = { ...nextSettings, lastError: err.message || String(err) };
-        await writeKV(SCHEDULE_KV_CATEGORY, SCHEDULE_KV_KEY, normalizeScheduleSettings(nextSettings));
-        throw err;
-    } finally {
-        schedulerRunning.delete(tenantId);
-        if (options.reschedule !== false) {
-            scheduleNextAutoBackup(await getScheduleSettings());
+    // Serialize scheduled backups across tenants so multiple tenants targeting
+    // the same time slot (e.g. 02:00) do not compress concurrently.
+    return enqueueScheduledBackup(() => runWithTenant(tenantId, async () => {
+        const settings = await getScheduleSettings();
+        const startedAt = new Date().toISOString();
+        let nextSettings = { ...settings, lastRunAt: startedAt, lastError: '' };
+        try {
+            const backup = await createBackup({ reason: options.reason || AUTO_BACKUP_REASON });
+            const retentionCleanup = pruneScheduledBackups(settings.retentionDays);
+            const capacityCleanup = pruneBackupsByCapacity(settings.maxTotalSizeGB, { protectNames: [backup.name] });
+            nextSettings = {
+                ...nextSettings,
+                lastSuccessAt: new Date().toISOString(),
+                lastBackupName: backup.name,
+                lastError: ''
+            };
+            await writeKV(SCHEDULE_KV_CATEGORY, SCHEDULE_KV_KEY, normalizeScheduleSettings(nextSettings));
+            return { success: true, backup, cleanup: { retention: retentionCleanup, capacity: capacityCleanup }, schedule: getScheduleStatus(nextSettings) };
+        } catch (err) {
+            nextSettings = { ...nextSettings, lastError: err.message || String(err) };
+            await writeKV(SCHEDULE_KV_CATEGORY, SCHEDULE_KV_KEY, normalizeScheduleSettings(nextSettings));
+            throw err;
+        } finally {
+            schedulerRunning.delete(tenantId);
+            if (options.reschedule !== false) {
+                scheduleNextAutoBackup(await getScheduleSettings());
+            }
         }
-    }
+    }));
 }
 
 async function startAutoBackupScheduler() {
@@ -662,6 +708,7 @@ async function startAutoBackupScheduler() {
     const statuses = [];
     for (const tenant of tenants) {
         statuses.push(await runWithTenant(tenant.id, async () => {
+            pruneStaleBackupSnapshots();
             const settings = await getScheduleSettings();
             pruneBackupsByCapacity(settings.maxTotalSizeGB);
             scheduleNextAutoBackup(settings);
@@ -673,6 +720,7 @@ async function startAutoBackupScheduler() {
 
 async function startTenantAutoBackupScheduler(tenantId) {
     return runWithTenant(tenantId, async () => {
+        pruneStaleBackupSnapshots();
         const settings = await getScheduleSettings();
         pruneBackupsByCapacity(settings.maxTotalSizeGB);
         scheduleNextAutoBackup(settings);
@@ -917,5 +965,6 @@ module.exports = {
     startTenantAutoBackupScheduler,
     stopAutoBackupScheduler,
     pruneScheduledBackups,
-    pruneBackupsByCapacity
+    pruneBackupsByCapacity,
+    pruneStaleBackupSnapshots
 };

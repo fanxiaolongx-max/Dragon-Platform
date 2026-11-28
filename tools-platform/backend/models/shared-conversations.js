@@ -791,7 +791,7 @@ async function respond({ tenantId, username, shareId, action }) {
     if (action !== 'accept') {
         await run('UPDATE shared_conversation_members SET status = ?, responded_at = CURRENT_TIMESTAMP WHERE share_id = ? AND username = ?', [action === 'decline' ? 'declined' : 'ignored', share.id, username]);
         if (action === 'decline' && share.owner && share.owner !== username) {
-            const actorName = (await lookupUsers([username])).get(username)?.displayName || username;
+            const actorName = (await displayNames([username]))[username] || username;
             await tenantContext.runWithTenant(share.owner_tenant || tenantContext.DEFAULT_TENANT_ID, () =>
                 require('./alert-center-repository').addEvent({
                     eventType: 'user_action',
@@ -1327,9 +1327,10 @@ async function respondSkillRequest({ tenantId = 'default', username, isSuper = f
 
     if (action === 'reject') {
         await run("UPDATE shared_conversation_skill_grants SET status = 'rejected', decided_at = CURRENT_TIMESTAMP WHERE id = ?", [grant.id]);
-        if (grant.requested_by) {
-            const resolverName = (await lookupUsers([username])).get(username)?.displayName || username;
-            await tenantContext.runWithTenant(grant.requested_tenant || tenantContext.DEFAULT_TENANT_ID, () =>
+        const requester = grant.requester || grant.requested_by;
+        if (requester) {
+            const resolverName = (await displayNames([username]))[username] || username;
+            await tenantContext.runWithTenant(grant.requester_tenant || grant.requested_tenant || tenantContext.DEFAULT_TENANT_ID, () =>
                 require('./alert-center-repository').addEvent({
                     eventType: 'user_action',
                     severity: 'warn',
@@ -1339,7 +1340,7 @@ async function respondSkillRequest({ tenantId = 'default', username, isSuper = f
                     source: 'shared-conversation',
                     objectType: 'shared_skill_request',
                     objectId: grant.id,
-                    detail: { shareId: share.id, sessionId: share.origin_session_id, skillId: grant.skill_id, action: 'reject', targetUser: grant.requested_by },
+                    detail: { shareId: share.id, sessionId: share.origin_session_id, skillId: grant.skill_id, action: 'reject', targetUser: requester },
                     aiStatus: 'not_applicable',
                 })
             ).catch(() => {});

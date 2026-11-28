@@ -18,10 +18,11 @@ test.after(() => {
     fs.rmSync(sandbox, { recursive: true, force: true });
 });
 
-test('tenant backup excludes operational history, temporary imports, and sibling tenants', () => {
+test('tenant backup excludes operational history, caches, browser profiles, temporary imports, and sibling tenants', () => {
     const target = backupRepo.DATA_TARGETS.find(item => item.id === 'primary_data');
     for (const name of [
-        'backups', 'tmp', 'quarantine', 'runtime', 'images', 'slide-library', 'tenants',
+        'backups', 'tmp', 'quarantine', 'runtime', 'cache', 'agent-browser',
+        'images', 'slide-library', 'tenants',
         'chat-history.db', 'chat-history.db-wal', 'chat-history.db-shm'
     ]) {
         assert.equal(target.excludeTopLevel.includes(name), true, `${name} should be excluded`);
@@ -154,4 +155,36 @@ test('restoring the default tenant preserves the live account and tenant control
     assert.deepEqual(await sqliteGet(dbPath, 'SELECT username,password_hash,display_name FROM auth_users'), { username: 'live-admin', password_hash: 'live-hash', display_name: 'Live Admin' });
     assert.deepEqual(await sqliteGet(dbPath, "SELECT name FROM tenants WHERE id='default'"), { name: 'Live Default' });
     assert.deepEqual(await sqliteGet(dbPath, 'SELECT value FROM tenant_restore_probe WHERE id=1'), { value: 'backup-business' });
+});
+
+test('streaming backup handles UTF-8 filenames, empty files, excludes cache/agent-browser, and prunes stale snapshots', async () => {
+    await runWithTenant('stream-test', async () => {
+        const dataDir = getDataDir();
+        fs.mkdirSync(path.join(dataDir, 'custom-tools/中文工具'), { recursive: true });
+        fs.mkdirSync(path.join(dataDir, 'cache/home-videos'), { recursive: true });
+        fs.mkdirSync(path.join(dataDir, 'agent-browser/profile-1'), { recursive: true });
+        fs.writeFileSync(path.join(dataDir, 'custom-tools/中文工具/说明.txt'), '你好 streaming zip!');
+        fs.writeFileSync(path.join(dataDir, 'custom-tools/中文工具/empty.txt'), '');
+        fs.writeFileSync(path.join(dataDir, 'cache/home-videos/chunk.bin'), 'large-video-cache');
+        fs.writeFileSync(path.join(dataDir, 'agent-browser/profile-1/Cookies'), 'browser-cache');
+
+        const backup = await backupRepo.createBackup({ reason: 'streaming-verify', skipCapacityPrune: true });
+        const zipPath = backupRepo.getBackupPath(backup.name);
+        const zip = await JSZip.loadAsync(fs.readFileSync(zipPath));
+        assert.equal(await zip.file('primary_data/custom-tools/中文工具/说明.txt').async('string'), '你好 streaming zip!');
+        assert.equal(await zip.file('primary_data/custom-tools/中文工具/empty.txt').async('string'), '');
+        assert.equal(zip.file('primary_data/cache/home-videos/chunk.bin'), null);
+        assert.equal(zip.file('primary_data/agent-browser/profile-1/Cookies'), null);
+
+        if (process.platform !== 'win32') {
+            require('child_process').execFileSync('unzip', ['-t', zipPath], { stdio: 'ignore' });
+        }
+
+        const staleDir = path.join(dataDir, 'tmp/restores/backup-snapshot-stale');
+        fs.mkdirSync(staleDir, { recursive: true });
+        const oldTime = new Date(Date.now() - 8 * 3600 * 1000);
+        fs.utimesSync(staleDir, oldTime, oldTime);
+        assert.equal(backupRepo.pruneStaleBackupSnapshots(), 1);
+        assert.equal(fs.existsSync(staleDir), false);
+    });
 });

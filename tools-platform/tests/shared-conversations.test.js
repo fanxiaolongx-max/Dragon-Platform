@@ -786,3 +786,64 @@ test('stopping or removing a shared conversation revokes non-owner copies includ
     assert.equal(await runWithTenant('bob5', () => chat.getSession(bobSession4)), undefined, 'owner deleting origin session sweeps member copy');
     assert.equal((await apiJson('bob5', 'GET', '/shared-conversations/mine')).body.items.length, 0);
 });
+
+test('declining a shared invite and rejecting a skill request succeed without ReferenceError and record alerts', async t => {
+    const app = express();
+    app.use(express.json());
+    app.use('/api', auth.checkAuth, tenantMiddleware);
+    app.use('/api/shared-conversations', require('../backend/routes/shared-conversations'));
+    const server = app.listen(0, '127.0.0.1');
+    await new Promise(resolve => server.once('listening', resolve));
+    t.after(async () => {
+        server.closeAllConnections();
+        await new Promise(resolve => server.close(resolve));
+    });
+
+    await authUsers.ensureReady();
+    for (const [u, displayName] of [['alice6', '爱丽丝'], ['bob6', '鲍勃']]) {
+        await authUsers.createUser({ username: u, role: 'admin', passwordHash: 'x', tenantId: u, displayName });
+        await authSessions.saveSession(`tok-${u}`, u, 'admin', Date.now() + 60000, u);
+    }
+    const base = `http://127.0.0.1:${server.address().port}/api/shared-conversations`;
+    const call = async (who, method, p, body) => {
+        const res = await fetch(`${base}${p}`, {
+            method,
+            headers: { Authorization: `Bearer tok-${who}`, 'Content-Type': 'application/json' },
+            body: body ? JSON.stringify(body) : undefined
+        });
+        return { status: res.status, body: await res.json() };
+    };
+
+    const aliceSession = await runWithTenant('alice6', async () => {
+        const id = await chat.addMessage({ owner: 'alice6', pagePath: '/', role: 'user', content: '拒绝测试对话' });
+        await chat.addMessage({ sessionId: id, owner: 'alice6', pagePath: '/', role: 'model', content: '测试回复' });
+        return id;
+    });
+    const inv = await call('alice6', 'POST', `/session/${aliceSession}/invite`, { title: '拒绝测试对话', usernames: ['bob6'] });
+    assert.equal(inv.status, 200);
+    const shareId = inv.body.share.id;
+
+    // Bob declines the invite -> must return 200 and emit alert to Alice's tenant
+    const declined = await call('bob6', 'POST', `/invites/${shareId}/respond`, { action: 'decline' });
+    assert.equal(declined.status, 200);
+    assert.equal(declined.body.status, 'declined');
+    const alertRepo = require('../backend/models/alert-center-repository');
+    const aliceAlerts = await runWithTenant('alice6', () => alertRepo.listEvents({ limit: 20 }));
+    assert.ok(aliceAlerts.some(e => e.source === 'shared-conversation' && e.title.includes('鲍勃 拒绝了共享对话邀请')));
+
+    // Re-invite Bob, accept, seed a pending skill grant, then Alice rejects it -> must return 200 and alert Bob's tenant
+    await call('alice6', 'POST', `/session/${aliceSession}/invite`, { usernames: ['bob6'] });
+    const accepted = await call('bob6', 'POST', `/invites/${shareId}/respond`, { action: 'accept' });
+    assert.equal(accepted.status, 200);
+    const reqId = 'skreq_reject_regression';
+    await controlDb.run(
+        `INSERT INTO shared_conversation_skill_grants (id, share_id, skill_id, skill_name, approver, approver_tenant, requester, requester_tenant, status)
+         VALUES (?, ?, 'private-skill', '私有技能', 'alice6', 'alice6', 'bob6', 'bob6', 'pending')`,
+        [reqId, shareId]
+    );
+    const rejected = await call('alice6', 'POST', `/skill-requests/${reqId}/respond`, { action: 'reject' });
+    assert.equal(rejected.status, 200);
+    assert.equal(rejected.body.status, 'rejected');
+    const bobAlerts = await runWithTenant('bob6', () => alertRepo.listEvents({ limit: 20 }));
+    assert.ok(bobAlerts.some(e => e.object_type === 'shared_skill_request' && e.object_id === reqId && e.message.includes('爱丽丝')));
+});
