@@ -426,8 +426,8 @@
       "description": "平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data",
       "href": "./uivf12/index.html",
       "encrypted": false,
-      "fingerprint": "7d13b2cbfdfb50de9b4875f0106e01e189db9b0bc7daaadd4983b54bbcb6f846",
-      "updatedAt": "2026-11-28T00:29:31.051Z"
+      "fingerprint": "8db81a9a65150e9cd1c8da34780f46608a171ae570e5e87583012b5c0f057ba1",
+      "updatedAt": "2026-11-28T07:11:58.051Z"
     },
     {
       "slug": "sla",
@@ -436,8 +436,8 @@
       "description": "平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data",
       "href": "./sla/index.html",
       "encrypted": false,
-      "fingerprint": "884fe53c55e42a88bb1d5b5bbe2542dc0fe4e2eb7dd46d6b4ab912a9a491b66b",
-      "updatedAt": "2026-11-28T00:29:31.370Z"
+      "fingerprint": "0659133e54e9cba57670ff3afc2587686629d14a82629b49352d95c9bcc9d3e8",
+      "updatedAt": "2026-11-28T07:11:58.373Z"
     },
     {
       "slug": "report",
@@ -446,8 +446,8 @@
       "description": "平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data",
       "href": "./report/index.html",
       "encrypted": false,
-      "fingerprint": "b2db3704d9da07643c078823650bf4f9c8fc1506a0f5f3504d1a5092afb40fd7",
-      "updatedAt": "2026-11-28T00:29:31.665Z"
+      "fingerprint": "85d2dab2d04c3b83229d3dc8ceaf14033e715dd43a7d33cf26697dc8da376ef4",
+      "updatedAt": "2026-11-28T07:11:58.648Z"
     },
     {
       "slug": "expedite",
@@ -456,8 +456,8 @@
       "description": "平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data",
       "href": "./expedite/index.html",
       "encrypted": false,
-      "fingerprint": "1f8ddca8c51b366263cafa27b8e0be676a7e4cc25d7a73c5745d911df86504dc",
-      "updatedAt": "2026-11-28T00:29:31.817Z"
+      "fingerprint": "f297c857be2bd5897395534b37480ab16fef9a1fa9db36245a2b99e266d55e7c",
+      "updatedAt": "2026-11-28T07:11:58.796Z"
     },
     {
       "slug": "monthly",
@@ -505,6 +505,70 @@
       "encrypted": false,
       "fingerprint": "afd06e6f0f8e8d96375780d0f5845c6fcd20f3a261d67045e8b271bbd2ed504d",
       "updatedAt": "2026-11-08T20:34:14.884Z"
+    },
+    {
+      "slug": "ai-en",
+      "name": "AI 最后一公里",
+      "description": "一份关于企业如何通过前沿部署工程师（FDE）模式，将人工智能技术从概念验证（Demo）真正转化为日常业务生产力的深度分享指南。内容涵盖大模型趋势、企业落地瓶颈分析、FDE工作方法论及全球标杆案例，旨在帮助企业领导者与一线员工重构业务流程，走完AI落地的最后一公里。",
+      "href": "./ai-en/index.html",
+      "encrypted": false,
+      "fingerprint": "d5c9c2a806c1a58162b34851372794df3be948b339ec2405926101ea5fcc4f63",
+      "updatedAt": "2026-11-28T07:12:00.493Z"
+    },
+    {
+      "slug": "ck",
+      "name": "Ck生日",
+      "description": "这是一个为攀岩爱好者定制的互动生日纪念网页。通过可视化分析两人的微信聊天记录，回顾三年间的攀岩、健身与生活点滴，并包含互动式生日祝福与攀岩主题的趣味数据统计。",
+      "href": "./ck/index.html",
+      "encrypted": false,
+      "fingerprint": "03e88a8e8fa95537c264fe9351c90595a577b96b9671b9114040a1a294b4b6da",
+      "updatedAt": "2026-11-28T07:12:00.513Z"
+    },
+    {
+      "slug": "dpi-log-analysis",
+      "name": "DPI日志分析简介",
+      "description": "华为 VBP / DPI 信令日志分析与全组件故障定位一体化技能单页概览：覆盖 SAS CAPTURE、SGMS SSH、VBP 后台三类日志自动解析，8 大 VBP 组件智能路由与 9 份原厂 Debug 能力包动态检典。",
+      "href": "./dpi-log-analysis/index.html",
+      "encrypted": false,
+      "publicAccess": true,
+      "fingerprint": "59b126a3ee79fc6976263d56d1e6f973b2e9c1813bd6d5f10028e6c7dfcc17d9",
+      "updatedAt": "2026-11-28T07:12:00.522Z"
+    },
+    {
+      "slug": "dragonclaw",
+      "name": "DragonClaw简介",
+      "description": "一款端到端的质量运营与风险管理工作台，通过自动化采集、规则引擎合控、AI 辅助分析及智能提醒，实现从风险发现到闭环复盘的全链路自动化，帮助团队从繁琐的搬运工作中解放出来，专注于决策与教练工作。",
+      "href": "./dragonclaw/index.html",
+      "encrypted": false,
+      "fingerprint": "971acb12a2f3eda2b4bdacc9675338dcb037b28536f139bf9e9085a4fbe18d2d",
+      "updatedAt": "2026-11-28T07:12:00.539Z"
+    },
+    {
+      "slug": "taisha",
+      "name": "TaiSha",
+      "description": "用于 TaiShan 服务器集群的批量并发配置模拟，支持通过 SSH 自动下发交换机 VLAN 配置，并模拟 iBMC 与 OS 串口登录，自动完成 Bond4 网络链路聚合与路由设置，适用于大规模服务器部署的流程验证与压力测试。",
+      "href": "./taisha/index.html",
+      "encrypted": false,
+      "fingerprint": "88781c9e44cf1b2a382d8541ba30fe0f6d4459445c5cc4937e362c6ee4fb2b1b",
+      "updatedAt": "2026-11-28T07:12:00.849Z"
+    },
+    {
+      "slug": "tool-mw7yh0dh",
+      "name": "考勤验收",
+      "description": "一款基于浏览器的考勤记录与验收单生成工具。用户可在线编辑考勤明细及验收评分，支持自动计算工作日并一键导出为格式规范、可直接打印的 Excel 文件，适用于外包项目管理与工时统计场景。",
+      "href": "./tool-mw7yh0dh/index.html",
+      "encrypted": false,
+      "fingerprint": "000649bf8c0ead56d539c06c9aa1ab35f75263b43803004fd4436c751c183469",
+      "updatedAt": "2026-11-28T07:12:01.130Z"
+    },
+    {
+      "slug": "tool-mwhq5rx8",
+      "name": "婷子生日快乐",
+      "description": "这是一个为好友定制的生日纪念网页，通过回顾两人相识 777 天以来的聊天数据、专属黑话、重要时间节点及共同经历，以互动式图表和时间轴形式呈现深厚友谊，并包含吹蜡烛、续火花等趣味交互功能。",
+      "href": "./tool-mwhq5rx8/index.html",
+      "encrypted": false,
+      "fingerprint": "b2c617c32a23f8775e0dcb31c4b3bd827390290e807216d3f2d9b8e0dab10b56",
+      "updatedAt": "2026-11-28T07:12:01.137Z"
     }
   ]
 }
