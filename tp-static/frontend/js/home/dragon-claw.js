@@ -3486,10 +3486,23 @@
         if (entry._sourceType === 'mine') {
             await deleteChatFromList(entry._raw);
         } else {
-            const p = window.HomeConversationList?.get?.('mine', entry._id);
-            if (p) p.hidden = true;
-            renderChatList();
+            // 第三方 Agent / 频道对话：确认后持久隐藏；打开中的视图由 home:conversation-hidden 退出
+            await window.HomeConversationList?.hide?.(ownedListConfig(), entry);
         }
+    }
+
+    // 被移除的对话正打开在中间区域（统一「任务」列表、桌面 Agent 列表、频道列表）时回到新对话
+    function isHiddenConversationActive({ source = '', id = '', item = null } = {}) {
+        if (item?._sourceType) return isItemActive(item);
+        if (source.startsWith('desktop:')) {
+            const active = window.HomeDesktopAgents?.activeSession?.();
+            return Boolean(active && active.provider === source.slice(8) && active.id === id);
+        }
+        if (['weixin', 'welink'].includes(source)) {
+            const active = window.HomeWelinkThreads?.active?.();
+            return Boolean(active && (active.channel || source) === source && `${active.kind}:${active.id}` === id);
+        }
+        return false;
     }
 
     function ownedListConfig(items = (isUnifiedMode() ? buildUnifiedChatItems() : chatList.items)) {
@@ -4755,6 +4768,10 @@
             renderChatList();
         });
         window.addEventListener('home:session-revoked', event => dropSessionFromList(event.detail?.sessionId));
+        window.addEventListener('home:conversation-hidden', event => {
+            if (isHiddenConversationActive(event.detail || {})) newChat();
+            renderChatList();
+        });
         window.addEventListener('home:agent-discussion-changed',event=>{
             for(const item of [...chatList.items,...chatList.cached])if(item.id===event.detail?.sessionId)item.discussionMode='group';
             renderChatList();scheduleChatListRefresh();
